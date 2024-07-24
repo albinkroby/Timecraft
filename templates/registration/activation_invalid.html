@@ -1,0 +1,44 @@
+<!-- templates/activation_invalid.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Activation Link Invalid</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            color: #343a40;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 3em;
+            margin-bottom: 0.5em;
+        }
+        p {
+            font-size: 1.5em;
+        }
+        a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Activation Link Invalid</h1>
+        <p>It looks like your activation link is invalid or has expired.</p>
+        <p>Please <a href="{% url 'mainapp:signup' %}">sign up</a> again to receive a new activation link.</p>
+        <p>Or <a href="{% url 'mainapp:login' %}">log in</a> if you already have an account.</p>
+    </div>
+</body>
+</html>

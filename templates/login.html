@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<main class="main">
+    <section class="section">
+        <div class="login-container">
+            <h1 class="login-title">Login</h1>
+            {% if error %}
+            <div class="custom__message">
+                {{ error }}
+            </div>
+            {% endif %}
+            <form class="login-form" method="POST" action="{% url 'mainapp:login' %}">
+                {% csrf_token %}
+                <div class="form-floating mb-3">
+                    <input type="email" id="email" class="form-control login-form" name="email" placeholder="" required>
+                    <label for="email" class="form-label">Email:</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <input type="password" id="password" class="form-control login-form" name="password" placeholder="" required>
+                    <label for="password" class="form-label">Password:</label>
+                </div>
+                <p class="forgot-password-link mb-3">
+                    <a href="{% url 'userapp:password_reset' %}">Forgot your password?</a>
+                </p>
+                <button type="submit" class="login-button">Login</button>
+            </form>
+            <p class="signup-link my-2"> <b>or</b> </p>
+            <div class="social-login">
+                <a href="{% url 'social:begin' 'google-oauth2' %}" class="btn-google"><i class='bx bxl-google'></i> Login with Google</a>
+            </div>
+            <p class="signup-link">Don't have an account? <a href="{% url 'mainapp:signup' %}">Sign up</a></p>
+        </div>
+    </section>
+</main>
+{% endblock content %}

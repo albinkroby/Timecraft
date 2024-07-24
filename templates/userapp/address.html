@@ -1,0 +1,89 @@
+{% extends "userapp/base.html" %}
+{% block user_details%}
+<div id="address-content">
+    <h1>Address</h1>
+    <div class ="row mt-2 mb-4">
+        <div class="col-12">
+            <button type="button" id="add-address" class="custom-btn"><i class='bx bx-plus fs-4' ></i> ADD ADDRESS</button>
+        </div>
+    </div>
+    <div class="address" id="add-address-content">
+        <div class="row">
+            <form class="profile-form" method="post">
+                {% csrf_token %}
+                <div class="col-12">
+                    <div class="form-floating mb-3">
+                        {{ new_form.flat_house_no }}
+                        {{ new_form.flat_house_no.label_tag }}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-floating mb-3">
+                        {{ new_form.area_street }}
+                        {{ new_form.area_street.label_tag }}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-floating mb-3">
+                        {{ new_form.landmark }}
+                        {{ new_form.landmark.label_tag }}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-floating mb-3">
+                        {{ new_form.pincode }}
+                        {{ new_form.pincode.label_tag }}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-floating mb-3">
+                        {{ new_form.town_city }}
+                        {{ new_form.town_city.label_tag }}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-floating mb-3">
+                        {{ new_form.state }}
+                        {{ new_form.state.label_tag }}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-floating mb-3">
+                        {{ new_form.country }}
+                        {{ new_form.country.label_tag }}
+                    </div>
+                </div>
+                <div class="mb-3 row">
+                    <div class="col-md-6">
+                        <button type="submit" class="custom-btn-1">Save Profile</button> 
+                    </div>
+                    <div class="col-md-6">
+                        <button type="button" id="add-cancel" class="custom-btn">Cancel</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div class="view-address">
+        <div class="row">
+            <div class="col-12">
+                <h4>Address 1</h4>
+                <p>update_form, Area/Street: XYZ, Landmark: ABC, Pincode: 123456, Town/City: PQR, State: STU, Country: CDE</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block adds_js %}
+<script>
+    $(document).ready(function(){
+        $("#add-address-content").hide();
+        $("#add-address").click(function(){
+            $("#add-address-content").show();
+        });
+        $("#add-cancel").click(function(){
+            $("#add-address-content").hide();
+        });
+    });
+</script>
+{% endblock %}

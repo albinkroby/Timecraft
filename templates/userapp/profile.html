@@ -1,0 +1,130 @@
+{% extends "userapp/base.html" %}
+{% load static %}
+{% block user_details%}
+<div id="profile-details-content">
+    <h1>Personal Information</h1>
+    <form method="post" id="signupForm">
+        {% csrf_token %}
+        <div class="mb-4">
+            <label class="form-label">Name </label>
+            <input type="text" class="form-control" id="fullname" name="fullname" value="" data-validation="name" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Username </label>
+            <input type="text" class="form-control" id="username" name="username" value="" data-validation="username" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Mobile Number </label>
+            <input type="tel" class="form-control" id="mobilephone" value="">
+        </div>
+        {% if not google_login %}
+        <div class="mb-3">
+            <label for="email" class="form-label">Email Address</label>
+            <input type="email" class="form-control" id="email" name="email" value="" data-validation="email" required>
+            <div class="invalid-feedback" id="emailError"></div>
+        </div>
+        {% endif %}
+        <div class="mb-3 row">
+            <div class="col-md-6">
+                <button type="submit" id="submit" class="custom-btn-1">Update Profile</button> 
+            </div>
+            <div class="col-md-6">
+                <button type="button" id="cancel" class="custom-btn">Cancel</button>
+            </div>
+            <div class="col-md-6">
+                <button type="button" id="edit" class="custom-btn">Edit</button>
+            </div>
+        </div>
+    </form>
+    <h3 class="mt-5 mb-4">FAQs</h3>
+    <div class="accordion" id="faqAccordion">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                    What happens when I update my email address (or mobile number)?
+                </button>
+            </h2>
+            <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                <div class="accordion-body">
+                    Your login email id (or mobile number) changes, likewise. You'll receive all your account related
+                    communication on your updated email address (or mobile number).
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#faq2">
+                    When will my account be updated with the new email address (or mobile number)?
+                </button>
+            </h2>
+            <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                <div class="accordion-body">
+                    It happens as soon as you confirm the verification code sent to your email (or mobile) and save the
+                    changes.
+                </div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#faq3">
+                    What happens to my existing account when I update my email address (or mobile number)?
+                </button>
+            </h2>
+            <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                <div class="accordion-body">
+                    Updating your email address (or mobile number) doesn't invalidate your account. Your account remains
+                    fully functional. You'll continue seeing your Order history, saved information and personal details.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="#" class="btn btn-outline-primary">Deactivate Account</a>
+        <a href="#" class="btn btn-outline-danger ms-2">Delete Account</a>
+    </div>
+</div>
+
+{% endblock %}
+{% block adds_js%}
+<script src="{% static 'js/validation.js' %}"></script>
+<script>
+    edit = document.getElementById('edit');
+    submit = document.getElementById('submit');
+    cancel = document.getElementById('cancel');
+    printdata();
+    edit.addEventListener('click', function(){
+        document.getElementById('fullname').removeAttribute('readonly');
+        document.getElementById('username').removeAttribute('readonly');
+        document.getElementById('mobilephone').removeAttribute('readonly');
+        {% if not google_login %}
+        document.getElementById('email').removeAttribute('readonly');
+        {% endif %}
+        document.getElementById('submit').style.display = 'block';
+        document.getElementById('cancel').style.display = 'block';
+        document.getElementById('edit').style.display = 'none';
+    });
+    cancel.addEventListener('click', function(){
+        document.getElementById('fullname').setAttribute('readonly', 'true');
+        document.getElementById('username').setAttribute('readonly', 'true');
+        document.getElementById('mobilephone').setAttribute('readonly', 'true');
+        {% if not google_login %}
+        document.getElementById('email').setAttribute('readonly', 'true');
+        {% endif %}
+        document.getElementById('submit').style.display = 'none';
+        document.getElementById('cancel').style.display = 'none';
+        document.getElementById('edit').style.display = 'block';
+        printdata();
+    });
+    function printdata(){
+        document.getElementById('fullname').value ='{{user.fullname}}'
+        document.getElementById('username').value ='{{user.username}}'
+        document.getElementById('mobilephone').value ='666666666'
+        {% if not google_login %}
+        document.getElementById('email').value ='{{user.email}}'
+        {% endif %}
+    }
+</script>
+{% endblock %}

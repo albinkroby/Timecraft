@@ -1,0 +1,71 @@
+<!--==================== HEADER ====================-->
+<header class="header" id="header">
+    <nav class="nav container">
+        <a href="{% url 'mainapp:index' %}" class="nav__logo">
+            <i class='bx bxs-watch nav__logo-icon'></i> TIME&nbspCRAFT
+        </a>
+
+        <div class="nav__menu" id="nav-menu">
+            <div class="nav_bar">
+                <ul class="nav__list">
+                    <li class="nav__item">
+                        <a href="{% url 'mainapp:index' %}" class="nav__link active-link">Home</a>
+                    </li>
+                    <li class="nav__item">
+                        <a href="#featured" class="nav__link">Featured</a>
+                    </li>
+                    <li class="nav__item">
+                        <a href="#products" class="nav__link">Products</a>
+                    </li>
+                    <li class="nav__item">
+                        <a href="#new" class="nav__link">New</a>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="nav__close" id="nav-close">
+                <i class='bx bx-x' ></i>
+            </div>
+        </div>
+
+        <div class="nav__search" id="nav-search">
+            <form action="#" method="GET" class="nav__search-form" id="search-form">
+                <input type="search" placeholder="Search here..." class="nav__search-input login-form form-control" id="search-input" name="search">
+                <button type="submit" class="nav__search-button" id="search-button">
+                    <i class='bx bx-search nav__search-icon' id="search-icon"></i>
+                </button> 
+            </form>
+        </div>
+
+        <div class="nav__btns">
+            <div class="nav__signin">
+                {% if user.is_authenticated %}
+                    <div class="dropdown">
+                        <button class="dropdown__btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            {{ user.username }}
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'userapp:profile' %}">Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'mainapp:logout' %}">Logout</a></li>
+                        </ul>
+                    </div>              
+                {% else %}
+                    <a href="{% url 'mainapp:login' %}" class="nav__cred">Login</a>
+                {% endif %}         
+            </div>
+
+            <!-- Theme change button -->
+            <div class="nav__signin">
+                <i class='bx bx-moon change-theme' id="theme-button"></i>
+            </div>
+
+            <div class="nav__shop" id="cart-shop">
+                <i class='bx bx-shopping-bag' ></i>
+            </div>
+
+            <div class="nav__toggle" id="nav-toggle">
+                <i class='bx bx-grid-alt' ></i>
+            </div>
+        </div>
+    </nav>
+</header>
