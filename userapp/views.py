@@ -1,10 +1,10 @@
-from django.shortcuts import render
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect,get_object_or_404
 from django.contrib.auth.decorators import login_required
-from .forms import ProfileForm
 from django.contrib import messages
-from mainapp.models import Profile
-from .forms import ProfileForm, NewAddressForm
+from mainapp.models import Address,UserProfile, User
+from .forms import AddressForm
+from django.db import IntegrityError
+from django.http import JsonResponse
 
 @login_required
 def profile(request):
@@ -16,37 +16,65 @@ def profile(request):
     })
 
 @login_required
-def Address(request):
-    try:
-        profile = request.user.profile
-        update_form = ProfileForm(request.POST or None, instance=profile)
-    except Profile.DoesNotExist:
-        update_form = None
-    
-    new_form = NewAddressForm(request.POST or None)
-    
+def address_list(request):
+    addresses = Address.objects.filter(user=request.user)
+    form = AddressForm()
+    return render(request, 'userapp/address.html', {'addresses': addresses, 'form': form})
+
+@login_required
+def add_address(request):
     if request.method == 'POST':
-        if 'update_address' in request.POST and update_form:
-            if update_form.is_valid():
-                update_form.save()
-                messages.success(request, 'Address updated successfully.')
+        form = AddressForm(request.POST)
+        if form.is_valid():
+            try:
+                address = form.save(commit=False)
+                address.user = request.user
+                address.save()
                 return redirect('userapp:Address')
-            else:
-                messages.error(request, 'Please correct the errors below in the update form.')
-        
-        if 'new_address' in request.POST:
-            if new_form.is_valid():
-                new_address = new_form.save(commit=False)
-                new_address.user = request.user
-                new_address.save()
-                messages.success(request, 'New address added successfully.')
-                return redirect('userapp:Address')
-            else:
-                messages.error(request, 'Please correct the errors below in the new address form.')
+            except IntegrityError:
+                form.add_error(None, "This address already exists for your account.")
+    else:
+        form = AddressForm()
+    return render(request, 'userapp/address.html', {'form': form})
 
-    context = {
-        'update_form': update_form,
-        'new_form': new_form,
-    }
+@login_required
+def edit_address(request, address_id):
+    address = get_object_or_404(Address, id=address_id, user=request.user)
+    if request.method == 'POST':
+        form = AddressForm(request.POST, instance=address)
+        if form.is_valid():
+            form.save()
+            return redirect('userapp:Address')
+    else:
+        # Return address data as JSON
+        return JsonResponse({
+            'flat_house_no': address.flat_house_no,
+            'area_street': address.area_street,
+            'landmark': address.landmark,
+            'pincode': address.pincode,
+            'town_city': address.town_city,
+            'state': address.state,
+            'country': address.country,
+            'address_type': address.address_type,
+        })
+    
+    return render(request, 'userapp/address.html', {'form': form, 'edit_address': address})
 
-    return render(request, 'userapp/address.html', context)
+@login_required
+def delete_address(request, address_id):
+    address = get_object_or_404(Address, id=address_id, user=request.user)
+    address.delete()
+    return redirect('userapp:Address')
+
+@login_required
+def make_primary_address(request, address_id):
+    address = get_object_or_404(Address, id=address_id, user=request.user)
+    
+    # Set all addresses to non-primary
+    Address.objects.filter(user=request.user).update(is_primary=False)
+    
+    # Set the selected address as primary
+    address.is_primary = True
+    address.save()
+    
+    return redirect('userapp:Address')

@@ -5,7 +5,7 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.db import transaction
-from .models import Profile 
+from .models import Address,UserProfile
 from .forms import SignUpForm
 from social_django.models import UserSocialAuth
 from django.core.mail import send_mail
@@ -26,22 +26,28 @@ def index(request):
 def signin(request):
     if request.user.is_authenticated:
         return redirect(reverse('mainapp:index'))
-    else:
-        request.session['user_role'] = 'user'
-        if request.method == 'POST':
-            email = request.POST.get('email')
-            password = request.POST.get('password')
-            user = authenticate(request, username=email, password=password)
-            if user is not None:
-                if user.is_active:  # Check if the user has verified their email
-                    login(request, user)
-                    return redirect(reverse('mainapp:index'))
-                else:
-                    sendmail(request,user)
-                    return render(request, 'login.html', {'error': 'Email not verified. Please check your email to verify your account.'})
+    
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        user = authenticate(request, username=email, password=password)
+        
+        if user is not None:
+            if user.is_active:
+                login(request, user)
+                if user.role == 'staff':
+                    return redirect('mainapp:index')
+                elif user.role == 'admin':
+                    return redirect('adminapp:index')
+                else:  # user.role == 'user'
+                    return redirect('mainapp:index')
             else:
-                return render(request, 'login.html', {'error': 'Invalid email or password'})
-        return render(request, 'login.html')
+                sendmail(request, user)
+                return render(request, 'login.html', {'error': 'Email not verified. Please check your email to verify your account.'})
+        else:
+            return render(request, 'login.html', {'error': 'Invalid email or password'})
+    
+    return render(request, 'login.html')
 
 def google_login(request):
     if request.user.is_authenticated:
@@ -108,7 +114,7 @@ def login_redirect(request):
     if user.role == 'staff':
         return redirect('mainapp:index')
     elif user.role == 'user':
-        return render(request, 'userapp/profile.html')
+        return redirect('mainapp:index')
     return redirect('login')
 
 def activate(request, uidb64, token):

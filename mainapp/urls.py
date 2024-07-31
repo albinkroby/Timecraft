@@ -9,7 +9,7 @@ urlpatterns = [
     path('signup/',views.signup,name='signup'),
     path('logout/',views.signout,name='logout'),
     
-    path('google-login/', views.google_login, name='google_login'),
+    # path('google-login/', views.google_login, name='google_login'),
     path('login-redirect/', views.login_redirect, name='login_redirect'),
     path('activate/<uidb64>/<token>/', views.activate, name='activate'),
     

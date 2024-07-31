@@ -2171,8 +2171,8 @@ progress {
 
 .table>:not(caption)>*>* {
     padding: .5rem .5rem;
-    color: var(--bs-table-color-state, var(--bs-table-color-type, var(--bs-table-color)));
-    background-color: var(--bs-table-bg);
+    /* color: var(--bs-table-color-state, var(--bs-table-color-type, var(--bs-table-color))); */
+    /* background-color: var(--bs-table-bg); */
     border-bottom-width: var(--bs-border-width);
     box-shadow: inset 0 0 0 9999px var(--bs-table-bg-state, var(--bs-table-bg-type, var(--bs-table-accent-bg)))
 }
@@ -3040,7 +3040,7 @@ textarea.form-control-lg {
 
 .form-floating>.form-control:not(:-moz-placeholder-shown)~label {
     
-    transform: scale(.85) translateY(-.5rem) translateX(.15rem)
+    transform: scale(.85) translateY(-1rem) translateX(-.15rem)
 }
 
 .form-floating>.form-control-plaintext~label,
@@ -3048,7 +3048,7 @@ textarea.form-control-lg {
 .form-floating>.form-control:not(:placeholder-shown)~label,
 .form-floating>.form-select~label {
     
-    transform: scale(.85) translateY(-.5rem) translateX(.15rem)
+    transform: scale(.85) translateY(-1rem) translateX(-.15rem)
 }
 
 .form-floating>.form-control:not(:-moz-placeholder-shown)~label::after {
@@ -3074,7 +3074,7 @@ textarea.form-control-lg {
 }
 
 .form-floating>.form-control:-webkit-autofill~label {
-    transform: scale(.85) translateY(-.5rem) translateX(.15rem)
+    transform: scale(.85) translateY(-1rem) translateX(-.15rem)
 }
 
 .form-floating>.form-control-plaintext~label {
@@ -5012,11 +5012,11 @@ fieldset:disabled .btn {
     flex-direction: column;
     min-width: 0;
     height: var(--bs-card-height);
-    color: var(--bs-body-color);
+    /* color: var(--bs-body-color); */
     word-wrap: break-word;
-    background-color: var(--bs-card-bg);
+    /* background-color: var(--bs-card-bg); */
     background-clip: border-box;
-    border: var(--bs-card-border-width) solid var(--bs-card-border-color);
+    /* border: var(--bs-card-border-width) solid var(--bs-card-border-color); */
     border-radius: var(--bs-card-border-radius)
 }
 
@@ -5050,7 +5050,7 @@ fieldset:disabled .btn {
 .card-body {
     flex: 1 1 auto;
     padding: var(--bs-card-spacer-y) var(--bs-card-spacer-x);
-    color: var(--bs-card-color)
+    /* color: var(--bs-card-color) */
 }
 
 .card-title {
@@ -5075,9 +5075,9 @@ fieldset:disabled .btn {
 .card-header {
     padding: var(--bs-card-cap-padding-y) var(--bs-card-cap-padding-x);
     margin-bottom: 0;
-    color: var(--bs-card-cap-color);
-    background-color: var(--bs-card-cap-bg);
-    border-bottom: var(--bs-card-border-width) solid var(--bs-card-border-color)
+    /* color: var(--bs-card-cap-color); */
+    /* background-color: var(--bs-card-cap-bg); */
+    /* border-bottom: var(--bs-card-border-width) solid var(--bs-card-border-color) */
 }
 
 .card-header:first-child {

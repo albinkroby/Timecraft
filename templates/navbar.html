@@ -30,7 +30,7 @@
 
         <div class="nav__search" id="nav-search">
             <form action="#" method="GET" class="nav__search-form" id="search-form">
-                <input type="search" placeholder="Search here..." class="nav__search-input login-form form-control" id="search-input" name="search">
+                <input type="search" placeholder="Search here..." class="nav__search-input login-form" id="search-input" name="search">
                 <button type="submit" class="nav__search-button" id="search-button">
                     <i class='bx bx-search nav__search-icon' id="search-icon"></i>
                 </button> 
@@ -41,16 +41,17 @@
             <div class="nav__signin">
                 {% if user.is_authenticated %}
                     <div class="dropdown">
-                        <button class="dropdown__btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <a class="dropdown-toggle" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                             {{ user.username }}
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{% url 'userapp:profile' %}">Profile</a></li>
-                            <li><a class="dropdown-item" href="{% url 'mainapp:logout' %}">Logout</a></li>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="{% url 'userapp:profile' %}"><i class='bx bx-user'></i> Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'mainapp:logout' %}"><i class='bx bx-log-out'></i> Logout</a></li>
                         </ul>
                     </div>              
                 {% else %}
-                    <a href="{% url 'mainapp:login' %}" class="nav__cred">Login</a>
+                    <a href="{% url 'mainapp:login' %}" class="nav__cred"> Login</a>
                 {% endif %}         
             </div>
 

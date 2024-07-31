@@ -2,7 +2,7 @@
 from django import forms
 from django.contrib.auth.forms import PasswordResetForm,SetPasswordForm
 from django.contrib.auth import get_user_model
-from mainapp.models import Profile
+from mainapp.models import Address
 
 class CustomPasswordResetForm(PasswordResetForm):
     def get_users(self, email):
@@ -22,10 +22,10 @@ class CustomSetPasswordForm(SetPasswordForm):
         return password2
 
 
-class ProfileForm(forms.ModelForm):
+class AddressForm(forms.ModelForm):
     class Meta:
-        model = Profile
-        fields = ['flat_house_no', 'area_street', 'landmark', 'pincode', 'town_city', 'state', 'country']
+        model = Address
+        fields = ['flat_house_no', 'area_street', 'landmark', 'pincode', 'town_city', 'state', 'country','address_type']
         widgets = {
             'flat_house_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Flat/House No:/Building/Company/Apartment'}),
             'area_street': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Area/Street/Sector/Village'}),
@@ -34,18 +34,6 @@ class ProfileForm(forms.ModelForm):
             'town_city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Town/City'}),
             'state': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'State'}),
             'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Country'}),
+            'address_type': forms.Select(attrs={'class': 'form-control'}),
         }
-
-class NewAddressForm(forms.ModelForm):
-    class Meta:
-        model = Profile
-        fields = ['flat_house_no', 'area_street', 'landmark', 'pincode', 'town_city', 'state', 'country']
-        widgets = {
-            'flat_house_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Flat/House No:/Building/Company/Apartment'}),
-            'area_street': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Area/Street/Sector/Village'}),
-            'landmark': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Landmark'}),
-            'pincode': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Pincode'}),
-            'town_city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Town/City'}),
-            'state': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'State'}),
-            'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Country'}),
-        }
+    

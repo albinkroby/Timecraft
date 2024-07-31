@@ -9,53 +9,60 @@
     </div>
     <div class="address" id="add-address-content">
         <div class="row">
-            <form class="profile-form" method="post">
+            <h3 id="form-title">{% if edit_address %}Edit Address{% else %}Add New Address{% endif %}</h3>
+            <form id="address-form" action="{% if edit_address %}{% url 'userapp:edit_address' edit_address.id %}{% else %}{% url 'userapp:add_address' %}{% endif %}" class="profile-form" method="post">
                 {% csrf_token %}
                 <div class="col-12">
                     <div class="form-floating mb-3">
-                        {{ new_form.flat_house_no }}
-                        {{ new_form.flat_house_no.label_tag }}
+                        {{ form.flat_house_no }}
+                        {{ form.flat_house_no.label_tag }}
                     </div>
                 </div>
                 <div class="col-12">
                     <div class="form-floating mb-3">
-                        {{ new_form.area_street }}
-                        {{ new_form.area_street.label_tag }}
+                        {{ form.area_street }}
+                        {{ form.area_street.label_tag }}
                     </div>
                 </div>
                 <div class="col-12">
                     <div class="form-floating mb-3">
-                        {{ new_form.landmark }}
-                        {{ new_form.landmark.label_tag }}
+                        {{ form.landmark }}
+                        {{ form.landmark.label_tag }}
                     </div>
                 </div>
                 <div class="col-12">
                     <div class="form-floating mb-3">
-                        {{ new_form.pincode }}
-                        {{ new_form.pincode.label_tag }}
+                        {{ form.pincode }}
+                        {{ form.pincode.label_tag }}
                     </div>
                 </div>
                 <div class="col-12">
                     <div class="form-floating mb-3">
-                        {{ new_form.town_city }}
-                        {{ new_form.town_city.label_tag }}
+                        {{ form.town_city }}
+                        {{ form.town_city.label_tag }}
                     </div>
                 </div>
                 <div class="col-12">
                     <div class="form-floating mb-3">
-                        {{ new_form.state }}
-                        {{ new_form.state.label_tag }}
+                        {{ form.state }}
+                        {{ form.state.label_tag }}
                     </div>
                 </div>
                 <div class="col-12">
                     <div class="form-floating mb-3">
-                        {{ new_form.country }}
-                        {{ new_form.country.label_tag }}
+                        {{ form.country }}
+                        {{ form.country.label_tag }}
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="form-floating mb-3">
+                        {{ form.address_type }}
+                        {{ form.address_type.label_tag }}
                     </div>
                 </div>
                 <div class="mb-3 row">
                     <div class="col-md-6">
-                        <button type="submit" class="custom-btn-1">Save Profile</button> 
+                        <button type="submit" class="custom-btn-1">{% if edit_address %}Update Address{% else %}Add Address{% endif %}</button> 
                     </div>
                     <div class="col-md-6">
                         <button type="button" id="add-cancel" class="custom-btn">Cancel</button>
@@ -67,8 +74,37 @@
     <div class="view-address">
         <div class="row">
             <div class="col-12">
-                <h4>Address 1</h4>
-                <p>update_form, Area/Street: XYZ, Landmark: ABC, Pincode: 123456, Town/City: PQR, State: STU, Country: CDE</p>
+                <h2>Your Addresses</h2>
+                <div class="address-list">
+                    <div class="row">
+                        {% for address in addresses %}
+                        <div class="col-12 d-flex justify-content-between address-item-list {% if address.is_primary %}primary-address{% endif %}">
+                            <div class="address-item">
+                                <p class="mb-0">{{ address.flat_house_no }}, {{ address.area_street }}, {{ address.landmark }}, {{ address.pincode }}, {{ address.town_city }}, {{ address.state }}, {{ address.country }}</p>
+                                <p>{{ address.address_type }}</p>
+                                {% if address.is_primary %}
+                                    <span class="badge bg-primary">Primary Address</span>
+                                {% endif %}
+                            </div>
+                            <div class="dropdown">
+                                <a class="dropdown-toggle" href="#" role="button" id="userDropdown{{ address.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class='bx bx-dots-vertical-rounded'></i>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown{{ address.id }}">
+                                    <li><a class="dropdown-item" onclick="editAddress({{ address.id }})"><i class='bx bx-edit'></i> Edit</a></li>
+                                    {% if not address.is_primary %}
+                                        <li><a class="dropdown-item" href="{% url 'userapp:make_primary_address' address.id %}"><i class='bx bx-check-circle'></i> Make Primary</a></li>
+                                    {% endif %}
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item" href="{% url 'userapp:delete_address' address.id %}"><i class='bx bx-trash'></i> Delete</a></li>
+                                </ul>
+                            </div>   
+                        </div>
+                        {% empty %}
+                        <p>You have no saved addresses.</p>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -79,11 +115,40 @@
     $(document).ready(function(){
         $("#add-address-content").hide();
         $("#add-address").click(function(){
+            resetForm();
             $("#add-address-content").show();
         });
         $("#add-cancel").click(function(){
             $("#add-address-content").hide();
         });
     });
+
+    function editAddress(addressId) {
+        fetch(`/account/edit-address/${addressId}/`)
+            .then(response => response.json())
+            .then(data => {
+                // Populate the form with the address data
+                $('#id_flat_house_no').val(data.flat_house_no);
+                $('#id_area_street').val(data.area_street);
+                $('#id_landmark').val(data.landmark);
+                $('#id_pincode').val(data.pincode);
+                $('#id_town_city').val(data.town_city);
+                $('#id_state').val(data.state);
+                $('#id_country').val(data.country);
+
+                // Update form title and action
+                $('#form-title').text('Edit Address');
+                $('#address-form').attr('action', `/account/edit-address/${addressId}/`);
+
+                // Show the form
+                $("#add-address-content").show();
+            });
+    }
+    
+    function resetForm() {
+        $('#address-form')[0].reset();
+        $('#form-title').text('Add New Address');
+        $('#address-form').attr('action', "{% url 'userapp:add_address' %}");
+    }
 </script>
 {% endblock %}

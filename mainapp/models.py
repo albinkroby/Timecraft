@@ -6,6 +6,7 @@ class User(AbstractUser):
         ('admin', 'Admin'),
         ('user', 'User'),
         ('staff', 'Staff'),
+        ('vendor', 'Vendor'),
     )
     
     fullname = models.CharField(max_length=255)
@@ -22,9 +23,20 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
-
-class Profile(models.Model):
+class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    phone = models.CharField(max_length=10)
+
+#old name 
+# class Profile(models.Model):
+
+#new name
+class Address(models.Model):
+    ADDRESS_TYPE_CHOICES = (
+        ('home', 'Home'),
+        ('office', 'Office'),
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='address')
     flat_house_no = models.CharField(max_length=255, verbose_name="Flat/House No:/Building/Company/Apartment")
     area_street = models.CharField(max_length=255, verbose_name="Area/Street/Sector/Village")
     landmark = models.CharField(max_length=255)
@@ -32,8 +44,10 @@ class Profile(models.Model):
     town_city = models.CharField(max_length=100, verbose_name="Town/City")
     state = models.CharField(max_length=100)
     country = models.CharField(max_length=100)
+    address_type = models.CharField(max_length=10, choices=ADDRESS_TYPE_CHOICES, default='home')
+    is_primary = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.user.username}'s profile"
+        return f"{self.user.username}'s Address"
     
 

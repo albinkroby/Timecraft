@@ -6,7 +6,11 @@ from . import views
 app_name="userapp"
 urlpatterns = [
     path('profile/',views.profile,name='profile'),
-    path('Address/',views.Address,name='Address'),
+    path('Address/',views.address_list,name='Address'),
+    path('add-address/', views.add_address, name='add_address'),
+    path('edit-address/<int:address_id>/', views.edit_address, name='edit_address'),
+    path('delete-address/<int:address_id>/', views.delete_address, name='delete_address'),
+    path('make-primary-address/<int:address_id>/', views.make_primary_address, name='make_primary_address'),
     
     path('password_reset/', auth_views.PasswordResetView.as_view(
         template_name='registration/password_reset.html',

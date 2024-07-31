@@ -83,6 +83,7 @@ input {
 }
 
 
+
 body {
   margin: 0;
   background-color: var(--body-color);
@@ -324,6 +325,75 @@ body.dark-theme {
   top: .9rem;
   right: 1.25rem;
   cursor: pointer;
+}
+
+.nav__signin .dropdown-toggle::after {
+    display: none;
+}
+.nav__signin .dropdown-toggle {
+    color: var(--title-color);
+}
+
+
+.nav__signin .dropdown-menu {
+    border-radius: 4px;
+    padding: 10px 0;
+    animation-name: dropdown-animate;
+    animation-duration: 0.2s;
+    animation-fill-mode: both;
+    border: 0;
+    box-shadow: 0 5px 30px 0 rgba(82, 63, 105, 0.2);
+}
+
+.nav__signin .dropdown-menu .dropdown-header {
+    text-align: center;
+    font-size: 15px;
+    padding: 10px 25px;
+}
+
+.nav__signin .dropdown-menu .dropdown-footer a {
+    color: #444444;
+    text-decoration: underline;
+}
+
+.nav__signin .dropdown-menu .dropdown-footer a:hover {
+    text-decoration: none;
+}
+
+.nav__signin .dropdown-menu .dropdown-divider {
+    color: #a5c5fe;
+    margin: 0;
+}
+
+.nav__signin .dropdown-menu .dropdown-item {
+    font-size: 14px;
+    padding: 10px 15px;
+    transition: 0.3s;
+}
+
+.nav__signin .dropdown-menu .dropdown-item i {
+    margin-right: 10px;
+    font-size: 18px;
+    line-height: 0;
+}
+
+.nav__signin .dropdown-menu .dropdown-item:hover {
+    color: var(--text-color);
+    background-color: var(--second-color);
+}
+
+@keyframes dropdown-animate {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 1;
+    }
+
+    0% {
+        opacity: 0;
+    }
 }
 
 
@@ -748,6 +818,26 @@ hr {
   display: none;
 }
 
+/* address */
+
+.address-item-list{
+  margin: 10px 0px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  background-color: var(--container-color);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px hsla(0, 0%, 20%, .1);
+}
+
+.primary-address {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.badge {
+  font-size: 0.8em;
+  padding: 0.25em 0.5em;
+}
 
 
 /* styles.css */
@@ -1221,9 +1311,9 @@ input:-webkit-autofill:focus {
 .nav__search-input {
   position: relative;
   width: 15rem;
-  color: var(--title-color);
-  background-color: transparent;
-  border-color: var(--title-color);
+  color: var(--title-color) !important;
+  background-color: transparent !important;
+  border-color: var(--title-color) !important;
 }
 
 .nav__search-input::placeholder {
@@ -1232,6 +1322,8 @@ input:-webkit-autofill:focus {
 
 .nav__search-input:focus {
   background-color: transparent;
+  border: 0px !important;
+  border-bottom: 1px solid var(--title-color) !important;
 }
 
 .nav__search-button {
@@ -1266,6 +1358,16 @@ input:-webkit-autofill:focus {
 
 .dropdown-item {
   color: var(--title-color);
+  cursor: pointer;
+}
+
+.dropdown i{
+  font-size: 1.5rem;
+  color: var(--title-color);
+}
+
+.dropdown-toggle::after{
+  content: none;
 }
 
 .social-login {
@@ -1573,3 +1675,5 @@ input:-webkit-autofill:focus {
     right: 3rem;
   }
 }
+
+

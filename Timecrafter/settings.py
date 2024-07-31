@@ -39,6 +39,8 @@ SITE_ID = 1
 INSTALLED_APPS = [
     'mainapp',
     'userapp',
+    'adminapp',
+    'vendorapp',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
