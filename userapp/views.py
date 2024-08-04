@@ -2,7 +2,7 @@ from django.shortcuts import render, redirect,get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from mainapp.models import Address,UserProfile, User
-from .forms import AddressForm
+from .forms import AddressForm, UserProfileForm
 from django.db import IntegrityError
 from django.http import JsonResponse
 
@@ -10,9 +10,39 @@ from django.http import JsonResponse
 def profile(request):
     user = request.user
     google_login = user.social_auth.filter(provider='google-oauth2').exists()
+
+    try:
+        profile = user.profile
+    except UserProfile.DoesNotExist:
+        profile = UserProfile.objects.create(user=user)
+
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, instance=profile, user=request.user)
+        if form.is_valid():
+            form.save()
+            user.fullname = form.cleaned_data['fullname']
+            user.username = form.cleaned_data['username']
+            if not google_login:
+                user.email = form.cleaned_data['email']
+            user.save()
+            messages.success(request, 'Your profile has been updated successfully.')
+            return redirect('userapp:profile')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = UserProfileForm(instance=profile, initial={
+            'fullname': user.fullname,
+            'username': user.username,
+            'email': user.email,
+            'mobilephone': profile.phone,
+        })
+        form.user = user
+
     return render(request, 'userapp/profile.html', {
         'user': user,
-        'google_login': google_login
+        'google_login': google_login,
+        'profile': profile,
+        'form': form,
     })
 
 @login_required

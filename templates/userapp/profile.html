@@ -1,35 +1,39 @@
 {% extends "userapp/base.html" %}
 {% load static %}
-{% block user_details%}
+{% block user_details %}
 <div id="profile-details-content">
     <h1>Personal Information</h1>
     <form method="post" id="signupForm">
         {% csrf_token %}
+        {{ form.non_field_errors }}
         <div class="mb-4">
             <label class="form-label">Name </label>
-            <input type="text" class="form-control" id="fullname" name="fullname" value="" data-validation="name" required>
+            {{ form.fullname }}
+            {{ form.fullname.errors }}
         </div>
         <div class="mb-3">
             <label class="form-label">Username </label>
-            <input type="text" class="form-control" id="username" name="username" value="" data-validation="username" required>
+            {{ form.username }}
+            {{ form.username.errors }}
         </div>
         <div class="mb-3">
             <label class="form-label">Mobile Number </label>
-            <input type="tel" class="form-control" id="mobilephone" value="">
+            {{ form.mobilephone }}
+            {{ form.mobilephone.errors }}
         </div>
         {% if not google_login %}
         <div class="mb-3">
             <label for="email" class="form-label">Email Address</label>
-            <input type="email" class="form-control" id="email" name="email" value="" data-validation="email" required>
-            <div class="invalid-feedback" id="emailError"></div>
+            {{ form.email }}
+            {{ form.email.errors }}
         </div>
         {% endif %}
         <div class="mb-3 row">
             <div class="col-md-6">
-                <button type="submit" id="submit" class="custom-btn-1">Update Profile</button> 
+                <button type="submit" id="submit" class="custom-btn-1" style="display: none;">Update Profile</button>
             </div>
             <div class="col-md-6">
-                <button type="button" id="cancel" class="custom-btn">Cancel</button>
+                <button type="button" id="cancel" class="custom-btn" style="display: none;">Cancel</button>
             </div>
             <div class="col-md-6">
                 <button type="button" id="edit" class="custom-btn">Edit</button>
@@ -88,43 +92,42 @@
 </div>
 
 {% endblock %}
-{% block adds_js%}
+{% block adds_js %}
 <script src="{% static 'js/validation.js' %}"></script>
 <script>
-    edit = document.getElementById('edit');
-    submit = document.getElementById('submit');
-    cancel = document.getElementById('cancel');
-    printdata();
-    edit.addEventListener('click', function(){
-        document.getElementById('fullname').removeAttribute('readonly');
-        document.getElementById('username').removeAttribute('readonly');
-        document.getElementById('mobilephone').removeAttribute('readonly');
-        {% if not google_login %}
-        document.getElementById('email').removeAttribute('readonly');
-        {% endif %}
-        document.getElementById('submit').style.display = 'block';
-        document.getElementById('cancel').style.display = 'block';
-        document.getElementById('edit').style.display = 'none';
+    document.addEventListener('DOMContentLoaded', function() {
+        var editButton = document.getElementById('edit');
+        var submitButton = document.getElementById('submit');
+        var cancelButton = document.getElementById('cancel');
+
+        function toggleForm(editing) {
+            var fields = ['fullname', 'username', 'mobilephone'];
+            {% if not google_login %}
+                fields.push('email');
+            {% endif %}
+            fields.forEach(function(field) {
+                document.getElementById(field).readOnly = !editing;
+            });
+            submitButton.style.display = editing ? 'block' : 'none';
+            cancelButton.style.display = editing ? 'block' : 'none';
+            editButton.style.display = editing ? 'none' : 'block';
+        }
+
+        editButton.addEventListener('click', function() {
+            toggleForm(true);
+        });
+
+        cancelButton.addEventListener('click', function() {
+            toggleForm(false);
+            document.getElementById('fullname').value = '{{ user.fullname }}';
+            document.getElementById('username').value = '{{ user.username }}';
+            document.getElementById('mobilephone').value = '{{ profile.phone }}';
+            {% if not google_login %}
+            document.getElementById('email').value = '{{ user.email }}';
+            {% endif %}
+        });
+
+        toggleForm(false);
     });
-    cancel.addEventListener('click', function(){
-        document.getElementById('fullname').setAttribute('readonly', 'true');
-        document.getElementById('username').setAttribute('readonly', 'true');
-        document.getElementById('mobilephone').setAttribute('readonly', 'true');
-        {% if not google_login %}
-        document.getElementById('email').setAttribute('readonly', 'true');
-        {% endif %}
-        document.getElementById('submit').style.display = 'none';
-        document.getElementById('cancel').style.display = 'none';
-        document.getElementById('edit').style.display = 'block';
-        printdata();
-    });
-    function printdata(){
-        document.getElementById('fullname').value ='{{user.fullname}}'
-        document.getElementById('username').value ='{{user.username}}'
-        document.getElementById('mobilephone').value ='666666666'
-        {% if not google_login %}
-        document.getElementById('email').value ='{{user.email}}'
-        {% endif %}
-    }
 </script>
 {% endblock %}

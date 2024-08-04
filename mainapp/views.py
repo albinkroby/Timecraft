@@ -3,6 +3,8 @@ from django.http import JsonResponse,HttpResponse
 from django.contrib.auth import login, get_user_model,authenticate,logout
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
+
 from django.urls import reverse
 from django.db import transaction
 from .models import Address,UserProfile
@@ -19,6 +21,7 @@ from django.contrib.auth.tokens import default_token_generator
 User = get_user_model()
 # Create your views here.
 
+@never_cache
 def index(request):
     return render(request,'index.html')
 

@@ -12,37 +12,38 @@
             <h3 id="form-title">{% if edit_address %}Edit Address{% else %}Add New Address{% endif %}</h3>
             <form id="address-form" action="{% if edit_address %}{% url 'userapp:edit_address' edit_address.id %}{% else %}{% url 'userapp:add_address' %}{% endif %}" class="profile-form" method="post">
                 {% csrf_token %}
-                <div class="col-12">
+                <div class="row">
+                <div class="col-6">
                     <div class="form-floating mb-3">
                         {{ form.flat_house_no }}
                         {{ form.flat_house_no.label_tag }}
                     </div>
                 </div>
-                <div class="col-12">
+                <div class="col-6">
                     <div class="form-floating mb-3">
                         {{ form.area_street }}
                         {{ form.area_street.label_tag }}
                     </div>
                 </div>
-                <div class="col-12">
+                <div class="col-6">
                     <div class="form-floating mb-3">
                         {{ form.landmark }}
                         {{ form.landmark.label_tag }}
                     </div>
                 </div>
-                <div class="col-12">
+                <div class="col-6">
                     <div class="form-floating mb-3">
                         {{ form.pincode }}
                         {{ form.pincode.label_tag }}
                     </div>
                 </div>
-                <div class="col-12">
+                <div class="col-6">
                     <div class="form-floating mb-3">
                         {{ form.town_city }}
                         {{ form.town_city.label_tag }}
                     </div>
                 </div>
-                <div class="col-12">
+                <div class="col-6">
                     <div class="form-floating mb-3">
                         {{ form.state }}
                         {{ form.state.label_tag }}
@@ -59,6 +60,7 @@
                         {{ form.address_type }}
                         {{ form.address_type.label_tag }}
                     </div>
+                </div>
                 </div>
                 <div class="mb-3 row">
                     <div class="col-md-6">
@@ -96,7 +98,7 @@
                                         <li><a class="dropdown-item" href="{% url 'userapp:make_primary_address' address.id %}"><i class='bx bx-check-circle'></i> Make Primary</a></li>
                                     {% endif %}
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item" href="{% url 'userapp:delete_address' address.id %}"><i class='bx bx-trash'></i> Delete</a></li>
+                                    <li><a class="dropdown-item" onclick="showDeleteConfirmation({{ address.id }})"><i class='bx bx-trash'></i> Delete</a></li>
                                 </ul>
                             </div>   
                         </div>
@@ -104,6 +106,28 @@
                         <p>You have no saved addresses.</p>
                         {% endfor %}
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div id="address-content">
+    <!-- ... existing content ... -->
+    
+    <!-- Add this at the end of the address-content div -->
+    <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this address?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <a href="#" id="confirmDeleteBtn" class="btn btn-danger">Delete</a>
                 </div>
             </div>
         </div>
@@ -149,6 +173,12 @@
         $('#address-form')[0].reset();
         $('#form-title').text('Add New Address');
         $('#address-form').attr('action', "{% url 'userapp:add_address' %}");
+    }
+
+    function showDeleteConfirmation(addressId) {
+        $('#confirmDeleteBtn').attr('href', `/account/delete-address/${addressId}/`);
+        var deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        deleteModal.show();
     }
 </script>
 {% endblock %}

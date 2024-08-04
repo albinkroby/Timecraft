@@ -2,7 +2,9 @@
 from django import forms
 from django.contrib.auth.forms import PasswordResetForm,SetPasswordForm
 from django.contrib.auth import get_user_model
-from mainapp.models import Address
+from mainapp.models import Address, UserProfile,User
+from django.core.exceptions import ValidationError
+import re
 
 class CustomPasswordResetForm(PasswordResetForm):
     def get_users(self, email):
@@ -37,3 +39,74 @@ class AddressForm(forms.ModelForm):
             'address_type': forms.Select(attrs={'class': 'form-control'}),
         }
     
+
+class UserProfileForm(forms.ModelForm):
+    fullname = forms.CharField(
+        max_length=255, 
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'id': 'fullname'})
+    )
+    username = forms.CharField(
+        max_length=150, 
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'id': 'username'})
+    )
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={'class': 'form-control', 'id': 'email'})
+    )
+    mobilephone = forms.CharField(
+        max_length=10, 
+        required=True, 
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'id': 'mobilephone'})
+    )
+
+    class Meta:
+        model = UserProfile
+        fields = ['mobilephone']
+
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Add readonly attribute to email field for Google login users
+        if self.user and self.user.social_auth.filter(provider='google-oauth2').exists():
+            self.fields['email'].widget.attrs['readonly'] = True
+
+    def clean_username(self):
+        username = self.cleaned_data['username']
+        if self.user and self.user.username != username:
+            if User.objects.filter(username=username).exists():
+                raise ValidationError("This username is already taken.")
+        elif len(username) < 4:
+            raise ValidationError("Username must be at least 4 characters long.")
+        return username
+    
+    def clean_email(self):
+        email = self.cleaned_data['email']
+        if self.user and self.user.email != email:
+            if User.objects.filter(email=email).exists():
+                raise ValidationError("This email is already registered.")
+        return email
+
+    def clean_mobilephone(self):
+        mobilephone = self.cleaned_data['mobilephone']
+        if not re.match(r'^[0-9]{10}$', mobilephone):
+            raise ValidationError('Number must be 10 digits.')
+        elif not mobilephone[0] in '6789':
+            raise ValidationError('Enter a valid mobile number.')
+        return mobilephone
+
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        user = self.user
+        userprofile=UserProfile.objects.get(user=user)
+        user.fullname = self.cleaned_data['fullname']
+        user.username = self.cleaned_data['username']
+        user.email = self.cleaned_data['email']
+        userprofile.phone = self.cleaned_data['mobilephone']
+        if commit:
+            user.save()
+            profile.save()
+            userprofile.save()
+        return profile
