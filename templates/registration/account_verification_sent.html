@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="home__container container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-center">Verify Your Email</h3>
+                </div>
+                <div class="card-body">
+                    <p class="text-center">
+                        We've sent an email to your registered email address.
+                        Please click on the link in the email to verify your account.
+                    </p>
+                    <p class="text-center">
+                        If you don't see the email in your inbox, please check your spam folder.
+                    </p>
+                    <p class="text-center">
+                        <a href="{% url 'mainapp:login' %}" class="btn btn-secondary">Log in to receive a new verification link</a>
+                    </p>
+                    <p class="text-center mt-4">
+                        <a href="{% url 'mainapp:index' %}" class="btn btn-primary">Return to Home</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
