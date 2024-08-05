@@ -18,7 +18,7 @@
                         <a href="#products" class="nav__link">Products</a>
                     </li>
                     <li class="nav__item">
-                        <a href="#new" class="nav__link">New</a>
+                        <a href="{% url 'vendorapp:home' %}" class="nav__link">Become a Seller</a>
                     </li>
                 </ul>
             </div>
@@ -46,6 +46,9 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                             <li><a class="dropdown-item" href="{% url 'userapp:profile' %}"><i class='bx bx-user'></i> Profile</a></li>
+                            {% if user.role == 'vendor' %}  
+                                <li><a class="dropdown-item" href="{% url 'vendorapp:index' %}"><i class='bx bx-user'></i> Seller Dashboard</a></li>
+                            {% endif %}
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'mainapp:logout' %}"><i class='bx bx-log-out'></i> Logout</a></li>
                         </ul>

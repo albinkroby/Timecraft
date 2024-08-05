@@ -16,6 +16,8 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import default_token_generator
+from .utils import hash_url, verify_hashed_url
+
 
 
 User = get_user_model()
@@ -37,16 +39,24 @@ def signin(request):
         
         if user is not None:
             if user.is_active:
+                hashed_next = request.POST.get('redirect')
                 login(request, user)
-                if user.role == 'staff':
-                    return redirect('mainapp:index')
-                elif user.role == 'admin':
-                    return redirect('adminapp:index')
-                else:  # user.role == 'user'
-                    return redirect('mainapp:index')
+                if hashed_next:
+                    default_redirect_url = 'vendorapp:register'
+                    if verify_hashed_url(hashed_next, default_redirect_url):
+                        return redirect(default_redirect_url)
+                    else:
+                        return redirect('mainapp:index')
+                else:
+                    if user.role == 'vendor':
+                        return redirect('vendorapp:index')
+                    elif user.role == 'admin':
+                        return redirect('adminapp:index')
+                    else:  # user.role == 'user'
+                        return redirect('mainapp:index')
             else:
                 sendmail(request, user)
-                return render(request, 'login.html', {'error': 'Email not verified. Please check your email to verify your account.'})
+                return render(request, 'registration/account_verification_sent.html')
         else:
             return render(request, 'login.html', {'error': 'Invalid email or password'})
     
@@ -86,6 +96,7 @@ def signup(request):
                 
                 # Send email verification
                 sendmail(request,user)
+                return render(request, 'registration/account_verification_sent.html')
         else:
             form = SignUpForm()
         return render(request, 'signup.html', {'form': form})

@@ -12,6 +12,7 @@
             {% endif %}
             <form class="login-form" method="POST" action="{% url 'mainapp:login' %}">
                 {% csrf_token %}
+                <input type="hidden" name="redirect" value="{{ request.GET.next }}">
                 <div class="form-floating mb-3">
                     <input type="email" id="email" class="form-control login-form" name="email" placeholder="" required>
                     <label for="email" class="form-label">Email:</label>
