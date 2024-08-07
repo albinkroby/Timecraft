@@ -1,0 +1,118 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}Brands{% endblock %}
+
+{% block admin_content %}
+<div class="card">
+    <div class="card-body ">
+        <div class="d-flex justify-content-between align-items-center"> 
+            <h5 class="card-title mb-4">Brands</h5>
+            <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addBrandModal">
+            Add New Brand
+            </button>
+        </div>
+        <table id="brandTable" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Brand Name</th>
+                    <th>Image</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for brand in brands %}
+                <tr>
+                    <td>{{ brand.brand_name }}</td>
+                    <td>
+                        {% if brand.brand_image %}
+                            <img src="{{ brand.brand_image.url }}" alt="{{ brand.brand_name }}" style="max-width: 100px;">
+                        {% else %}
+                            No image
+                        {% endif %}
+                    </td>
+                    <td>{{ brand.description|truncatewords:20 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Brand Modal -->
+<div class="modal fade" id="addBrandModal" tabindex="-1" aria-labelledby="addBrandModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addBrandModalLabel">Add New Brand</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" enctype="multipart/form-data" id="addBrandForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="{{ form.brand_name.id_for_label }}" class="form-label">Brand Name</label>
+                        {{ form.brand_name }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ form.brand_image.id_for_label }}" class="form-label">Brand Image</label>
+                        {{ form.brand_image }}
+                    </div>
+                    <div class="mb-3">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">Description</label>
+                        {{ form.description }}
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="submit" form="addBrandForm" class="btn btn-primary">Add Brand</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('#brandTable').DataTable({
+            "pageLength": 10,
+            "lengthChange": false,
+            "searching": true,
+            "ordering": true,
+            "info": true,
+            "autoWidth": false,
+            "responsive": true,
+            "dom": '<"row"<"col-sm-12 col-md-12"l><"col-sm-12 col-md-12"f>>' +
+                   '<"row"<"col-sm-12"tr>>' +
+                   '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            "language": {
+                "search": "_INPUT_",
+                "searchPlaceholder": "Search brands..."
+            }
+        });
+
+        // Form submission handling
+        $('#addBrandForm').on('submit', function(e) {
+            e.preventDefault();
+            var formData = new FormData(this);
+            $.ajax({
+                url: '{% url "adminapp:brand_list" %}',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    $('#addBrandModal').modal('hide');
+                    location.reload();
+                },
+                error: function(xhr, errmsg, err) {
+                    console.log(xhr.status + ": " + xhr.responseText);
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

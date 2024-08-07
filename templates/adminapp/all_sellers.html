@@ -1,0 +1,60 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}All Sellers{% endblock %}
+
+{% block admin_content %}
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title mb-4">All Sellers</h5>
+        <table id="allSellersTable" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Company Name</th>
+                    <th>Contact Email</th>
+                    <th>GST Number</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vendor in approved_vendors %}
+                <tr>
+                    <td>{{ vendor.company_name }}</td>
+                    <td>{{ vendor.contact_email }}</td>
+                    <td>{{ vendor.gst_number }}</td>
+                    <td>
+                        <span class="badge {% if vendor.approval_status == 'Approved' %}badge-approved{% else %}badge-rejected{% endif %}">
+                            {{ vendor.approval_status }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('#allSellersTable').DataTable({
+            "pageLength": 10,
+            "lengthChange": false,
+            "searching": true,
+            "ordering": true,
+            "info": true,
+            "autoWidth": false,
+            "responsive": true,
+            "dom": '<"row"<"col-sm-12 col-md-12"l><"col-sm-12 col-md-12"f>>' +
+                   '<"row"<"col-sm-12"tr>>' +
+                   '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            "language": {
+                "search": "_INPUT_",
+                "searchPlaceholder": "Search sellers..."
+            }
+        });
+    });
+</script>
+{% endblock %}

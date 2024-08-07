@@ -1,0 +1,72 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}Seller Approval{% endblock %}
+
+{% block admin_content %}
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title mb-4">Pending Seller Applications</h5>
+        <table id="sellerApprovalTable" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Company Name</th>
+                    <th>Contact Email</th>
+                    <th>GST Number</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for vendor in pending_vendors %}
+                <tr>
+                    <td>{{ vendor.company_name }}</td>
+                    <td>{{ vendor.contact_email }}</td>
+                    <td>{{ vendor.gst_number }}</td>
+                    <td>
+                        {% if vendor.approval_status == 'Approved' %}
+                          <span class="badge badge-approved">Approved</span>
+                        {% elif vendor.approval_status == 'Pending' %}
+                          <span class="badge badge-pending">Pending</span>
+                        {% elif vendor.approval_status == 'Rejected' %}
+                          <span class="badge badge-rejected">Rejected</span>
+                        {% endif %}
+                      </td>
+                    <td>
+                        <a href="{% url 'adminapp:approve_vendor' vendor.user.id %}" class="btn btn-success btn-sm">Approve</a>
+                        <a href="{% url 'adminapp:reject_vendor' vendor.user.id %}" class="btn btn-danger btn-sm">Reject</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('#sellerApprovalTable').DataTable({
+            "pageLength": 10,
+            "lengthChange": false,
+            "searching": true,
+            "ordering": true,
+            "info": true,
+            "autoWidth": false,
+            "responsive": true,
+            "columnDefs": [
+                { "orderable": false, "targets": 4 }
+            ],
+            "dom": '<"row"<"col-sm-12 col-md-12"f><"col-sm-12 col-md-12"l>>' +
+                   '<"row"<"col-sm-12"tr>>' +
+                   '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            "language": {
+                "search": "_INPUT_",
+                "searchPlaceholder": "Search sellers..."
+            }
+        });
+    });
+</script>
+{% endblock %}

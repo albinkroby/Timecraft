@@ -1,0 +1,77 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+{% block admin_content %}
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Total Users</h5>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="card-text">1,234</h3>
+                        <p class="card-text text-success">+5% this week</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Total Products</h5>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="card-text">567</h3>
+                        <p class="card-text text-success">+2% this week</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Total Orders</h5>
+                    </div>
+                    <div class="card-body">
+                        <h3 class="card-text">890</h3>
+                        <p class="card-text text-success">+8% this week</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="mb-4 mt-5">Recent Orders</h2>
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Customer</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>#12345</td>
+                        <td>John Doe</td>
+                        <td>$199.99</td>
+                        <td><span class="badge bg-success">Completed</span></td>
+                        <td><button class="btn btn-sm btn-primary"><i class="fas fa-eye"></i> View</button></td>
+                    </tr>
+                    <tr>
+                        <td>#12346</td>
+                        <td>Jane Smith</td>
+                        <td>$149.99</td>
+                        <td><span class="badge bg-warning text-dark">Processing</span></td>
+                        <td><button class="btn btn-sm btn-primary"><i class="fas fa-eye"></i> View</button></td>
+                    </tr>
+                    <tr>
+                        <td>#12347</td>
+                        <td>Bob Johnson</td>
+                        <td>$99.99</td>
+                        <td><span class="badge bg-info">Shipped</span></td>
+                        <td><button class="btn btn-sm btn-primary"><i class="fas fa-eye"></i> View</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+{% endblock %}
