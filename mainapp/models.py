@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
+
 class User(AbstractUser):
     ROLE_CHOICES = (
         ('admin', 'Admin'),
@@ -23,14 +24,11 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     phone = models.CharField(max_length=10)
 
-#old name 
-# class Profile(models.Model):
-
-#new name
 class Address(models.Model):
     ADDRESS_TYPE_CHOICES = (
         ('home', 'Home'),
@@ -49,5 +47,25 @@ class Address(models.Model):
 
     def __str__(self):
         return f"{self.user.username}'s Address"
-    
 
+from adminapp.models import BaseWatch
+
+class Cart(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Cart for {self.user.username}"
+
+class CartItem(models.Model):
+    cart = models.ForeignKey(Cart, related_name='items', on_delete=models.CASCADE)
+    watch = models.ForeignKey(BaseWatch, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.watch.model_name} in cart for {self.cart.user.username}"
+
+    @property
+    def total_price(self):
+        return self.watch.base_price * self.quantity

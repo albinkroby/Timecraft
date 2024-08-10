@@ -66,8 +66,12 @@ def category_list(request):
     if request.method == 'POST':
         form = CategoryForm(request.POST)
         if form.is_valid():
-            form.save()
-            return redirect('adminapp:category_list')
+            category_name = form.cleaned_data['name']
+            if Category.category_exists(category_name):
+                return JsonResponse({'success': False, 'errors': {'name': ['A category with this name already exists.']}})
+            else:
+                form.save()
+                return JsonResponse({'success': True})
 
     return render(request, 'adminapp/category_list.html', {'categories': categories, 'form': form})
 
@@ -88,9 +92,15 @@ def edit_category(request, category_id):
     else:
         form = CategoryForm(instance=category)
     
-    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-        return render(request, 'adminapp/category_form.html', {'form': form})
-    return render(request, 'adminapp/category_list.html', {'form': form, 'category': category})
+    return JsonResponse({
+        'success': True, 
+        'html': render(request, 'adminapp/category_form.html', {'form': form}).content.decode('utf-8'),
+        'category': {
+            'id': category.id,
+            'name': category.name,
+            'parent_category': category.parent_category.id if category.parent_category else ''
+        }
+    })
 
 @user_passes_test(lambda u: u.is_superuser)
 def delete_category(request, category_id):

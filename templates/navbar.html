@@ -15,9 +15,6 @@
                         <a href="#featured" class="nav__link">Featured</a>
                     </li>
                     <li class="nav__item">
-                        <a href="#products" class="nav__link">Products</a>
-                    </li>
-                    <li class="nav__item">
                         <a href="{% url 'vendorapp:home' %}" class="nav__link">Become a Seller</a>
                     </li>
                 </ul>
@@ -29,7 +26,7 @@
         </div>
 
         <div class="nav__search" id="nav-search">
-            <form action="#" method="GET" class="nav__search-form" id="search-form">
+            <form action="{% url 'mainapp:search_results' %}" method="GET" class="nav__search-form" id="search-form">
                 <input type="search" placeholder="Search here..." class="nav__search-input login-form" id="search-input" name="search">
                 <button type="submit" class="nav__search-button" id="search-button">
                     <i class='bx bx-search nav__search-icon' id="search-icon"></i>

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="home__container container mt-4">
+    <div class="row">
+        <!-- Filters Column -->
+        <div class="col-md-3">
+            <form id="filter-form" method="get">
+                <div class="filter-section d-flex justify-content-between align-items-center">
+                    <h4>Filters</h4>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+                <input type="hidden" name="search" value="{{ query }}">
+                <div class="filter-section">
+                    <h5>Categories</h5>
+                    {% for category in categories %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="category" value="{{ category.id }}" id="category{{ category.id }}" {% if category.id|stringformat:"s" in selected_categories %}checked{% endif %}>
+                        <label class="form-check-label" for="category{{ category.id }}">
+                            {{ category.name }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="filter-section">
+                    <h5>Price</h5>
+                    <div class="range-slider">
+                        <input type="range" min="{{ price_range.min_price }}" max="{{ price_range.max_price }}" value="{{ selected_max_price|default:price_range.max_price }}" class="slider" id="priceRange">
+                        <p>Min: ₹<span id="minPrice">{{ selected_min_price|default:price_range.min_price }}</span> - Max: ₹<span id="maxPrice">{{ selected_max_price|default:price_range.max_price }}</span></p>
+                        <input type="hidden" name="min_price" id="minPriceInput" value="{{ selected_min_price|default:price_range.min_price }}">
+                        <input type="hidden" name="max_price" id="maxPriceInput" value="{{ selected_max_price|default:price_range.max_price }}">
+                    </div>
+                </div>
+                <div class="filter-section">
+                    <h5>Brand</h5>
+                    {% for brand in brands %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="brand" value="{{ brand.id }}" id="brand{{ brand.id }}" {% if brand.id|stringformat:"s" in selected_brands %}checked{% endif %}>
+                        <label class="form-check-label" for="brand{{ brand.id }}">
+                            {{ brand.brand_name }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="filter-section">
+                    <h5>Color</h5>
+                    {% for color in colors %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="color" value="{{ color }}" id="color{{ color }}" {% if color in selected_colors %}checked{% endif %}>
+                        <label class="form-check-label" for="color{{ color }}">
+                            {{ color }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="filter-section">
+                    <h5>Strap Material</h5>
+                    {% for material in strap_materials %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="strap_material" value="{{ material }}" id="strap{{ material }}" {% if material in selected_strap_materials %}checked{% endif %}>
+                        <label class="form-check-label" for="strap{{ material }}">
+                            {{ material }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="filter-section">
+                    <h5>Movement Type</h5>
+                    {% for movement in movement_types %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="movement_type" value="{{ movement }}" id="movement{{ movement }}" {% if movement in selected_movement_types %}checked{% endif %}>
+                        <label class="form-check-label" for="movement{{ movement }}">
+                            {{ movement }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+            </form>
+        </div>
+
+        <!-- Search Results Column -->
+        <div class="col-md-9">
+            <h4>Showing results for "{{ query }}"</h4>
+            <div class="sort-options">
+                <span>Sort By:</span>
+                <select name="sort_by" id="sort_by" class="form-select">
+                    <option value="relevance" {% if sort_by == 'relevance' %}selected{% endif %}>Relevance</option>
+                    <option value="price_low_to_high" {% if sort_by == 'price_low_to_high' %}selected{% endif %}>Price -- Low to High</option>
+                    <option value="price_high_to_low" {% if sort_by == 'price_high_to_low' %}selected{% endif %}>Price -- High to Low</option>
+                    <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest First</option>
+                </select>
+            </div>
+            <div class="row">
+                {% for watch in watches %}
+                <div class="col-md-4 mb-4">
+                    <a href="{% url 'mainapp:product_detail' watch.slug %}" class="product-link">
+                        <div class="card product-card">
+                            <img src="{{ watch.primary_image.url }}" class="card-img-top" alt="{{ watch.model_name }}">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ watch.model_name }}</h5>
+                                <p class="card-text">{{ watch.brand.brand_name }}</p>
+                                <div class="price-section">
+                                    <span class="discounted-price">₹{{ watch.base_price }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if watches.has_previous %}
+                        <li class="page-item"><a class="page-link" href="?page=1">&laquo; first</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ watches.previous_page_number }}">previous</a></li>
+                    {% endif %}
+                    <li class="page-item disabled"><a class="page-link" href="#">Page {{ watches.number }} of {{ watches.paginator.num_pages }}</a></li>
+                    {% if watches.has_next %}
+                        <li class="page-item"><a class="page-link" href="?page={{ watches.next_page_number }}">next</a></li>
+                        <li class="page-item"><a class="page-link" href="?page={{ watches.paginator.num_pages }}">last &raquo;</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const slider = document.getElementById("priceRange");
+    const minPrice = document.getElementById("minPrice");
+    const maxPrice = document.getElementById("maxPrice");
+    const minPriceInput = document.getElementById("minPriceInput");
+    const maxPriceInput = document.getElementById("maxPriceInput");
+
+    slider.oninput = function() {
+        maxPrice.innerHTML = this.value;
+        maxPriceInput.value = this.value;
+    }
+
+    document.getElementById("sort_by").addEventListener("change", function() {
+        document.getElementById("filter-form").submit();
+    });
+
+    // Preserve query parameters when navigating pagination
+    document.querySelectorAll('.pagination a').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const url = new URL(this.href);
+            const searchParams = new URLSearchParams(window.location.search);
+            searchParams.set('page', url.searchParams.get('page'));
+            window.location.search = searchParams.toString();
+        });
+    });
+</script>
+{% endblock %}

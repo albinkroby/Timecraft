@@ -1,13 +1,12 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse,HttpResponse
 from django.contrib.auth import login, get_user_model,authenticate,logout
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
-
 from django.urls import reverse
 from django.db import transaction
-from .models import Address,UserProfile
+from .models import Address,UserProfile, Cart, CartItem
 from .forms import SignUpForm
 from social_django.models import UserSocialAuth
 from django.core.mail import send_mail
@@ -17,15 +16,18 @@ from django.utils.encoding import force_bytes, force_str
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import default_token_generator
 from .utils import hash_url, verify_hashed_url
-
-
+from django.db.models import Q
+from adminapp.models import BaseWatch, WatchImage, Brand, Category
+from django.contrib import messages
+from django.core.paginator import Paginator
 
 User = get_user_model()
 # Create your views here.
 
 @never_cache
 def index(request):
-    return render(request,'index.html')
+    basewatch = BaseWatch.objects.all()
+    return render(request,'index.html',{'basewatch':basewatch})
 
 
 def signin(request):
@@ -158,3 +160,122 @@ def check_email(request):
         return JsonResponse({'available': True})
     is_available = not User.objects.filter(email=email).exists()
     return JsonResponse({'available': is_available})
+
+def product_detail(request, slug):
+    watch = get_object_or_404(BaseWatch, slug=slug)
+    context = {
+        'watch': watch,
+        'other_images': watch.additional_images.all(),
+    }
+    return render(request, 'product_detail.html', context)
+
+@login_required
+def add_to_cart(request, watch_id):
+    watch = get_object_or_404(BaseWatch, id=watch_id)
+    cart, created = Cart.objects.get_or_create(user=request.user)
+    cart_item, item_created = CartItem.objects.get_or_create(cart=cart, watch=watch)
+    
+    if not item_created:
+        cart_item.quantity += 1
+        cart_item.save()
+    
+    messages.success(request, f"{watch.model_name} added to your cart.")
+    return redirect('mainapp:cart')
+
+@login_required
+def cart(request):
+    cart, created = Cart.objects.get_or_create(user=request.user)
+    items = cart.items.all()
+    total = sum(item.watch.base_price * item.quantity for item in items)
+    # discount = sum((item.watch.original_price - item.watch.base_price) * item.quantity for item in items)
+    # final_total = total - discount
+    final_total = total
+    
+    context = {
+        'items': items,
+        'total': total,
+        # 'discount': discount,
+        'final_total': final_total,
+    }
+    return render(request, 'cart.html', context)
+
+@login_required
+def remove_from_cart(request, item_id):
+    item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
+    item.delete()
+    messages.success(request, f"{item.watch.model_name} removed from your cart.")
+    return redirect('mainapp:cart')
+
+@login_required
+def update_cart(request, item_id):
+    item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
+    quantity = int(request.POST.get('quantity', 1))
+    if quantity > 0:
+        item.quantity = quantity
+        item.save()
+        messages.success(request, f"Quantity updated for {item.watch.model_name}.")
+    else:
+        item.delete()
+        messages.success(request, f"{item.watch.model_name} removed from your cart.")
+    return redirect('mainapp:cart')
+
+def search_results(request):
+    query = request.GET.get('search', '')
+    brands = request.GET.getlist('brand')
+    categories = request.GET.getlist('category')
+    min_price = request.GET.get('min_price')
+    max_price = request.GET.get('max_price')
+    colors = request.GET.getlist('color')
+    strap_materials = request.GET.getlist('strap_material')
+    movement_types = request.GET.getlist('movement_type')
+    sort_by = request.GET.get('sort_by', 'relevance')
+
+    watches = BaseWatch.objects.filter(
+        Q(model_name__icontains=query) | 
+        Q(brand__brand_name__icontains=query) |
+        Q(description__icontains=query)
+    )
+
+    if brands:
+        watches = watches.filter(brand__id__in=brands)
+    if categories:
+        watches = watches.filter(category__id__in=categories)
+    if min_price and max_price:
+        watches = watches.filter(base_price__gte=min_price, base_price__lte=max_price)
+    if colors:
+        watches = watches.filter(color__in=colors)
+    if strap_materials:
+        watches = watches.filter(strap_material__in=strap_materials)
+    if movement_types:
+        watches = watches.filter(movement_type__in=movement_types)
+
+    if sort_by == 'price_low_to_high':
+        watches = watches.order_by('base_price')
+    elif sort_by == 'price_high_to_low':
+        watches = watches.order_by('-base_price')
+    elif sort_by == 'newest':
+        watches = watches.order_by('-id')
+
+    paginator = Paginator(watches, 12)  # Show 12 watches per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'watches': page_obj,
+        'query': query,
+        'brands': Brand.objects.all(),
+        'categories': Category.objects.all(),
+        'price_range': BaseWatch.get_price_range(),
+        'colors': BaseWatch.get_unique_values('color'),
+        'strap_materials': BaseWatch.get_unique_values('strap_material'),
+        'movement_types': BaseWatch.get_unique_values('movement_type'),
+        'selected_brands': brands,
+        'selected_categories': categories,
+        'selected_min_price': min_price,
+        'selected_max_price': max_price,
+        'selected_colors': colors,
+        'selected_strap_materials': strap_materials,
+        'selected_movement_types': movement_types,
+        'sort_by': sort_by,
+    }
+    return render(request, 'search_results.html', context)

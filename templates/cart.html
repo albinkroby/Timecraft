@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="home__container container mt-5">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h5 class="mb-0">Cart - {{ items|length }} item(s)</h5>
+                </div>
+                <div class="card-body">
+                    {% for item in items %}
+                    <div class="row mb-4">
+                        <div class="col-md-2">
+                            <img src="{{ item.watch.primary_image.url }}" class="img-fluid cart-item-image" alt="{{ item.watch.model_name }}">
+                        </div>
+                        <div class="col-md-6">
+                            <h5>{{ item.watch.model_name }}</h5>
+                            <p class="mb-0">Seller: {{ item.watch.vendor.user.username }}</p>
+                            <p class="mb-0">Delivery by {{ item.watch.estimated_delivery|date:"D M d" }} | Free</p>
+                            <div class="d-flex align-items-center mt-2">
+                                <form action="{% url 'mainapp:update_cart' item.id %}" method="post" class="d-flex align-items-center">
+                                    {% csrf_token %}
+                                    <button type="submit" name="action" value="decrease" class="btn btn-link px-2">
+                                        <i class="fas fa-minus"></i>
+                                    </button>
+                                    <input type="number" name="quantity" value="{{ item.quantity }}" min="1" max="5" class="form-control form-control-sm" style="width: 50px;">
+                                    <button type="submit" name="action" value="increase" class="btn btn-link px-2">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </form>
+                                <a href="{% url 'mainapp:remove_from_cart' item.id %}" class="btn btn-link text-danger">Remove</a>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <h5 class="mb-0">₹{{ item.watch.base_price }}</h5>
+                            <p class="text-muted"><s>₹{{ item.watch.original_price }}</s> {{ item.watch.discount_percentage }}% off</p>
+                        </div>
+                    </div>
+                    <hr class="my-4" />
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header py-3">
+                    <h5 class="mb-0">Price Details</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 pb-0">
+                            Price ({{ items|length }} items)
+                            <span>₹{{ total }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                            Discount
+                            <span class="text-success">- ₹{{ discount }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-center border-0 px-0 mb-3">
+                            <div>
+                                <strong>Total Amount</strong>
+                            </div>
+                            <span><strong>₹{{ final_total }}</strong></span>
+                        </li>
+                    </ul>
+                    <button type="button" class="w-100 button rounded-2">Place Order</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -125,97 +125,35 @@
                 </div>
             </section>
 
-            <!--==================== FEATURED ====================-->
-            <section class="featured section container" id="featured">
-                <h2 class="section__title">
-                    Featured
-                </h2>
-
-                <div class="row">
-                    <div class="col-3">
-                        <article class="featured__card">
-                            <span class="featured__tag">Sale</span>
-                            <img src="{% static 'img/featured1.png' %}" alt="" class="featured__img">
-                            <div class="featured__data">
-                                <h3 class="featured__title">Jazzmaster</h3>
-                                <span class="featured__price">$1050</span>
-                            </div>
-                            <button class="button featured__button">ADD TO CART</button>
-                        </article>
-                    </div>
-                    <div class="col-3">
-                        <article class="featured__card">
-                            <span class="featured__tag">Sale</span>
-                            <img src="{% static 'img/featured2.png' %}" alt="" class="featured__img">
-                            <div class="featured__data">
-                                <h3 class="featured__title">Ingersoll</h3>
-                                <span class="featured__price">$250</span>
-                            </div>
-                            <button class="button featured__button">ADD TO CART</button>
-                        </article>
-                    </div>
-                    <div class="col-3">
-                        <article class="featured__card">
-                            <span class="featured__tag">Sale</span>
-
-                            <img src="{% static 'img/featured3.png' %}" alt="" class="featured__img">
-
-                            <div class="featured__data">
-                                <h3 class="featured__title">Rose gold</h3>
-                                <span class="featured__price">$890</span>
-                            </div>
-
-                            <button class="button featured__button">ADD TO CART</button>
-                        </article>
-                    </div>
-                </div>
-            </section>
-
-            <!--==================== STORY ====================-->
-            <section class="story section container">
-                <div class="story__container grid">
-                    <div class="story__data">
-                        <h2 class="section__title story__section-title">
-                            Our Story
-                        </h2>
-    
-                        <h1 class="story__title">
-                            Inspirational Watch of <br> this year
-                        </h1>
-    
-                        <p class="story__description">
-                            The latest and modern watches of this year, is available in various 
-                            presentations in this store, discover them now.
-                        </p>
-    
-                        <a href="#" class="button button--small">Discover</a>
-                    </div>
-
-                    <div class="story__images">
-                        <img src="{% static 'img/story.png' %}" alt="" class="story__img">
-                        <div class="story__square"></div>
-                    </div>
-                </div>
-            </section>
-
             <!--==================== PRODUCTS ====================-->
             <section class="products section container" id="products">
                 <h2 class="section__title">
                     Products
                 </h2>
 
-                <div class="products__container grid">
-                    <article class="products__card">
-                        <img src="{% static 'img/product1.png' %}" alt="" class="products__img">
+                <div class="row">
+                    {% for basewatch in basewatch %}
+                    <div class="col-3 mb-2">
+                        <article class="products__card">
+                            <a href="{% url 'mainapp:product_detail' slug=basewatch.slug %}">
+                                {% if basewatch.primary_image %}
+                                    <img src="{{ basewatch.primary_image.url }}" alt="{{ basewatch.model_name }}" class="featured__img" style=" height: 170px;">
+                                {% else %}
+                                    <img src="{% static 'img/default_watch.png' %}" alt="Default watch image" class="featured__img" style="height: 170px ;">
+                                {% endif %}
 
-                        <h3 class="products__title">Spirit rose</h3>
-                        <span class="products__price">$1500</span>
+                                <h3 class="products__title">{{ basewatch.model_name|truncatechars:30 }}</h3>
+                                <span class="products__price">Rs.{{ basewatch.base_price }}</span>
+                            </a>
 
-                        <button class="products__button">
-                            <i class='bx bx-shopping-bag'></i>
-                        </button>
-                    </article>
-
+                            <button class="products__button">
+                                <i class='bx bx-shopping-bag'></i>
+                            </button>
+                        </article>
+                    </div>
+                    {% endfor %}
+                    
+                    <div class="col-3">
                     <article class="products__card">
                         <img src="{% static 'img/product2.png' %}" alt="" class="products__img">
 
@@ -226,7 +164,9 @@
                             <i class='bx bx-shopping-bag'></i>
                         </button>
                     </article>
+                    </div>
 
+                    <div class="col-3">
                     <article class="products__card">
                         <img src="{% static 'img/product3.png' %}" alt="" class="products__img">
 
@@ -234,10 +174,12 @@
                         <span class="products__price">$870</span>
 
                         <button class="products__button">
-                            <i class='bx bx-shopping-bag'></i>
-                        </button>
-                    </article>
+                                <i class='bx bx-shopping-bag'></i>
+                            </button>
+                        </article>
+                    </div>
 
+                    {% comment %} <div class="col-3">
                     <article class="products__card">
                         <img src="{% static 'img/product4.png' %}" alt="" class="products__img">
 
@@ -248,17 +190,7 @@
                             <i class='bx bx-shopping-bag'></i>
                         </button>
                     </article>
-
-                    <article class="products__card">
-                        <img src="{% static 'img/product5.png' %}" alt="" class="products__img">
-
-                        <h3 class="products__title">Duchen</h3>
-                        <span class="products__price">$950</span>
-
-                        <button class="products__button">
-                            <i class='bx bx-shopping-bag'></i>
-                        </button>
-                    </article>
+                    </div>                     {% endcomment %}
                 </div>
             </section>
 

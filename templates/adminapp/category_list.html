@@ -44,7 +44,18 @@
             <div class="modal-body">
                 <form method="post" id="addCategoryForm">
                     {% csrf_token %}
-                    {{ form.as_p }}
+                    {{ form.non_field_errors }}
+                    {% for field in form %}
+                        <div class="mb-3">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ field.errors.0 }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
                 </form>
             </div>
             <div class="modal-footer">
@@ -134,7 +145,7 @@
         });
 
         // Delete category
-        $('.delete-category').click(function() {
+        $(document).on('click', '.delete-category', function() {
             var categoryId = $(this).data('category-id');
             $('#confirmDeleteCategory').data('category-id', categoryId);
             $('#deleteCategoryModal').modal('show');
@@ -145,27 +156,50 @@
             window.location.href = `/admin/delete-category/${categoryId}/`;
         });
 
-        $('#editCategoryForm').on('submit', function(e) {
-            e.preventDefault();
-            var form = $(this);
-            var url = '/admin/edit-category/' + $('#edit_category_id').val() + '/';
+        function handleFormSubmit(form, url) {
             $.ajax({
                 url: url,
                 type: 'POST',
                 data: form.serialize(),
                 success: function(response) {
                     if (response.success) {
-                        $('#editCategoryModal').modal('hide');
+                        $('#editCategoryModal, #addCategoryModal').modal('hide');
                         location.reload();
                     } else {
                         // Display errors
                         for (var field in response.errors) {
-                            $('#id_' + field).addClass('is-invalid');
-                            $('#id_' + field).after('<div class="invalid-feedback">' + response.errors[field] + '</div>');
+                            var input = form.find('#id_' + field);
+                            input.addClass('is-invalid');
+                            input.siblings('.invalid-feedback').remove();
+                            input.after('<div class="invalid-feedback">' + response.errors[field][0] + '</div>');
                         }
                     }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error submitting form:", error);
                 }
             });
+        }
+
+        $(document).on('submit', '#editCategoryForm', function(e) {
+            e.preventDefault();
+            var form = $(this);
+            var url = '/admin/edit-category/' + $('#edit_category_id').val() + '/';
+            handleFormSubmit(form, url);
+        });
+
+        $(document).on('submit', '#addCategoryForm', function(e) {
+            e.preventDefault();
+            var form = $(this);
+            var url = '{% url "adminapp:category_list" %}';
+            handleFormSubmit(form, url);
+        });
+
+        // Clear errors when modal is hidden
+        $('#addCategoryModal, #editCategoryModal').on('hidden.bs.modal', function () {
+            $(this).find('form')[0].reset();
+            $(this).find('.is-invalid').removeClass('is-invalid');
+            $(this).find('.invalid-feedback').remove();
         });
     });
 </script>
