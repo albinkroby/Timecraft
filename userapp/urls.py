@@ -12,6 +12,10 @@ urlpatterns = [
     path('delete-address/<int:address_id>/', views.delete_address, name='delete_address'),
     path('make-primary-address/<int:address_id>/', views.make_primary_address, name='make_primary_address'),
     
+    path('wishlist/', views.wishlist, name='wishlist'),
+    path('wishlist/add/<int:watch_id>/', views.add_to_wishlist, name='add_to_wishlist'),
+    path('wishlist/remove/<int:watch_id>/', views.remove_from_wishlist, name='remove_from_wishlist'),
+    
     path('password_reset/', auth_views.PasswordResetView.as_view(
         template_name='registration/password_reset.html',
         email_template_name='registration/password_reset_email.html',

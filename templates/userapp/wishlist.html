@@ -1,0 +1,84 @@
+{% extends "userapp/base.html" %}
+{% load static %}
+
+{% block user_details %}
+<div class="container">
+    <h2 class="wishlist-title">My Wishlist ({{ wishlist.watches.count }})</h2>
+    {% if wishlist.watches.all %}
+        <div class="wishlist-items">
+            {% for watch in wishlist.watches.all %}
+                <div class="wishlist-item">
+                    <div class="item-image">
+                        <img src="{{ watch.primary_image.url }}" alt="{{ watch.model_name }}">
+                    </div>
+                    <div class="item-details">
+                        <h3 class="item-title">{{ watch.model_name }}</h3>
+                        <div class="item-rating">
+                            <span class="rating">{{ watch.average_rating|floatformat:1 }}★</span>
+                            <span class="review-count">({{ watch.total_reviews }})</span>
+                            {% if watch.is_assured %}
+                                <span class="assured-badge">✓ Assured</span>
+                            {% endif %}
+                        </div>
+                        <div class="item-price">
+                            <span class="current-price">₹{{ watch.base_price }}</span>
+                            {% if watch.original_price %}
+                                <span class="original-price">₹{{ watch.original_price }}</span>
+                                <span class="discount">{{ watch.discount_percentage }}% off</span>
+                            {% endif %}
+                        </div>
+                        {% if not watch.in_stock %}
+                            <div class="unavailable">Currently unavailable</div>
+                        {% endif %}
+                    </div>
+                    <div class="item-actions">
+                        <button class="btn btn-sm btn-outline-secondary remove-from-wishlist" data-watch-id="{{ watch.id }}">
+                            <i class='bx bxs-trash-alt'></i>
+                        </button>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p>Your wishlist is empty.</p>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('.remove-from-wishlist').click(function() {
+            var watchId = $(this).data('watch-id');
+            var item = $(this).closest('.wishlist-item');
+            $.ajax({
+                url: '{% url "userapp:remove_from_wishlist" 0 %}'.replace('0', watchId),
+                type: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'},
+                success: function(data) {
+                    if (data.status === 'success') {
+                        item.fadeOut(300, function() { 
+                            $(this).remove(); 
+                            updateWishlistCount();
+                            if ($('.wishlist-item').length === 0) {
+                                location.reload();
+                            }
+                        });
+                    }
+                }
+            });
+        });
+
+        function updateWishlistCount() {
+            var count = $('.wishlist-item').length;
+            $('.wishlist-title').text('My Wishlist (' + count + ')');
+        }
+    });
+</script>
+{% endblock %}

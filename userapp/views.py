@@ -5,6 +5,8 @@ from mainapp.models import Address,UserProfile, User
 from .forms import AddressForm, UserProfileForm
 from django.db import IntegrityError
 from django.http import JsonResponse
+from .models import Wishlist
+from adminapp.models import BaseWatch
 
 @login_required
 def profile(request):
@@ -121,3 +123,27 @@ def check_email(request):
         'exists': User.objects.filter(email__iexact=email).exists()
     }
     return JsonResponse(data)
+
+@login_required
+def wishlist(request):
+    wishlist, created = Wishlist.objects.get_or_create(user=request.user)
+    return render(request, 'userapp/wishlist.html', {'wishlist': wishlist})
+
+@login_required
+def add_to_wishlist(request, watch_id):
+    if request.method == 'POST':
+        watch = BaseWatch.objects.get(id=watch_id)
+        wishlist, created = Wishlist.objects.get_or_create(user=request.user)
+        if watch not in wishlist.watches.all():
+            wishlist.watches.add(watch)
+            return JsonResponse({'status': 'success'})
+        else:
+            return JsonResponse({'status': 'already_in_wishlist'})
+    return JsonResponse({'status': 'error'}, status=400)
+
+@login_required
+def remove_from_wishlist(request, watch_id):
+    watch = get_object_or_404(BaseWatch, id=watch_id)
+    wishlist = get_object_or_404(Wishlist, user=request.user)
+    wishlist.watches.remove(watch)
+    return JsonResponse({'status': 'success'})

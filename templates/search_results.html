@@ -92,21 +92,25 @@
                     <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest First</option>
                 </select>
             </div>
-            <div class="row">
+            <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
                 {% for watch in watches %}
-                <div class="col-md-4 mb-4">
-                    <a href="{% url 'mainapp:product_detail' watch.slug %}" class="product-link">
-                        <div class="card product-card">
-                            <img src="{{ watch.primary_image.url }}" class="card-img-top" alt="{{ watch.model_name }}">
-                            <div class="card-body">
-                                <h5 class="card-title">{{ watch.model_name }}</h5>
-                                <p class="card-text">{{ watch.brand.brand_name }}</p>
-                                <div class="price-section">
-                                    <span class="discounted-price">₹{{ watch.base_price }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
+                <div class="col">
+                    <article class="products__card h-100">
+                        <a href="{% url 'mainapp:product_detail' slug=watch.slug %}">
+                            {% if watch.primary_image %}
+                                <img src="{{ watch.primary_image.url }}" alt="{{ watch.model_name }}" class="products__img" >
+                            {% else %}
+                                <img src="{% static 'img/default_watch.png' %}" alt="Default watch image" class="products__img">
+                            {% endif %}
+
+                            <h3 class="products__title">{{ watch.model_name|truncatechars:18 }}</h3>
+                            <span class="products__price">Rs.{{ watch.base_price }}</span>
+                        </a>
+
+                        <button class="products__button" data-watch-id="{{ watch.id }}">
+                            <i class='bx bxs-bookmark-plus'></i>
+                        </button>
+                    </article>
                 </div>
                 {% endfor %}
             </div>
@@ -153,6 +157,33 @@
             const searchParams = new URLSearchParams(window.location.search);
             searchParams.set('page', url.searchParams.get('page'));
             window.location.search = searchParams.toString();
+        });
+    });
+
+    $(document).ready(function() {
+        $('.products__button').click(function(e) {
+            e.preventDefault();
+            var watchId = $(this).data('watch-id');
+            var button = $(this);
+            
+            $.ajax({
+                url: "{% url 'userapp:add_to_wishlist' 0 %}".replace('0', watchId),
+                type: 'POST',
+                headers: {'X-CSRFToken': '{{ csrf_token }}'},
+                success: function(data) {
+                    if (data.status === 'success') {
+                        showCustomAlert('Added to wishlist!', 'success');
+                        button.addClass('added-to-wishlist');
+                    } else if (data.status === 'already_in_wishlist') {
+                        showCustomAlert('Already in wishlist', 'info');
+                    } else {
+                        showCustomAlert('Error adding to wishlist', 'error');
+                    }
+                },
+                error: function() {
+                    showCustomAlert('Error adding to wishlist', 'error');
+                }
+            });
         });
     });
 </script>
