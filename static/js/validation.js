@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('signupForm');
+    const form = document.getElementById('validationForm');
     const inputs = form.querySelectorAll('input[data-validation]');
 
     inputs.forEach(input => {

@@ -5,7 +5,7 @@
     <section class="section">
         <div class="login-container">
             <h1 class="login-title">Create Account</h1>
-            <form class="login-form" method="POST" action="{% url 'mainapp:signup' %}" id="signupForm">
+            <form class="login-form" method="POST" action="{% url 'mainapp:signup' %}" id="validationForm">
                 {% csrf_token %}
                 {% if form.non_field_errors %}
                     <div class="alert alert-danger">

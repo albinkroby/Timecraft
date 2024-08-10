@@ -2,29 +2,34 @@
 {% load static %}
 {% block user_details %}
 <div id="profile-details-content">
+    <div id="alert-container"></div>
     <h1>Personal Information</h1>
-    <form method="post" id="signupForm">
+    <form method="post" id="profileForm">
         {% csrf_token %}
         {{ form.non_field_errors }}
         <div class="mb-4">
             <label class="form-label">Name </label>
             {{ form.fullname }}
+            <div class="invalid-feedback" id="fullname-error"></div>
             {{ form.fullname.errors }}
         </div>
         <div class="mb-3">
             <label class="form-label">Username </label>
             {{ form.username }}
+            <div class="invalid-feedback" id="username-error"></div>
             {{ form.username.errors }}
         </div>
         <div class="mb-3">
             <label class="form-label">Mobile Number </label>
             {{ form.mobilephone }}
+            <div class="invalid-feedback" id="mobilephone-error"></div>
             {{ form.mobilephone.errors }}
         </div>
         {% if not google_login %}
         <div class="mb-3">
             <label for="email" class="form-label">Email Address</label>
             {{ form.email }}
+            <div class="invalid-feedback" id="email-error"></div>
             {{ form.email.errors }}
         </div>
         {% endif %}
@@ -93,41 +98,204 @@
 
 {% endblock %}
 {% block adds_js %}
-<script src="{% static 'js/validation.js' %}"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        var editButton = document.getElementById('edit');
-        var submitButton = document.getElementById('submit');
-        var cancelButton = document.getElementById('cancel');
+$(document).ready(function() {
+    var $form = $('#profileForm');
+    var $editButton = $('#edit');
+    var $submitButton = $('#submit');
+    var $cancelButton = $('#cancel');
+    var $fullname = $('#fullname');
+    var $username = $('#username');
+    var $mobilephone = $('#mobilephone');
+    var $email = $('#email');
+    var $alertContainer = $('#alert-container');
 
-        function toggleForm(editing) {
-            var fields = ['fullname', 'username', 'mobilephone'];
-            {% if not google_login %}
-                fields.push('email');
-            {% endif %}
-            fields.forEach(function(field) {
-                document.getElementById(field).readOnly = !editing;
-            });
-            submitButton.style.display = editing ? 'block' : 'none';
-            cancelButton.style.display = editing ? 'block' : 'none';
-            editButton.style.display = editing ? 'none' : 'block';
-        }
+    var originalUsername = '{{ user.username }}';
+    var originalEmail = '{{ user.email }}';
 
-        editButton.addEventListener('click', function() {
-            toggleForm(true);
+    function toggleForm(editing) {
+        var fields = ['fullname', 'username', 'mobilephone'];
+        {% if not google_login %}
+            fields.push('email');
+        {% endif %}
+        $.each(fields, function(i, field) {
+            $('#' + field).prop('readonly', !editing);
         });
+        $submitButton.toggle(editing);
+        $cancelButton.toggle(editing);
+        $editButton.toggle(!editing);
+    }
 
-        cancelButton.addEventListener('click', function() {
-            toggleForm(false);
-            document.getElementById('fullname').value = '{{ user.fullname }}';
-            document.getElementById('username').value = '{{ user.username }}';
-            document.getElementById('mobilephone').value = '{{ profile.phone }}';
-            {% if not google_login %}
-            document.getElementById('email').value = '{{ user.email }}';
-            {% endif %}
-        });
+    function showAlert(message, type) {
+        var alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        var alertHtml = '<div class="alert ' + alertClass + ' alert-dismissible fade show" role="alert">' +
+                        message +
+                        '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>' +
+                        '</div>';
+        $alertContainer.html(alertHtml);
+        // Auto-dismiss the alert after 5 seconds
+        setTimeout(function() {
+            $('.alert').alert('close');
+        }, 5000);
+    }
 
-        toggleForm(false);
+    $editButton.click(function() {
+        toggleForm(true);
     });
+
+    $cancelButton.click(function() {
+        toggleForm(false);
+        $fullname.val('{{ user.fullname }}');
+        $username.val('{{ user.username }}');
+        $mobilephone.val('{{ profile.phone }}');
+        {% if not google_login %}
+        $email.val('{{ user.email }}');
+        {% endif %}
+        clearErrors();
+    });
+
+    $form.on('submit', function(e) {
+        e.preventDefault();
+        if (validateForm()) {
+            $.ajax({
+                url: $form.attr('action'),
+                type: 'POST',
+                data: $form.serialize(),
+                success: function(response) {
+                    if (response.success) {
+                        showAlert('Profile updated successfully', 'success');
+                        toggleForm(false);
+                        // Update original values
+                        originalUsername = $username.val();
+                        originalEmail = $email.val();
+                    } else {
+                        showAlert('Error updating profile: ' + Object.values(response.errors).join(', '), 'error');
+                    }
+                },
+                error: function() {
+                    showAlert('An error occurred while updating the profile', 'error');
+                }
+            });
+        }
+    });
+
+    function validateForm() {
+        clearErrors();
+        var isValid = true;
+        isValid = validateFullname() && isValid;
+        isValid = validateUsername() && isValid;
+        isValid = validateMobilephone() && isValid;
+        {% if not google_login %}
+        isValid = validateEmail() && isValid;
+        {% endif %}
+        return isValid;
+    }
+
+    function validateFullname() {
+        if ($fullname.val().trim() === '') {
+            showError($fullname, 'Name is required');
+            return false;
+        }
+        clearError($fullname);
+        return true;
+    }
+
+    function validateUsername() {
+        var value = $username.val().trim();
+        if (value === '') {
+            showError($username, 'Username is required');
+            return false;
+        }
+        if (value !== originalUsername) {
+            var isValid = true;
+            $.ajax({
+                url: '{% url "mainapp:check_username" %}',
+                data: { 'username': value },
+                dataType: 'json',
+                async: false,
+                success: function(data) {
+                    if (data.available) {
+                        clearError($username);
+                    } else {
+                        showError($username, 'This username is already taken');
+                        isValid = false;
+                    }
+                }
+            });
+            return isValid;
+        }
+        clearError($username);
+        return true;
+    }
+
+    function validateMobilephone() {
+        var value = $mobilephone.val().trim();
+        if (value === '') {
+            showError($mobilephone, 'Mobile number is required');
+            return false;
+        } else if (!/^\d{10}$/.test(value)) {
+            showError($mobilephone, 'Mobile number must be 10 digits');
+            return false;
+        }
+        clearError($mobilephone);
+        return true;
+    }
+
+    function validateEmail() {
+        var value = $email.val().trim();
+        if (value === '') {
+            showError($email, 'Email is required');
+            return false;
+        } else if (!/\S+@\S+\.\S+/.test(value)) {
+            showError($email, 'Invalid email format');
+            return false;
+        }
+        if (value !== originalEmail) {
+            var isValid = true;
+            $.ajax({
+                url: '{% url "mainapp:check_email" %}',
+                data: { 'email': value },
+                dataType: 'json',
+                async: false,
+                success: function(data) {
+                    if (data.available) {
+                        clearError($email);
+                    } else {
+                        showError($email, 'This email is already in use');
+                        isValid = false;
+                    }
+                }
+            });
+            return isValid;
+        }
+        clearError($email);
+        return true;
+    }
+
+    function showError($element, message) {
+        $element.addClass('is-invalid');
+        $('#' + $element.attr('id') + '-error').text(message);
+    }
+
+    function clearError($element) {
+        $element.removeClass('is-invalid');
+        $('#' + $element.attr('id') + '-error').text('');
+    }
+
+    function clearErrors() {
+        $('.is-invalid').removeClass('is-invalid');
+        $('[id$="-error"]').text('');
+    }
+
+    // Add onkeyup event listeners for real-time validation
+    $fullname.on('keyup', validateFullname);
+    $username.on('keyup', validateUsername);
+    $mobilephone.on('keyup', validateMobilephone);
+    {% if not google_login %}
+    $email.on('keyup', validateEmail);
+    {% endif %}
+
+    toggleForm(false);
+});
 </script>
 {% endblock %}

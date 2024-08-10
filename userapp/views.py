@@ -25,10 +25,9 @@ def profile(request):
             if not google_login:
                 user.email = form.cleaned_data['email']
             user.save()
-            messages.success(request, 'Your profile has been updated successfully.')
-            return redirect('userapp:profile')
+            return JsonResponse({'success': True})
         else:
-            messages.error(request, 'Please correct the errors below.')
+            return JsonResponse({'success': False, 'errors': form.errors})
     else:
         form = UserProfileForm(instance=profile, initial={
             'fullname': user.fullname,
@@ -108,3 +107,17 @@ def make_primary_address(request, address_id):
     address.save()
     
     return redirect('userapp:Address')
+
+def check_username(request):
+    username = request.GET.get('username', None)
+    data = {
+        'exists': User.objects.filter(username__iexact=username).exists()
+    }
+    return JsonResponse(data)
+
+def check_email(request):
+    email = request.GET.get('email', None)
+    data = {
+        'exists': User.objects.filter(email__iexact=email).exists()
+    }
+    return JsonResponse(data)
