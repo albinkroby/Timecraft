@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<main class="main">
+    <div class="home__container container">
+        <div class="hero-section text-center py-5">
+            <h1>Sell Watch Online on Time Craft Seller Hub</h1>
+            <p class="lead">Join thousands of sellers and start your watch selling journey today!</p>
+            {% if request.user.is_authenticated and request.user.role == 'vendor' %}
+                <a href="{% url 'vendorapp:index' %}" class="btn btn-primary btn-lg">Seller Dashboard</a>
+            {% else %}
+                {% if request.user.is_authenticated %}
+                    <a href="{% url 'vendorapp:register' %}" class="btn btn-primary btn-lg">Start Selling</a>
+                {% else %}
+                    <a href="{% url 'mainapp:login' %}" class="btn btn-primary btn-lg">Login</a>
+                {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="container">
+            <section class="why-sell-section py-5">
+                <h2 class="text-center mb-4">Why Sell Watch Online with Time Craft</h2>
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <h3>Reach Millions</h3>
+                        <p>Access a vast customer base of watch enthusiasts</p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <h3>Easy Management</h3>
+                        <p>User-friendly platform to manage your inventory</p>
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <h3>Secure Payments</h3>
+                        <p>Reliable and fast payment processing</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="watch-types-section py-5">
+                <h2 class="text-center mb-4">Types of Watches You Can Sell</h2>
+                <div class="row">
+                    <div class="col-md-3 col-4 text-center mb-3">
+                        <img src="{% static 'img/sellerhub/watch-1.jpeg' %}" alt="Luxury Watches" class="img-fluid mb-2">
+                        <p>Luxury Watches</p>
+                    </div>
+                    <div class="col-md-3 col-4 text-center mb-3">
+                        <img src="{% static 'img/sellerhub/watch-2.jpeg' %}" alt="Smart Watches" class="img-fluid mb-2">
+                        <p>Smart Watches</p>
+                    </div>
+                    <div class="col-md-3 col-4 text-center mb-3">
+                        <img src="{% static 'img/sellerhub/watch-3.jpeg' %}" alt="Sports Watches" class="img-fluid mb-2">
+                        <p>Sports Watches</p>
+                    </div>
+                    <div class="col-md-3 col-4 text-center mb-3">
+                        <img src="{% static 'img/sellerhub/watch-4.jpeg' %}" alt="Fashion Watches" class="img-fluid mb-2">
+                        <p>Fashion Watches</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="how-to-sell-section py-5">
+                <h2 class="text-center mb-4">How To Sell Watch Online</h2>
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <div class="step-number">1</div>
+                        <h3>Register as a Vendor</h3>
+                        <p>Create your account and complete verification</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="step-number">2</div>
+                        <h3>Set up Your Vendor Profile</h3>
+                        <p>Complete your profile and add necessary details</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="step-number">3</div>
+                        <h3>List Your Watches</h3>
+                        <p>Add your watches with detailed descriptions and images</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="step-number">4</div>
+                        <h3>Manage Orders and Shipments</h3>
+                        <p>Process orders, ship watches, and update order status</p>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <div class="step-number">5</div>
+                        <h3>Receive Payments</h3>
+                        <p>Get paid for your sold watches through our secure payment system</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="things-to-keep-in-mind py-5">
+                <h2 class="text-center mb-4">Things You Need to Keep in Mind</h2>
+                <div class="row">
+                    <div class="col-md-4">
+                        <h3>Accurate Product Details</h3>
+                        <p>Provide detailed and honest descriptions of your watches</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h3>High-Quality Images</h3>
+                        <p>Upload clear and well-lit images of your watches</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h3>Competitive Pricing</h3>
+                        <p>Set prices competitively to attract more buyers</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="faq-section py-5">
+                <h2 class="text-center mb-4">Frequently Asked Questions</h2>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h3>What is the commission fee for selling on Time Craft?</h3>
+                        <p>Our commission fee is 10% on every sale made through our platform.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h3>How do I ship my watches to buyers?</h3>
+                        <p>You are responsible for shipping your watches to buyers. We recommend using a trackable shipping method.</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</main>
+{% endblock %}
