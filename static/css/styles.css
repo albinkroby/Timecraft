@@ -316,7 +316,7 @@ body.dark-theme {
 }
 
 .nav__link:hover {
-  color: var(--first-color);
+  color: var(--border-color);
 }
 
 .nav__close {
@@ -1480,7 +1480,7 @@ input:-webkit-autofill:focus {
   .nav_bar {
     display: flex;
     flex-direction: row;
-    justify-content: space-between;
+    justify-content:flex-end;
   }
 
 
@@ -1975,3 +1975,63 @@ input:-webkit-autofill:focus {
 .remove-from-wishlist:hover {
   color: #ff6161;
 }
+
+/* Navbar styles */
+
+.form-control {
+  border-radius: 2px 0 0 2px;
+  border: 1px solid #989898;
+  color: var(--text-color);
+}
+
+.nav__search .form-control{
+  border-radius: 2px 0 0 2px;
+  border: 1px solid #ffffff;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(138, 138, 138, 0.1);
+  background-color: #dfe8f0 !important;
+  color: var(--text-color);
+}
+.form-control:placeholder-shown {
+  color: var(--text-color);
+}
+
+.btn-outline-primary {
+  color: #2874f0;
+  border-color: #2874f0;
+  border-radius: 0 2px 2px 0;
+}
+
+.btn-outline-primary:hover {
+  background-color: #2874f0;
+  color: #fff;
+}
+
+.dropdown-menu {
+  border-radius: 2px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.dropdown-item {
+  padding: 0.5rem 1rem;
+}
+
+.dropdown-item i {
+  margin-right: 0.5rem;
+}
+
+@media (max-width: 991.98px) {
+  .navbar-nav {
+      padding-top: 1rem;
+  }
+  
+  .form-control {
+      border-radius: 2px;
+  }
+  
+  .btn-outline-primary {
+      border-radius: 2px;
+      margin-top: 0.5rem;
+  }
+}
+

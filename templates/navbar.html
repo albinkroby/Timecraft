@@ -4,18 +4,22 @@
         <a href="{% url 'mainapp:index' %}" class="nav__logo">
             <i class='bx bxs-watch nav__logo-icon'></i> TIME&nbspCRAFT
         </a>
-
-        <div class="nav__menu" id="nav-menu">
+        <div class="nav__search w-100   " id="nav-search">
+            <form action="{% url 'mainapp:search_results' %}" method="GET" class="nav__search-form" id="search-form">
+                <input type="search" placeholder="Search here..." class="form-control" id="search-input" name="search">
+                <button type="submit" class="nav__search-button" id="search-button">
+                    <i class='bx bx-search nav__search-icon' id="search-icon"></i>
+                </button> 
+            </form>
+        </div>
+        <div class="nav__menu w-50" id="nav-menu">
             <div class="nav_bar">
                 <ul class="nav__list">
                     <li class="nav__item">
-                        <a href="{% url 'mainapp:index' %}" class="nav__link active-link">Home</a>
-                    </li>
-                    <li class="nav__item">
-                        <a href="#featured" class="nav__link">Featured</a>
-                    </li>
-                    <li class="nav__item">
                         <a href="{% url 'vendorapp:home' %}" class="nav__link">Become a Seller</a>
+                    </li>
+                    <li class="nav__item">
+                        <a href="{% url 'mainapp:cart' %}" class="nav__link"><i class='bx bx-shopping-bag' ></i> Cart</a>
                     </li>
                 </ul>
             </div>
@@ -24,26 +28,15 @@
                 <i class='bx bx-x' ></i>
             </div>
         </div>
-
-        <div class="nav__search" id="nav-search">
-            <form action="{% url 'mainapp:search_results' %}" method="GET" class="nav__search-form" id="search-form">
-                <input type="search" placeholder="Search here..." class="nav__search-input login-form" id="search-input" name="search">
-                <button type="submit" class="nav__search-button" id="search-button">
-                    <i class='bx bx-search nav__search-icon' id="search-icon"></i>
-                </button> 
-            </form>
-        </div>
-
         <div class="nav__btns">
             <div class="nav__signin">
                 {% if user.is_authenticated %}
-                    <div class="dropdown">
-                        <a class="dropdown-toggle" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <div class="dropdown ">
+                        <a class="dropdown-toggle " href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                             {{ user.username }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                             <li><a class="dropdown-item" href="{% url 'userapp:profile' %}"><i class='bx bx-user'></i> Profile</a></li>
-                            <li><a class="dropdown-item" href="{% url 'userapp:wishlist' %}"><i class='bx bx-heart'></i> Wishlist</a></li>
                             {% if user.role == 'vendor' %}  
                                 <li><a class="dropdown-item" href="{% url 'vendorapp:index' %}"><i class='bx bx-user'></i> Seller Dashboard</a></li>
                             {% endif %}
@@ -59,10 +52,6 @@
             <!-- Theme change button -->
             <div class="nav__signin">
                 <i class='bx bx-moon change-theme' id="theme-button"></i>
-            </div>
-
-            <div class="nav__shop" id="cart-shop">
-                <i class='bx bx-shopping-bag' ></i>
             </div>
 
             <div class="nav__toggle" id="nav-toggle">
