@@ -106,31 +106,40 @@ themeButton.addEventListener('click', () => {
 })
 
 // custom alert 
+let alertTimeout;
+
 function showCustomAlert(message, type = 'info') {
     const alertElement = document.getElementById('custom-alert');
     const alertMessage = document.getElementById('alert-message');
     
-    alertMessage.textContent = message;
-    
-    // Set color based on alert type
-    switch(type) {
-        case 'success':
-            alertElement.style.backgroundColor = '#4CAF50';
-            break;
-        case 'error':
-            alertElement.style.backgroundColor = '#f44336';
-            break;
-        case 'warning':
-            alertElement.style.backgroundColor = '#ff9800';
-            break;
-        default:
-            alertElement.style.backgroundColor = '#333';
+    if (alertElement && alertMessage) {
+        // Clear any existing timeout
+        clearTimeout(alertTimeout);
+        
+        alertMessage.textContent = message;
+        
+        // Set color based on alert type
+        switch(type) {
+            case 'success':
+                alertElement.style.backgroundColor = '#4CAF50';
+                break;
+            case 'error':
+                alertElement.style.backgroundColor = '#f44336';
+                break;
+            case 'warning':
+                alertElement.style.backgroundColor = '#ff9800';
+                break;
+            default:
+                alertElement.style.backgroundColor = '#333';
+        }
+        
+        alertElement.style.display = 'block';
+        
+        // Hide the alert after 3 seconds
+        alertTimeout = setTimeout(() => {
+            alertElement.style.display = 'none';
+        }, 3000);
+    } else {
+        console.error('Custom alert elements not found');
     }
-    
-    alertElement.style.display = 'block';
-    
-    // Hide the alert after 3 seconds
-    setTimeout(() => {
-        alertElement.style.display = 'none';
-    }, 3000);
 }

@@ -1,0 +1,73 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container mt-4">
+    <h2>User Management</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Full Name</th>
+                <th>Role</th>
+                <th>Date Joined</th>
+                <th>Last Login</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.fullname }}</td>
+                <td>{{ user.role }}</td>
+                <td>{{ user.date_joined|date:"Y-m-d H:i" }}</td>
+                <td>{{ user.last_login|date:"Y-m-d H:i" }}</td>
+                <td>
+                    <span class="badge {% if user.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                        {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm {% if user.is_active %}btn-warning{% else %}btn-success{% endif %} toggle-active" data-user-id="{{ user.id }}">
+                        {% if user.is_active %}Deactivate{% else %}Activate{% endif %}
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('.toggle-active').click(function() {
+        var userId = $(this).data('user-id');
+        var button = $(this);
+        $.ajax({
+            url: "{% url 'adminapp:toggle_user_active' 0 %}".replace('0', userId),
+            type: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            success: function(data) {
+                if (data.success) {
+                    var statusBadge = button.closest('tr').find('.badge');
+                    if (data.is_active) {
+                        button.removeClass('btn-success').addClass('btn-warning').text('Deactivate');
+                        statusBadge.removeClass('bg-danger').addClass('bg-success').text('Active');
+                    } else {
+                        button.removeClass('btn-warning').addClass('btn-success').text('Activate');
+                        statusBadge.removeClass('bg-success').addClass('bg-danger').text('Inactive');
+                    }
+                    showCustomAlert(data.message);
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

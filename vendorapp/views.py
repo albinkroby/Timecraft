@@ -9,13 +9,17 @@ from django.urls import reverse
 from adminapp.models import Category, BaseWatch, WatchImage
 from django.shortcuts import get_object_or_404
 import os
+from django.http import JsonResponse
+from django.views.decorators.cache import never_cache
+from django.db.models import Sum, Count
+from django.utils import timezone
+from datetime import timedelta
 
-# Create your views here.
-
-
+@never_cache
 def home(request):
     return render(request,'vendorapp/home.html')
 
+@never_cache
 def vendor_register(request):
     if not request.user.is_authenticated:
         messages.info(request, "Please log in to register as a vendor.")
@@ -41,16 +45,80 @@ def vendor_register(request):
         form = VendorRegistrationForm()
     return render(request, 'vendorapp/register.html', {'form': form})
 
+@never_cache
 @login_required
 @user_type_required('vendor')
 def index(request):
     vendor_profile = VendorProfile.objects.get(user=request.user)
     if vendor_profile.approval_status == 'Approved':
-        return render(request, 'vendorapp/index.html')
+        # Get total products
+        total_products = BaseWatch.objects.filter(vendor=vendor_profile).count()
+        
+        # Get new products added in the last week
+        one_week_ago = timezone.now() - timedelta(days=7)
+        # new_products_this_week = BaseWatch.objects.filter(vendor=vendor_profile, created_at__gte=one_week_ago).count()
+        new_products_this_week = BaseWatch.objects.filter(vendor=vendor_profile).count()
+        product_growth_percentage = (new_products_this_week / total_products * 100) if total_products > 0 else 0
+        
+        # Get total sales for the last 30 days
+        thirty_days_ago = timezone.now() - timedelta(days=30)
+        # total_sales = BaseWatch.objects.filter(
+        #     vendor=vendor_profile,
+        #     orderitem__order__created_at__gte=thirty_days_ago
+        # ).aggregate(
+        #     total_sales=Sum('orderitem__quantity')
+        # )['total_sales'] or 0
+        
+        total_sales = 0
+        
+        # Get sales growth percentage
+        previous_thirty_days = timezone.now() - timedelta(days=60)
+        # previous_sales = BaseWatch.objects.filter(
+        #     vendor=vendor_profile,
+        #     orderitem__order__created_at__gte=previous_thirty_days,
+        #     orderitem__order__created_at__lt=thirty_days_ago
+        # ).aggregate(
+        #     total_sales=Sum('orderitem__quantity')
+        # )['total_sales'] or 0
+        previous_sales = 0
+        
+        sales_growth_percentage = ((total_sales - previous_sales) / previous_sales * 100) if previous_sales > 0 else 0
+        
+        # Get total orders
+        total_orders = 0
+        # total_orders = BaseWatch.objects.filter(
+        #     vendor=vendor_profile,
+        #     orderitem__isnull=False
+        # ).aggregate(
+        #  total_orders=Count('orderitem__order', distinct=True)
+        # )['total_orders'] or 0
+        
+        # Get order growth percentage
+        new_orders_this_week = 0
+        # new_orders_this_week = BaseWatch.objects.filter(
+        #     vendor=vendor_profile,
+        #     orderitem__order__created_at__gte=one_week_ago
+        # ).aggregate(
+        #     new_orders=Count('orderitem__order', distinct=True)
+        # )['new_orders'] or 0
+        
+        order_growth_percentage = (new_orders_this_week / total_orders * 100) if total_orders > 0 else 0
+        
+        context = {
+            'total_sales': total_sales,
+            'sales_growth_percentage': round(sales_growth_percentage, 1),
+            'total_products': total_products,
+            'product_growth_percentage': round(product_growth_percentage, 1),
+            'total_orders': total_orders,
+            'order_growth_percentage': round(order_growth_percentage, 1),
+        }
+        
+        return render(request, 'vendorapp/index.html', context)
     else:
         return render(request, 'vendorapp/vendor_application_pending.html')
     
-    
+@never_cache
+@login_required
 @user_type_required('vendor')
 def add_product(request):
     if request.method == 'POST':
@@ -71,18 +139,24 @@ def add_product(request):
                 WatchImage.objects.create(base_watch=watch, image=image)
 
             messages.success(request, f'Product "{watch.model_name}" has been added successfully!')
-            return redirect('vendorapp:add_product')  # Redirect back to the same page
+            return redirect('vendorapp:add_product')
+        else:
+            print(form.errors)  # Print form errors for debugging
     else:
         form = BaseWatchForm()
 
     return render(request, 'vendorapp/add_product.html', {'form': form})
 
+@never_cache
+@login_required
 @user_type_required('vendor')
 def product_list(request):
     vendor_profile = VendorProfile.objects.get(user=request.user)
     products = BaseWatch.objects.filter(vendor=vendor_profile)
     return render(request, 'vendorapp/product_list.html', {'products': products})
 
+@never_cache
+@login_required
 @user_type_required('vendor')
 def delete_product(request, product_id):
     product = get_object_or_404(BaseWatch, id=product_id)
@@ -90,6 +164,8 @@ def delete_product(request, product_id):
     messages.success(request, 'Product deleted successfully.')
     return redirect('vendorapp:product_list')
 
+@never_cache
+@login_required
 @user_type_required('vendor')
 def edit_product(request, product_id):
     product = get_object_or_404(BaseWatch, id=product_id, vendor=request.user.vendorprofile)
@@ -102,17 +178,7 @@ def edit_product(request, product_id):
             if 'primary_image' in request.FILES:
                 watch.primary_image = request.FILES['primary_image']
             elif not watch.primary_image:
-                # If no primary image is uploaded and there's no existing primary image,
-                # set the first additional image as the primary image
-                first_additional_image = watch.additional_images.first()
-                if first_additional_image:
-                    from django.core.files import File
-                    watch.primary_image.save(
-                        f"primary/{os.path.basename(first_additional_image.image.name)}",
-                        File(first_additional_image.image.file),
-                        save=False
-                    )
-            # If there's an existing primary image, do nothing (keep the existing one)
+                watch.primary_image = None
 
             watch.save()
 
@@ -124,13 +190,15 @@ def edit_product(request, product_id):
 
             messages.success(request, f'Product "{watch.model_name}" has been updated successfully!')
             return redirect('vendorapp:product_list')
+        else:
+            print(form.errors)  # Print form errors for debugging
     else:
         form = BaseWatchForm(instance=product)
 
     return render(request, 'vendorapp/edit_product.html', {'form': form, 'product': product})
 
-from django.http import JsonResponse
-
+@never_cache
+@login_required
 @user_type_required('vendor')
 def delete_product_image(request, image_id):
     image = get_object_or_404(WatchImage, id=image_id)
@@ -138,3 +206,45 @@ def delete_product_image(request, image_id):
         image.delete()
         return JsonResponse({'success': True})
     return JsonResponse({'success': False}, status=403)
+
+@never_cache
+@login_required
+@user_type_required('vendor')
+def manage_stock(request):
+    vendor_profile = request.user.vendorprofile
+    products = BaseWatch.objects.filter(vendor=vendor_profile)
+    return render(request, 'vendorapp/manage_stock.html', {'products': products})
+
+@never_cache
+@login_required
+@user_type_required('vendor')
+def update_stock(request, product_id):
+    if request.method == 'POST':
+        product = get_object_or_404(BaseWatch, id=product_id, vendor=request.user.vendorprofile)
+        stock_to_add = request.POST.get('stock_quantity')
+        try:
+            stock_to_add = int(stock_to_add)
+            if stock_to_add >= 0:
+                product.total_stock += stock_to_add
+                product.available_stock += stock_to_add
+                product.save()
+                return JsonResponse({
+                    'success': True, 
+                    'available_stock': product.available_stock,
+                    'total_stock': product.total_stock,
+                    'is_in_stock': product.is_in_stock
+                })
+            else:
+                return JsonResponse({'success': False, 'error': 'Stock quantity must be non-negative'})
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Invalid stock quantity'})
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+@never_cache
+@login_required
+@user_type_required('vendor')
+def delete_product(request, product_id):
+    product = get_object_or_404(BaseWatch, id=product_id)
+    product.delete()
+    messages.success(request, 'Product deleted successfully.')
+    return redirect('vendorapp:product_list')

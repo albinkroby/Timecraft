@@ -35,7 +35,7 @@
 <body>
     <div class="d-flex flex-column" id="wrapper">
         <!-- Navbar -->
-        <nav class="navbar sticky-top navbar-expand-lg">
+        <nav class="navbar sticky-top navbar-expand-lg" id="header">
             <div class="container-fluid">
                 <div class="navbar-heading">
                     <a href="{% url 'adminapp:index' %}" class="nav__logo">
@@ -46,12 +46,6 @@
                     <i class='bx bx-menu'></i>
                 </button>
                 
-                <form class="d-flex mx-auto">
-                    <div class="input-group">
-                        <input class="form-control" type="search" placeholder="Search" aria-label="Search">
-                        <button class="btn btn-outline-primary" type="submit"><i class="fas fa-search"></i></button>
-                    </div>
-                </form>
                 
                 <ul class="navbar-nav flex-row ms-auto">
                     <li class="nav-item">
@@ -98,41 +92,32 @@
         <!-- Sidebar -->
             <div id="sidebar-wrapper">
                 <div class="list-group list-group-flush">
-                    <a href="{% url 'adminapp:index' %}" class="list-group-item list-group-item-action active">
+                    <a href="{% url 'adminapp:index' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
                         <i class='bx bxs-dashboard'></i> Dashboard
                     </a>
-                    <a href="#" class="list-group-item list-group-item-action">
-                        <i class='bx bxs-user' ></i> Users <i class="fas fa-chevron-down float-right mt-1"></i>
+                    <a href="{% url 'adminapp:user_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'user_list' %}active{% endif %}">
+                        <i class='bx bxs-user' ></i> Users
                     </a>
-                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#sellersCollapse" aria-expanded="false" aria-controls="sellersCollapse">
+                    <a href="#" class="list-group-item list-group-item-action {% if 'seller' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#sellersCollapse" aria-expanded="false" aria-controls="sellersCollapse">
                         <i class='bx bxl-shopify'></i> Sellers <i class='bx bx-chevron-down float-end'></i>
                     </a>
-                    <div class="collapse" id="sellersCollapse">
+                    <div class="collapse {% if 'seller' in request.resolver_match.url_name %}show{% endif %}" id="sellersCollapse">
                         <div class="list-group">
-                            <a class="ps-5 list-group-item list-group-item-action" href="{% url 'adminapp:seller_approval' %}"><i class='bx bx-plus-circle'></i>Seller Approval</a>
-                            <a class="ps-5 list-group-item list-group-item-action" href="{% url 'adminapp:all_sellers' %}"><i class='bx bx-show'></i> View Sellers</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'seller_approval' %}active{% endif %}" href="{% url 'adminapp:seller_approval' %}"><i class='bx bx-plus-circle'></i>Seller Approval</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'all_sellers' %}active{% endif %}" href="{% url 'adminapp:all_sellers' %}"><i class='bx bx-show'></i> View Sellers</a>
                         </div>
                     </div>
-                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#productsCollapse" aria-expanded="false" aria-controls="productsCollapse">
+                    <a href="#" class="list-group-item list-group-item-action {% if 'product' in request.resolver_match.url_name or 'brand' in request.resolver_match.url_name or 'category' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#productsCollapse" aria-expanded="false" aria-controls="productsCollapse">
                         <i class='bx bxs-package'></i> Products <i class='bx bx-chevron-down float-end'></i>
                     </a>
-                    <div class="collapse" id="productsCollapse">
+                    <div class="collapse {% if 'product' in request.resolver_match.url_name or 'brand' in request.resolver_match.url_name or 'category' in request.resolver_match.url_name %}show{% endif %}" id="productsCollapse">
                         <div class="list-group">
-                            <a class="ps-5 list-group-item list-group-item-action" href="{% url 'adminapp:add_product' %}"><i class='bx bx-plus-circle'></i> Add Product</a>
-                            <a class="ps-5 list-group-item list-group-item-action" href="{% url 'adminapp:product_list' %}"><i class='bx bx-show'></i> View Products</a>
-                            <a class="ps-5 list-group-item list-group-item-action" href="{% url 'adminapp:brand_list' %}"><i class='bx bx-store-alt'></i> Brands</a>
-                            <a class="ps-5 list-group-item list-group-item-action" href="{% url 'adminapp:category_list' %}"><i class='bx bx-category-alt' ></i> Category</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'add_product' %}active{% endif %}" href="{% url 'adminapp:add_product' %}"><i class='bx bx-plus-circle'></i> Add Product</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}" href="{% url 'adminapp:product_list' %}"><i class='bx bx-show'></i> View Products</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'brand_list' %}active{% endif %}" href="{% url 'adminapp:brand_list' %}"><i class='bx bx-store-alt'></i> Brands</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'category_list' %}active{% endif %}" href="{% url 'adminapp:category_list' %}"><i class='bx bx-category-alt' ></i> Category</a>
                         </div>
                     </div>
-                    <a href="#" class="list-group-item list-group-item-action">
-                        <i class="fas fa-table mr-2"></i> Tables <i class="fas fa-chevron-down float-right mt-1"></i>
-                    </a>
-                    <a href="#" class="list-group-item list-group-item-action">
-                        <i class="fas fa-chart-bar mr-2"></i> Charts <i class="fas fa-chevron-down float-right mt-1"></i>
-                    </a>
-                    <a href="#" class="list-group-item list-group-item-action">
-                        <i class="fas fa-icons mr-2"></i> Icons <i class="fas fa-chevron-down float-right mt-1"></i>
-                    </a>
                 </div>
                 <div class="sidebar-heading mt-3">
                     PAGES
@@ -141,9 +126,9 @@
                     <a href="#" class="list-group-item list-group-item-action">
                         <i class="fas fa-user mr-2"></i> Profile
                     </a>
-                    <a href="#" class="list-group-item list-group-item-action">
+                    {% comment %} <a href="#" class="list-group-item list-group-item-action">
                         <i class="fas fa-question-circle mr-2"></i> F.A.Q
-                    </a>
+                    </a> {% endcomment %}
                 </div>
                 <div class="list-group list-group-flush">
                     <a href="{% url 'mainapp:logout' %}" class="list-group-item list-group-item-action">
@@ -174,6 +159,9 @@
                 </div>
             </div>
                 <!-- /#page-content-wrapper -->
+                <div id="custom-alert" class="custom-alert">
+                    <span id="alert-message"></span>
+                </div>
         </div>
     </div>
     <!-- /#wrapper -->

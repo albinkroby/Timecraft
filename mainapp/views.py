@@ -27,9 +27,10 @@ User = get_user_model()
 @never_cache
 def index(request):
     basewatch = BaseWatch.objects.all()
-    return render(request,'index.html',{'basewatch':basewatch})
+    featured_watch = get_object_or_404(BaseWatch, model_name="Chronograph Analog Watch")
+    return render(request,'index.html',{'basewatch':basewatch, 'featured_watch': featured_watch})
 
-
+@never_cache
 def signin(request):
     if request.user.is_authenticated:
         return redirect(reverse('mainapp:index'))
@@ -40,7 +41,7 @@ def signin(request):
         user = authenticate(request, username=email, password=password)
         
         if user is not None:
-            if user.is_active:
+            if user.is_verified and user.is_active:
                 hashed_next = request.POST.get('redirect')
                 login(request, user)
                 if hashed_next:
@@ -64,6 +65,7 @@ def signin(request):
     
     return render(request, 'login.html')
 
+@never_cache
 def google_login(request):
     if request.user.is_authenticated:
         return redirect(reverse('mainapp:index')) 
@@ -81,6 +83,7 @@ def google_login(request):
     return redirect('social:begin', 'google-oauth2')
 
 @transaction.atomic
+@never_cache
 def signup(request):
     if request.user.is_authenticated:
         return redirect(reverse('mainapp:index')) 
@@ -93,7 +96,7 @@ def signup(request):
                     email=form.cleaned_data['email'],
                     password=form.cleaned_data['password'],
                     fullname=form.cleaned_data['name'],
-                    is_active=False  # User is inactive until email verification
+                    is_verified=False  # User is inactive until email verification
                 )
                 
                 # Send email verification
@@ -103,6 +106,7 @@ def signup(request):
             form = SignUpForm()
         return render(request, 'signup.html', {'form': form})
 
+@never_cache
 def sendmail(request,user):
     current_site = get_current_site(request)
     subject = 'Activate Your Account'
@@ -116,11 +120,13 @@ def sendmail(request,user):
     
     return redirect(reverse('mainapp:index'))
         
+@never_cache
 def signout(request):
     logout(request)
     return redirect(reverse('mainapp:login'), {'message': 'You have been logged out'})
 
 @login_required
+@never_cache
 def login_redirect(request):
     user = request.user
     user_role = request.session.pop('user_role', None)
@@ -133,6 +139,7 @@ def login_redirect(request):
         return redirect('mainapp:index')
     return redirect('login')
 
+@never_cache
 def activate(request, uidb64, token):
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
@@ -141,12 +148,13 @@ def activate(request, uidb64, token):
         user = None
 
     if user is not None and default_token_generator.check_token(user, token):
-        user.is_active = True
+        user.is_verified = True
         user.save()
         return redirect('mainapp:login')
     else:
         return render(request, 'registration/activation_invalid.html')
 
+@never_cache
 def check_username(request):
     username = request.GET.get('username', '')
     if request.user.is_authenticated and request.user.username == username:
@@ -154,6 +162,7 @@ def check_username(request):
     is_available = not User.objects.filter(username=username).exists()
     return JsonResponse({'available': is_available})
 
+@never_cache
 def check_email(request):
     email = request.GET.get('email', '')
     if request.user.is_authenticated and request.user.email == email:
@@ -161,6 +170,7 @@ def check_email(request):
     is_available = not User.objects.filter(email=email).exists()
     return JsonResponse({'available': is_available})
 
+@never_cache
 def product_detail(request, slug):
     watch = get_object_or_404(BaseWatch, slug=slug)
     context = {
@@ -169,20 +179,40 @@ def product_detail(request, slug):
     }
     return render(request, 'product_detail.html', context)
 
+@never_cache
 @login_required
 def add_to_cart(request, watch_id):
-    watch = get_object_or_404(BaseWatch, id=watch_id)
-    cart, created = Cart.objects.get_or_create(user=request.user)
-    cart_item, item_created = CartItem.objects.get_or_create(cart=cart, watch=watch)
-    
-    if not item_created:
-        cart_item.quantity += 1
-        cart_item.save()
-    
-    messages.success(request, f"{watch.model_name} added to your cart.")
-    return redirect('mainapp:cart')
+    if request.user.is_authenticated:
+        if request.method == 'POST':
+            try:
+                watch = get_object_or_404(BaseWatch, id=watch_id)
+                cart, _ = Cart.objects.get_or_create(user=request.user)
+                
+                # Check if the item already exists in the cart
+                cart_items = CartItem.objects.filter(cart=cart, watch=watch)
+                
+                if cart_items.exists():
+                    # If the item exists, update the quantity of the first item
+                    cart_item = cart_items.first()
+                    cart_item.quantity += 1
+                    cart_item.save()
+                    
+                    # Delete any duplicate items if they exist
+                    cart_items.exclude(id=cart_item.id).delete()
+                else:
+                    # If the item doesn't exist, create a new CartItem
+                    cart_item = CartItem.objects.create(cart=cart, watch=watch, quantity=1)
+                
+                return JsonResponse({'success': True, 'message': f"{watch.model_name} added to your cart."})
+            except Exception as e:
+                return JsonResponse({'success': False, 'message': str(e)}, status=500)
+        else:
+            return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=400)
+    else:
+        return redirect('mainapp:login')    
 
 @login_required
+@never_cache
 def cart(request):
     cart, created = Cart.objects.get_or_create(user=request.user)
     items = cart.items.all()
@@ -200,6 +230,7 @@ def cart(request):
     return render(request, 'cart.html', context)
 
 @login_required
+@never_cache
 def remove_from_cart(request, item_id):
     item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
     item.delete()
@@ -207,6 +238,7 @@ def remove_from_cart(request, item_id):
     return redirect('mainapp:cart')
 
 @login_required
+@never_cache
 def update_cart(request, item_id):
     item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
     quantity = int(request.POST.get('quantity', 1))
@@ -219,6 +251,7 @@ def update_cart(request, item_id):
         messages.success(request, f"{item.watch.model_name} removed from your cart.")
     return redirect('mainapp:cart')
 
+@never_cache
 def search_results(request):
     query = request.GET.get('search', '')
     brands = request.GET.getlist('brand')

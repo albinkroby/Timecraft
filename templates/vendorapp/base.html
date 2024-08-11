@@ -43,12 +43,6 @@
                     <i class='bx bx-menu'></i>
                 </button>
                 
-                <form class="d-flex mx-auto">
-                    <div class="input-group">
-                        <input class="form-control" type="search" placeholder="Search" aria-label="Search">
-                        <button class="btn btn-outline-primary" type="submit"><i class="fas fa-search"></i></button>
-                    </div>
-                </form>
                 
                 <ul class="navbar-nav flex-row ms-auto">
                     <li class="nav-item">
@@ -95,17 +89,17 @@
         <!-- Sidebar -->
             <div id="sidebar-wrapper">
                 <div class="list-group list-group-flush">
-                    <a href="{% url 'vendorapp:index' %}" class="list-group-item list-group-item-action active">
+                    <a href="{% url 'vendorapp:index' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
                         <i class='bx bxs-dashboard'></i> Dashboard
                     </a>
-                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#productsCollapse" aria-expanded="false" aria-controls="productsCollapse">
+                    <a href="#" class="list-group-item list-group-item-action {% if 'product' in request.resolver_match.url_name or 'manage_stock' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#productsCollapse" aria-expanded="false" aria-controls="productsCollapse">
                         <i class='bx bxs-package'></i> Products <i class='bx bx-chevron-down float-end'></i>
                     </a>
-                    <div class="collapse" id="productsCollapse">
+                    <div class="collapse {% if 'product' in request.resolver_match.url_name or 'manage_stock' in request.resolver_match.url_name %}show{% endif %}" id="productsCollapse">
                         <div class="list-group">
-                            <a class="ps-5 list-group-item list-group-item-action" href="{% url 'vendorapp:add_product' %}"><i class='bx bx-plus-circle'></i> Add Product</a>
-                            <a class="ps-5 list-group-item list-group-item-action" href="{% url 'vendorapp:product_list' %}"><i class='bx bx-show'></i> View Products</a>
-                            
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'add_product' %}active{% endif %}" href="{% url 'vendorapp:add_product' %}"><i class='bx bx-plus-circle'></i> Add Product</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}" href="{% url 'vendorapp:product_list' %}"><i class='bx bx-show'></i> View Products</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'manage_stock' %}active{% endif %}" href="{% url 'vendorapp:manage_stock' %}"><i class='bx bx-show'></i> Manage Stock</a>
                         </div>
                     </div>
                 </div>
@@ -113,7 +107,7 @@
                     PAGES
                 </div>
                 <div class="list-group list-group-flush">
-                    <a href="{% url 'userapp:profile' %}" class="list-group-item list-group-item-action">
+                    <a href="{% url 'userapp:profile' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
                         <i class="fas fa-user mr-2"></i> Profile
                     </a>
                     <a href="#" class="list-group-item list-group-item-action">

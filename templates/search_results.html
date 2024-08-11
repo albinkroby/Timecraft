@@ -12,6 +12,15 @@
                     <button type="submit" class="btn btn-primary">Apply Filters</button>
                 </div>
                 <input type="hidden" name="search" value="{{ query }}">
+                <div class="sort-options">
+                    <span>Sort By:</span>
+                    <select name="sort_by" id="sort_by" class="form-select">
+                        <option value="relevance" {% if sort_by == 'relevance' %}selected{% endif %}>Relevance</option>
+                        <option value="price_low_to_high" {% if sort_by == 'price_low_to_high' %}selected{% endif %}>Price -- Low to High</option>
+                        <option value="price_high_to_low" {% if sort_by == 'price_high_to_low' %}selected{% endif %}>Price -- High to Low</option>
+                        <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest First</option>
+                    </select>
+                </div>
                 <div class="filter-section">
                     <h5>Categories</h5>
                     {% for category in categories %}
@@ -83,15 +92,6 @@
         <!-- Search Results Column -->
         <div class="col-md-9">
             <h4>Showing results for "{{ query }}"</h4>
-            <div class="sort-options">
-                <span>Sort By:</span>
-                <select name="sort_by" id="sort_by" class="form-select">
-                    <option value="relevance" {% if sort_by == 'relevance' %}selected{% endif %}>Relevance</option>
-                    <option value="price_low_to_high" {% if sort_by == 'price_low_to_high' %}selected{% endif %}>Price -- Low to High</option>
-                    <option value="price_high_to_low" {% if sort_by == 'price_high_to_low' %}selected{% endif %}>Price -- High to Low</option>
-                    <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest First</option>
-                </select>
-            </div>
             <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
                 {% for watch in watches %}
                 <div class="col">
@@ -146,7 +146,18 @@
     }
 
     document.getElementById("sort_by").addEventListener("change", function() {
-        document.getElementById("filter-form").submit();
+        const form = document.getElementById("filter-form");
+        const sortBy = this.value;
+        const currentUrl = new URL(window.location.href);
+        const searchParams = new URLSearchParams(currentUrl.search);
+        
+        // Update or add the sort_by parameter
+        searchParams.set('sort_by', sortBy);
+        
+        // Update the form's action URL with all current parameters
+        form.action = `${currentUrl.pathname}?${searchParams.toString()}`;
+        
+        form.submit();
     });
 
     // Preserve query parameters when navigating pagination

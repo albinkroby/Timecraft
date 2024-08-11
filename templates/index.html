@@ -7,7 +7,11 @@
             <section class="home" id="home">
                 <div class="home__container container grid">
                     <div class="home__img-bg">
-                        <img src="{% static 'img/home.png' %}" alt="" class="home__img">
+                        {% if featured_watch.primary_image %}
+                            <img src="{{ featured_watch.primary_image.url }}" alt="{{ featured_watch.model_name }}" class="home__img">
+                        {% else %}
+                            <img src="{% static 'img/default_watch.png' %}" alt="Default watch image" class="home__img">
+                        {% endif %}
                     </div>
                     <div class="home__data">
                         <h1 class="home__title">NEW WATCH <br> COLLECTIONS B720</h1>
@@ -15,14 +19,14 @@
                             Latest arrival of the new imported watches of the B720 series, 
                             with a modern and resistant design.
                         </p>
-                        <span class="home__price">$1245</span>
+                        <span class="home__price">Rs.{{ featured_watch.base_price }}</span>
 
                         <div class="home__btns">
-                            <a href="#" class="button button--gray button--small">
+                            <a href="{% url 'mainapp:product_detail' slug=featured_watch.slug %}" class="button button--gray button--small">
                                 Discover
                             </a>
 
-                            <button class="button home__button">ADD TO CART</button>
+                            <button class="button home__button" data-watch-id="{{ featured_watch.id }}">ADD TO WISHLIST</button>
                         </div>
                     </div>
                 </div>
@@ -34,143 +38,35 @@
                     Products
                 </h2>
                 <div class="container-fluid">
-                <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 g-4">
-                    {% for basewatch in basewatch %}
-                    <div class="col">
-                        <article class="products__card h-100">
-                            <a href="{% url 'mainapp:product_detail' slug=basewatch.slug %}">
-                                {% if basewatch.primary_image %}
-                                    <img src="{{ basewatch.primary_image.url }}" alt="{{ basewatch.model_name }}" class="products__img" >
-                                {% else %}
-                                    <img src="{% static 'img/default_watch.png' %}" alt="Default watch image" class="products__img">
-                                {% endif %}
+                    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-5 g-4">
+                        {% for basewatch in basewatch %}
+                        <div class="col">
+                            <article class="products__card h-100">
+                                <a href="{% url 'mainapp:product_detail' slug=basewatch.slug %}">
+                                    {% if basewatch.primary_image %}
+                                        <img src="{{ basewatch.primary_image.url }}" alt="{{ basewatch.model_name }}" class="products__img" >
+                                    {% else %}
+                                        <img src="{% static 'img/default_watch.png' %}" alt="Default watch image" class="products__img">
+                                    {% endif %}
 
-                                <h3 class="products__title">{{ basewatch.model_name|truncatechars:18 }}</h3>
-                                <span class="products__price">Rs.{{ basewatch.base_price }}</span>
-                            </a>
+                                    <h3 class="products__title">{{ basewatch.model_name|truncatechars:18 }}</h3>
+                                    <span class="products__price">Rs.{{ basewatch.base_price }}</span>
+                                </a>
 
-                            <button class="products__button" data-watch-id="{{ basewatch.id }}">
-                                <i class='bx bxs-bookmark-plus'></i>
-                            </button>
-                        </article>
-                    </div>
-                    {% endfor %}
-                    
-                    <div class="col">
-                    <article class="products__card h-100">
-                        <img src="{% static 'img/product2.png' %}" alt="" class="products__img">
-
-                        <h3 class="products__title">Khaki pilot</h3>
-                        <span class="products__price">$1350</span>
-
-                        <button class="products__button">
-                            <i class='bx bxs-bookmark-plus'></i>
-                        </button>
-                    </article>
-                    </div>
-
-                    <div class="col">
-                        <article class="products__card h-100">
-                            <img src="{% static 'img/product3.png' %}" alt="" class="products__img">
-
-                            <h3 class="products__title">Jubilee black</h3>
-                            <span class="products__price">$870</span>
-
-                                <button class="products__button">
+                                <button class="products__button" data-watch-id="{{ basewatch.id }}">
                                     <i class='bx bxs-bookmark-plus'></i>
                                 </button>
-                        </article>
-                    </div>
-                </div>
-                </div>
-            </section>
-
-            <!--==================== TESTIMONIAL ====================-->
-            <section class="testimonial section container">
-                <div class="testimonial__container grid">
-                    <div class="swiper testimonial-swiper">
-                        <div class="swiper-wrapper">
-                            <div class="testimonial__card swiper-slide">
-                                <div class="testimonial__quote">
-                                    <i class='bx bxs-quote-alt-left' ></i>
-                                </div>
-                                <p class="testimonial__description">
-                                    They are the best watches that one acquires, also they are always with the latest 
-                                    news and trends, with a very comfortable price and especially with the attention 
-                                    you receive, they are always attentive to your questions.
-                                </p>
-                                <h3 class="testimonial__date">March 27. 2021</h3>
-        
-                                <div class="testimonial__perfil">
-                                    <img src="{% static 'img/testimonial1.jpg' %}" alt="" class="testimonial__perfil-img">
-        
-                                    <div class="testimonial__perfil-data">
-                                        <span class="testimonial__perfil-name">Lee Doe</span>
-                                        <span class="testimonial__perfil-detail">Director of a company</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="testimonial__card swiper-slide">
-                                <div class="testimonial__quote">
-                                    <i class='bx bxs-quote-alt-left' ></i>
-                                </div>
-                                <p class="testimonial__description">
-                                    They are the best watches that one acquires, also they are always with the latest 
-                                    news and trends, with a very comfortable price and especially with the attention 
-                                    you receive, they are always attentive to your questions.
-                                </p>
-                                <h3 class="testimonial__date">March 27. 2021</h3>
-        
-                                <div class="testimonial__perfil">
-                                    <img src="{% static 'img/testimonial2.jpg' %}" alt="" class="testimonial__perfil-img">
-        
-                                    <div class="testimonial__perfil-data">
-                                        <span class="testimonial__perfil-name">Samantha Mey</span>
-                                        <span class="testimonial__perfil-detail">Director of a company</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="testimonial__card swiper-slide">
-                                <div class="testimonial__quote">
-                                    <i class='bx bxs-quote-alt-left' ></i>
-                                </div>
-                                <p class="testimonial__description">
-                                    They are the best watches that one acquires, also they are always with the latest 
-                                    news and trends, with a very comfortable price and especially with the attention 
-                                    you receive, they are always attentive to your questions.
-                                </p>
-                                <h3 class="testimonial__date">March 27. 2021</h3>
-        
-                                <div class="testimonial__perfil">
-                                    <img src="{% static 'img/testimonial3.jpg' %}" alt="" class="testimonial__perfil-img">
-        
-                                    <div class="testimonial__perfil-data">
-                                        <span class="testimonial__perfil-name">Raul Zaman</span>
-                                        <span class="testimonial__perfil-detail">Director of a company</span>
-                                    </div>
-                                </div>
-                            </div>
+                            </article>
                         </div>
-                        
-                        <div class="swiper-button-next">
-                            <i class='bx bx-right-arrow-alt' ></i>
-                        </div>
-                        <div class="swiper-button-prev">
-                            <i class='bx bx-left-arrow-alt' ></i>
-                        </div>
-                    </div>
-
-                    <div class="testimonial__images">
-                        <div class="testimonial__square"></div>
-                        <img src="{% static 'img/testimonial.png' %}" alt="" class="testimonial__img">
+                        {% endfor %}
                     </div>
                 </div>
             </section>
+
+        
 
             <!--==================== NEW ====================-->
-            <section class="new section container" id="new">
+            {% comment %} <section class="new section container" id="new">
                 <h2 class="section__title">
                     New Arrivals
                 </h2>
@@ -232,28 +128,8 @@
                         </div>
                     </div>
                 </div>
-            </section>
+            </section> {% endcomment %}
 
-            <!--==================== NEWSLETTER ====================-->
-            <section class="newsletter section container">
-                <div class="newsletter__bg grid">
-                    <div>
-                        <h2 class="newsletter__title">Subscribe Our <br> Newsletter</h2>
-                        <p class="newsletter__description">
-                            Don't miss out on your discounts. Subscribe to our email 
-                            newsletter to get the best offers, discounts, coupons, 
-                            gifts and much more.
-                        </p>
-                    </div>
-
-                    <form action="" class="newsletter__subscribe">
-                        <input type="email" placeholder="Enter your email" class="newsletter__input">
-                        <button class="button">
-                            SUBSCRIBE
-                        </button>
-                    </form>
-                </div>
-            </section>
         </main>
 
 {% endblock %}
@@ -261,7 +137,7 @@
 {% block extra_js %}
 <script>
     $(document).ready(function() {
-        $('.products__button').click(function(e) {
+        $('.products__button, .home__button').click(function(e) {
             e.preventDefault();
             var watchId = $(this).data('watch-id');
             var button = $(this);

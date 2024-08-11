@@ -27,7 +27,7 @@
                                 <span class="discount">{{ watch.discount_percentage }}% off</span>
                             {% endif %}
                         </div>
-                        {% if not watch.in_stock %}
+                        {% if not watch.is_in_stock %}
                             <div class="unavailable">Currently unavailable</div>
                         {% endif %}
                     </div>

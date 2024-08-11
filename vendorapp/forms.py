@@ -17,7 +17,7 @@ class BaseWatchForm(forms.ModelForm):
     class Meta:
         model = BaseWatch
         fields = '__all__'
-        exclude = ['vendor', 'slug', 'average_rating', 'total_reviews']
+        exclude = ['vendor', 'slug', 'average_rating', 'total_reviews','total_stock','sold_stock']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

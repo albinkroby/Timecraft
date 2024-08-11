@@ -8,8 +8,10 @@
                         <h5 class="card-title mb-0">Last 30 Day Sales</h5>
                     </div>
                     <div class="card-body">
-                        <h3 class="card-text">1,234</h3>
-                        <p class="card-text text-success">+5% this week</p>
+                        <h3 class="card-text">{{ total_sales }}</h3>
+                        <p class="card-text {% if sales_growth_percentage > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ sales_growth_percentage }}% this month
+                        </p>
                     </div>
                 </div>
             </div>
@@ -19,8 +21,10 @@
                         <h5 class="card-title mb-0">Total Products</h5>
                     </div>
                     <div class="card-body">
-                        <h3 class="card-text">567</h3>
-                        <p class="card-text text-success">+2% this week</p>
+                        <h3 class="card-text">{{ total_products }}</h3>
+                        <p class="card-text {% if product_growth_percentage > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ product_growth_percentage }}% this week
+                        </p>
                     </div>
                 </div>
             </div>
@@ -30,8 +34,10 @@
                         <h5 class="card-title mb-0">Total Orders</h5>
                     </div>
                     <div class="card-body">
-                        <h3 class="card-text">890</h3>
-                        <p class="card-text text-success">+8% this week</p>
+                        <h3 class="card-text">{{ total_orders }}</h3>
+                        <p class="card-text {% if order_growth_percentage > 0 %}text-success{% else %}text-danger{% endif %}">
+                            {{ order_growth_percentage }}% this week
+                        </p>
                     </div>
                 </div>
             </div>

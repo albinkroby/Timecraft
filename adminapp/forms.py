@@ -24,7 +24,7 @@ class BaseWatchForm(forms.ModelForm):
     class Meta:
         model = BaseWatch
         fields = ['category', 'brand', 'model_name', 'base_price', 'description', 
-                  'stock_quantity', 'color', 'strap_material', 'case_size', 'movement_type', 
+                  'available_stock', 'color', 'strap_material', 'case_size', 'movement_type', 
                   'water_resistance']
         widgets = {
             'category': forms.Select(attrs={'class': 'form-control'}),
@@ -32,7 +32,7 @@ class BaseWatchForm(forms.ModelForm):
             'model_name': forms.TextInput(attrs={'class': 'form-control'}),
             'base_price': forms.NumberInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'rows': 3, 'class': 'form-control'}),
-            'stock_quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'available_stock': forms.NumberInput(attrs={'class': 'form-control'}),
             'color': forms.TextInput(attrs={'class': 'form-control'}),
             'strap_material': forms.TextInput(attrs={'class': 'form-control'}),
             'case_size': forms.NumberInput(attrs={'class': 'form-control'}),

@@ -7,7 +7,9 @@ from django.db import IntegrityError
 from django.http import JsonResponse
 from .models import Wishlist
 from adminapp.models import BaseWatch
+from django.views.decorators.cache import never_cache
 
+@never_cache
 @login_required
 def profile(request):
     user = request.user
@@ -46,12 +48,14 @@ def profile(request):
         'form': form,
     })
 
+@never_cache
 @login_required
 def address_list(request):
     addresses = Address.objects.filter(user=request.user)
     form = AddressForm()
     return render(request, 'userapp/address.html', {'addresses': addresses, 'form': form})
 
+@never_cache
 @login_required
 def add_address(request):
     if request.method == 'POST':
@@ -68,6 +72,7 @@ def add_address(request):
         form = AddressForm()
     return render(request, 'userapp/address.html', {'form': form})
 
+@never_cache
 @login_required
 def edit_address(request, address_id):
     address = get_object_or_404(Address, id=address_id, user=request.user)
@@ -91,12 +96,14 @@ def edit_address(request, address_id):
     
     return render(request, 'userapp/address.html', {'form': form, 'edit_address': address})
 
+@never_cache
 @login_required
 def delete_address(request, address_id):
     address = get_object_or_404(Address, id=address_id, user=request.user)
     address.delete()
     return redirect('userapp:Address')
 
+@never_cache
 @login_required
 def make_primary_address(request, address_id):
     address = get_object_or_404(Address, id=address_id, user=request.user)
@@ -110,6 +117,7 @@ def make_primary_address(request, address_id):
     
     return redirect('userapp:Address')
 
+@never_cache
 def check_username(request):
     username = request.GET.get('username', None)
     data = {
@@ -117,6 +125,7 @@ def check_username(request):
     }
     return JsonResponse(data)
 
+@never_cache
 def check_email(request):
     email = request.GET.get('email', None)
     data = {
@@ -124,11 +133,13 @@ def check_email(request):
     }
     return JsonResponse(data)
 
+@never_cache
 @login_required
 def wishlist(request):
     wishlist, created = Wishlist.objects.get_or_create(user=request.user)
     return render(request, 'userapp/wishlist.html', {'wishlist': wishlist})
 
+@never_cache
 @login_required
 def add_to_wishlist(request, watch_id):
     if request.method == 'POST':
@@ -141,6 +152,7 @@ def add_to_wishlist(request, watch_id):
             return JsonResponse({'status': 'already_in_wishlist'})
     return JsonResponse({'status': 'error'}, status=400)
 
+@never_cache
 @login_required
 def remove_from_wishlist(request, watch_id):
     watch = get_object_or_404(BaseWatch, id=watch_id)

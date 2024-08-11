@@ -6,7 +6,6 @@ import os
 from django.utils.text import slugify
 from django.db.models.signals import pre_save
 from django.db.models import Min, Max
-# from .storage import WatchImageStorage
 
 class Brand(models.Model):
     brand_name = models.CharField(max_length=100, unique=True)
@@ -52,7 +51,10 @@ class BaseWatch(models.Model):
     slug = models.SlugField(unique=True, blank=True, null=True)
     base_price = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField()
-    stock_quantity = models.IntegerField()
+    total_stock = models.IntegerField(default=0)
+    available_stock = models.IntegerField(default=0)
+    sold_stock = models.IntegerField(default=0)
+    is_in_stock = models.BooleanField(default=False)
     color = models.CharField(max_length=50)
     strap_material = models.CharField(max_length=50)
     case_size = models.DecimalField(max_digits=5, decimal_places=2)
@@ -85,6 +87,7 @@ class BaseWatch(models.Model):
             extension = os.path.splitext(self.primary_image.name)[1]
             new_filename = f"{slugify(self.model_name)}_primary{extension}"
             self.primary_image.name = new_filename
+        self.is_in_stock = self.available_stock > 0 
         super().save(*args, **kwargs)
 
     def get_primary_image(self):
@@ -98,6 +101,13 @@ class BaseWatch(models.Model):
     @classmethod
     def get_unique_values(cls, field_name):
         return cls.objects.values_list(field_name, flat=True).distinct()
+
+    def update_stock(self, new_stock):
+        if new_stock > self.total_stock:
+            self.total_stock = new_stock
+        self.available_stock = new_stock
+        self.sold_stock = self.total_stock - self.available_stock
+        self.save()
 
 def pre_save_base_watch_receiver(sender, instance, *args, **kwargs):
     if not instance.slug:

@@ -1,0 +1,83 @@
+{% extends "vendorapp/base.html" %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container mt-4">
+    <h2>Manage Stock</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Available Stock</th>
+                <th>Total Stock</th>
+                <th>Sold Stock</th>
+                <th>In Stock</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for product in products %}
+            <tr>
+                <td>{{ product.model_name }}</td>
+                <td id="available-stock-{{ product.id }}">{{ product.available_stock }}</td>
+                <td id="total-stock-{{ product.id }}">{{ product.total_stock }}</td>
+                <td id="sold-stock-{{ product.id }}">{{ product.sold_stock }}</td>
+                <td id="in-stock-{{ product.id }}">
+                    {% if product.is_in_stock %}
+                    <span class="badge bg-success">In Stock</span>
+                    {% else %}
+                    <span class="badge bg-danger">Out of Stock</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <input type="number" class="form-control d-inline-block w-auto" id="new-stock-{{ product.id }}" min="0">
+                    <button class="btn btn-primary update-stock" data-product-id="{{ product.id }}">Update</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('.update-stock').click(function() {
+        var productId = $(this).data('product-id');
+        var stockToAdd = $('#new-stock-' + productId).val();
+        $.ajax({
+            url: "{% url 'vendorapp:update_stock' 0 %}".replace('0', productId),
+            type: 'POST',
+            data: {
+                'stock_quantity': stockToAdd,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(data) {
+                if (data.success) {
+                    var availableStockElement = $('#available-stock-' + productId);
+                    var totalStockElement = $('#total-stock-' + productId);
+                    
+                    availableStockElement.text(data.available_stock);
+                    totalStockElement.text(data.total_stock);
+                    
+                    var inStockElement = $('#in-stock-' + productId);
+                    if (data.is_in_stock) {
+                        inStockElement.html('<span class="badge bg-success">In Stock</span>');
+                    } else {
+                        inStockElement.html('<span class="badge bg-danger">Out of Stock</span>');
+                    }
+                    showCustomAlert('Stock updated successfully', 'success');
+                    $('#new-stock-' + productId).val(''); // Clear the input field
+                } else {
+                    showCustomAlert('Error: ' + data.error, 'error');
+                }
+            },
+            error: function() {
+                showCustomAlert('An error occurred while updating stock', 'error');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
