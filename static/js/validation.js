@@ -17,12 +17,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
         switch(validationType) {
             case 'name':
-                if (value.length < 2) {
+                if (!/^[A-Za-z ]+$/.test(value)) {
+                    errorMessage = 'Name should only contain letters';
+                } else if (value.length < 2) {
                     errorMessage = 'Name must be at least 2 characters long.';
                 }
                 break;
             case 'username':
-                if (value.length < 3) {
+                if (!/^[A-Za-z0-9._]+$/.test(value)) {
+                    errorMessage = 'Invalid Username';
+                } else if (value.length < 3) {
                     errorMessage = 'Username must be at least 3 characters long.';
                 } else {
                     checkUsernameAvailability(value);
@@ -36,8 +40,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 break;
             case 'password':
-                if (value.length < 8) {
-                    errorMessage = 'Password must be at least 8 characters long.';
+                if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,}$/.test(value)) {
+                    errorMessage = 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character (!@#$%^&*).';
                 }
                 break;
         }
