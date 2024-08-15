@@ -22,17 +22,17 @@
             <div class="mt-3 row text-center">
                 {% if user.is_authenticated %}
                 <div class="col-md-6">
-                    <button type="submit" class="w-100 button button--gray" id="add-to-cart" data-watch-id="{{ watch.id }}" >Add to Cart</button>
+                    <button type="submit" class="w-100 button button--gray rounded" id="add-to-cart" data-watch-id="{{ watch.id }}">Add to Cart</button>
                 </div>
                 <div class="col-md-6">
-                        <button class="w-100 button">Buy Now</button>
-                    </div>
+                    <a href="{% url 'mainapp:order_review' %}?product_id={{ watch.id }}" class="w-100 button rounded">Buy Now</a>
+                </div>
                 {% else %}
                 <div class="col-md-6">
-                    <a href="{% url 'mainapp:login' %}" class="w-100 button button--gray">Add to Cart</a>
+                    <a href="{% url 'mainapp:login' %}" class="w-100 button button--gray rounded">Add to Cart</a>
                 </div>
                 <div class="col-md-6">
-                    <a href="{% url 'mainapp:login' %}" class="w-100 button">Buy Now</a>
+                    <a href="{% url 'mainapp:login' %}" class="w-100 button rounded">Buy Now</a>
                 </div>
                 {% endif %}
             </div>

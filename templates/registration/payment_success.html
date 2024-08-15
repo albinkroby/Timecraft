@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="home__container container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h2 class="card-title text-success mb-4">Payment Successful!</h2>
+                    <i class="fas fa-check-circle text-success fa-5x mb-4"></i>
+                    <p class="card-text">Thank you for your purchase. Your order has been successfully processed.</p>
+                    <p class="card-text">An email confirmation will be sent to you shortly.</p>
+                    <p class="card-text">You will be redirected to your order details in <span id="countdown">5</span> seconds.</p>
+                    <a href="" class="btn btn-primary mt-3">View Order Details</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container mt-5">
+        <h2>Payment Status</h2>
+        {% if paid %}
+            <div class="alert alert-success">
+                Your payment was successful! Thank you for your purchase.
+            </div>
+        {% else %}
+            <div class="alert alert-warning">
+                Your payment was not successful. Please try again or contact support.
+            </div>
+            {% if error %}
+                <p>Error: {{ error }}</p>
+            {% endif %}
+        {% endif %}
+        <a href="{% url 'mainapp:index' %}" class="btn btn-primary">Return to Home</a>
+    </div>
+</div>
+
+<script>
+    let seconds = 5;
+    const countdownElement = document.getElementById('countdown');
+    const countdownTimer = setInterval(function() {
+        seconds--;
+        countdownElement.textContent = seconds;
+        if (seconds <= 0) {
+            clearInterval(countdownTimer);
+            window.location.href = "{% url 'mainapp:index' %}";
+        }
+    }, 1000);
+</script>
+{% endblock %}

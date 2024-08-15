@@ -46,8 +46,14 @@ class Address(models.Model):
     address_type = models.CharField(max_length=10, choices=ADDRESS_TYPE_CHOICES, default='home')
     is_primary = models.BooleanField(default=False)
 
+    def save(self, *args, **kwargs):
+        if self.is_primary:
+            # Set all other addresses of this user to non-primary
+            Address.objects.filter(user=self.user).update(is_primary=False)
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.user.username}'s Address"
+        return f"{self.flat_house_no}, {self.area_street}, {self.town_city}, {self.state}, {self.pincode}"
 
 from adminapp.models import BaseWatch
 

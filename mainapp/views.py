@@ -4,6 +4,7 @@ from django.contrib.auth import login, get_user_model,authenticate,logout
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_POST
 from django.urls import reverse
 from django.db import transaction
 from .models import Address,UserProfile, Cart, CartItem
@@ -20,6 +21,11 @@ from django.db.models import Q
 from adminapp.models import BaseWatch, WatchImage, Brand, Category
 from django.contrib import messages
 from django.core.paginator import Paginator
+import stripe
+from django.conf import settings
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
 
 User = get_user_model()
 # Create your views here.
@@ -237,19 +243,30 @@ def remove_from_cart(request, item_id):
     messages.success(request, f"{item.watch.model_name} removed from your cart.")
     return redirect('mainapp:cart')
 
+@require_POST
 @login_required
 @never_cache
-def update_cart(request, item_id):
-    item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
-    quantity = int(request.POST.get('quantity', 1))
-    if quantity > 0:
-        item.quantity = quantity
+def update_cart(request):
+    if request.method == 'POST':
+        item_id = request.POST.get('item_id')
+        action = request.POST.get('action')
+        
+        item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
+        if action == 'increase':
+            item.quantity += 1
+        elif action == 'decrease' and item.quantity > 1:
+            item.quantity -= 1
         item.save()
-        messages.success(request, f"Quantity updated for {item.watch.model_name}.")
+        cart, created = Cart.objects.get_or_create(user=request.user)
+        items = cart.items.all()
+        total = sum(item.watch.base_price * item.quantity for item in items)
+        # discount = sum((item.watch.original_price - item.watch.base_price) * item.quantity for item in items)
+        # final_total = total - discount
+        final_total = total
+
+        return JsonResponse({'message': 'Cart updated successfully', 'new_quantity': item.quantity ,'total' : total ,'final_total' : final_total}, status=200)
     else:
-        item.delete()
-        messages.success(request, f"{item.watch.model_name} removed from your cart.")
-    return redirect('mainapp:cart')
+        return JsonResponse({'error': 'Invalid request'}, status=400)
 
 @never_cache
 def search_results(request):
@@ -312,3 +329,196 @@ def search_results(request):
         'sort_by': sort_by,
     }
     return render(request, 'search_results.html', context)
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
+@login_required
+@never_cache
+def order_review(request):
+    addresses = Address.objects.filter(user=request.user)
+    primary_address = addresses.filter(is_primary=True).first()
+    
+    product_id = request.GET.get('product_id')
+    if product_id:
+        # Single product checkout
+        product = get_object_or_404(BaseWatch, id=product_id)
+        items = [{'watch': product, 'quantity': 1}]
+        total = product.base_price
+        single_product = product
+    else:
+        # Cart checkout
+        cart = Cart.objects.filter(user=request.user).first()
+        if not cart or cart.items.count() == 0:
+            messages.warning(request, "Your cart is empty.")
+            return redirect('mainapp:cart')
+        items = cart.items.all()
+        total = sum(item.watch.base_price * item.quantity for item in items)
+        single_product = None
+
+    context = {
+        'items': items,
+        'total': total,
+        'addresses': addresses,
+        'primary_address': primary_address,
+        'stripe_publishable_key': settings.STRIPE_PUBLIC_KEY,
+        'single_product': single_product,
+    }
+    return render(request, 'order_review.html', context)
+
+@csrf_exempt
+@require_POST
+@login_required
+def create_checkout_session(request):
+    try:
+        data = json.loads(request.body)
+        address_id = data.get('address_id')
+        product_id = data.get('product_id')
+
+        if not address_id:
+            return JsonResponse({'error': 'Please select a delivery address'}, status=400)
+
+        address = get_object_or_404(Address, id=address_id, user=request.user)
+
+        if product_id:
+            # Single product checkout
+            product = get_object_or_404(BaseWatch, id=product_id)
+            line_items = [{
+                'price_data': {
+                    'currency': 'inr',
+                    'unit_amount': int(product.base_price * 100),
+                    'product_data': {
+                        'name': product.model_name,
+                    },
+                },
+                'quantity': 1,
+            }]
+        else:
+            # Cart checkout
+            cart = Cart.objects.filter(user=request.user).first()
+            if not cart or cart.items.count() == 0:
+                return JsonResponse({'error': 'Your cart is empty'}, status=400)
+            
+            line_items = [{
+                'price_data': {
+                    'currency': 'inr',
+                    'unit_amount': int(item.watch.base_price * 100),
+                    'product_data': {
+                        'name': item.watch.model_name,
+                    },
+                },
+                'quantity': item.quantity,
+            } for item in cart.items.all()]
+
+        # Create or update Stripe Customer with shipping address
+        # Check if the customer already exists in Stripe
+        existing_customers = stripe.Customer.list(email=request.user.email)
+        if existing_customers.data:
+            stripe_customer = existing_customers.data[0]
+            # Update the existing customer's shipping information
+            stripe_customer = stripe.Customer.modify(
+                stripe_customer.id,
+                shipping={
+                    'name': request.user.fullname,
+                    'address': {
+                        'line1': address.flat_house_no,
+                        'line2': address.area_street,
+                        'city': address.town_city,
+                        'state': address.state,
+                        'postal_code': address.pincode,
+                        'country': 'IN',
+                    }
+                }
+            )
+        else:
+            # Create a new customer if one doesn't exist
+            stripe_customer = stripe.Customer.create(
+                email=request.user.email,
+                name=request.user.fullname,
+                shipping={
+                    'name': request.user.fullname,
+                    'address': {
+                        'line1': address.flat_house_no,
+                        'line2': address.area_street,
+                        'city': address.town_city,
+                        'state': address.state,
+                        'postal_code': address.pincode,
+                        'country': 'IN',
+                    }
+                }
+            )
+
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=line_items,
+            mode='payment',
+            customer=stripe_customer.id,
+            client_reference_id=str(request.user.id),
+            shipping_address_collection={
+                'allowed_countries': ['IN'],
+            },
+            shipping_options=[
+                {
+                    'shipping_rate_data': {
+                        'type': 'fixed_amount',
+                        'fixed_amount': {'amount': 0, 'currency': 'inr'},
+                        'display_name': 'Free shipping',
+                        'delivery_estimate': {
+                            'minimum': {'unit': 'business_day', 'value': 5},
+                            'maximum': {'unit': 'business_day', 'value': 7},
+                        }
+                    }
+                },
+            ],
+            custom_text={
+                'shipping_address': {
+                    'message': 'Please confirm your shipping address for delivery within India.',
+                },
+                'submit': {
+                    'message': 'Your order will be delivered within 5-7 business days.',
+                },
+            },
+            success_url=request.build_absolute_uri(reverse('mainapp:payment_success')) + '?session_id={CHECKOUT_SESSION_ID}',
+            cancel_url=request.build_absolute_uri(reverse('mainapp:payment_cancel')),
+        )
+        return JsonResponse({'id': checkout_session.id})
+    except stripe.error.StripeError as e:
+        return JsonResponse({'error': str(e)}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': 'An unexpected error occurred.'}, status=400)
+
+@never_cache
+@login_required
+def payment_success(request):
+    session_id = request.GET.get('session_id')
+    if session_id:
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            if session.payment_status == 'paid':
+                # Payment was successful
+                cart = Cart.objects.filter(user=request.user).first()
+                if cart:
+                    # Clear the cart
+                    cart.items.all().delete()
+                    cart.delete()
+                
+                # Here you would typically create an order record in your database
+                # For single product purchase, you can get the product details from the session
+                line_items = stripe.checkout.Session.list_line_items(session_id, limit=1)
+                if line_items.data:
+                    product_name = line_items.data[0].description
+                    quantity = line_items.data[0].quantity
+                    # Create order for single product
+                    # Order.objects.create(user=request.user, product_name=product_name, quantity=quantity, ...)
+                
+                return render(request, 'registration/payment_success.html', {'paid': True})
+            else:
+                return render(request, 'registration/payment_success.html', {'paid': False})
+        except Exception as e:
+            return render(request, 'registration/payment_success.html', {'paid': False, 'error': str(e)})
+    return render(request, 'registration/payment_success.html', {'paid': False})
+
+
+@never_cache
+@login_required
+def payment_cancel(request):
+    return render(request, 'registration/payment_cancel.html')

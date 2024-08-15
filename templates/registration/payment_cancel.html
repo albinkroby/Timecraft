@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="home__container container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h2 class="card-title text-danger mb-4">Payment Cancelled</h2>
+                    <i class="fas fa-times-circle text-danger fa-5x mb-4"></i>
+                    <p class="card-text">Your payment has been cancelled. No charges were made.</p>
+                    <p class="card-text">If you experienced any issues, please try again or contact our support team.</p>
+                    <a href="{% url 'mainapp:cart' %}" class="btn btn-primary mt-3">Return to Cart</a>
+                    <a href="{% url 'mainapp:index' %}" class="btn btn-secondary mt-3 ml-2">Continue Shopping</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -194,7 +194,7 @@ def delete_product(request, product_id):
 @never_cache
 @user_passes_test(lambda u: u.is_superuser)
 def user_list(request):
-    users = User.objects.all().order_by('-date_joined')
+    users = User.objects.filter(is_superuser=False).order_by('-date_joined')
     return render(request, 'adminapp/user_list.html', {'users': users})
 
 @never_cache
