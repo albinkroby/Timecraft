@@ -1,6 +1,9 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
+from django.utils import timezone
+import uuid
 
 class User(AbstractUser):
     ROLE_CHOICES = (
@@ -76,3 +79,51 @@ class CartItem(models.Model):
     @property
     def total_price(self):
         return self.watch.base_price * self.quantity
+
+class Order(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
+    address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    stripe_session_id = models.CharField(max_length=200, blank=True, null=True)
+    order_id = models.CharField(max_length=50, unique=True, blank=True)
+
+    def __str__(self):
+        return f"Order {self.order_id} by {self.user.email}"
+
+    def get_vendor_total(self, vendor):
+        return sum(
+            item.price * item.quantity 
+            for item in self.items.filter(watch__vendor=vendor)
+        )
+
+@receiver(pre_save, sender=Order)
+def create_order_id(sender, instance, **kwargs):
+    if not instance.order_id:
+        now = timezone.now()
+        time_string = now.strftime("%d%m%Y%H%M%S%f")
+        unique_id = str(uuid.uuid4().hex[:6])  # Add this for extra uniqueness
+        instance.order_id = f"WH{time_string}{unique_id}"
+
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
+    watch = models.ForeignKey(BaseWatch, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.watch.model_name} in Order {self.order.id}"
+
+    @property
+    def total_price(self):
+        return self.price * self.quantity

@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import timedelta
 from django.views.decorators.cache import never_cache
+from mainapp.models import Order
 # Create your views here.
 User=get_user_model()
 
@@ -35,12 +36,9 @@ def index(request):
     product_growth_percentage = (new_products_this_week / total_products) * 100 if total_products > 0 else 0
     
     
-    # total_orders = Order.objects.count()
-    # new_orders_this_week = Order.objects.filter(created_at__gte=one_week_ago).count()
-    # order_growth_percentage = (new_orders_this_week / total_orders) * 100 if total_orders > 0 else 0
-    
-    total_orders = 0
-    order_growth_percentage = 0
+    total_orders = Order.objects.count()
+    new_orders_this_week = Order.objects.filter(created_at__gte=one_week_ago).count()
+    order_growth_percentage = (new_orders_this_week / total_orders) * 100 if total_orders > 0 else 0
     
     context = {
         'total_users': total_users,

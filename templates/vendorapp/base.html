@@ -35,7 +35,7 @@
         <nav class="navbar sticky-top navbar-expand-lg">
             <div class="container-fluid">
                 <div class="navbar-heading">
-                    <a href="{% url 'adminapp:index' %}" class="nav__logo">
+                    <a href="{% url 'vendorapp:index' %}" class="nav__logo">
                     <i class='bx bxs-watch nav__logo-icon'></i> TIME&nbspCRAFT
                     </a>
                 </div>
@@ -97,11 +97,13 @@
                     </a>
                     <div class="collapse {% if 'product' in request.resolver_match.url_name or 'manage_stock' in request.resolver_match.url_name %}show{% endif %}" id="productsCollapse">
                         <div class="list-group">
-                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'add_product' %}active{% endif %}" href="{% url 'vendorapp:add_product' %}"><i class='bx bx-plus-circle'></i> Add Product</a>
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}" href="{% url 'vendorapp:product_list' %}"><i class='bx bx-show'></i> View Products</a>
-                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'manage_stock' %}active{% endif %}" href="{% url 'vendorapp:manage_stock' %}"><i class='bx bx-show'></i> Manage Stock</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'manage_stock' %}active{% endif %}" href="{% url 'vendorapp:manage_stock' %}"><i class='bx bxs-bar-chart-alt-2'></i> Manage Stock</a>
                         </div>
                     </div>
+                    <a href="{% url 'vendorapp:order_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'order_list' %}active{% endif %}">
+                        <i class='bx bxs-cart'></i> Orders
+                    </a>
                 </div>
                 <div class="sidebar-heading mt-3">
                     PAGES
@@ -139,6 +141,9 @@
                             {% block admin_content %}
                             {% endblock %}
                         </div>
+                    </div>
+                    <div id="custom-alert" class="custom-alert">
+                        <span id="alert-message"></span>
                     </div>
                 </div>
             </div>

@@ -3,25 +3,19 @@
 {% block title %}Products{% endblock %}
 
 {% block admin_content %}
-<div id="message-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
-</div>
-<div class="card">
+
+<div class="card border-0">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center"> 
             <h5 class="card-title mb-4">Products</h5>
-            <a href="{% url 'vendorapp:add_product' %}" class="btn btn-primary mb-3">Add New Product</a>
+            <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addProductModal">
+                Add New Product
+            </button>
         </div>
         <table id="productTable" class="table table-hover">
             <thead>
                 <tr>
+                    <th>Image</th>
                     <th>Model Name</th>
                     <th>Brand</th>
                     <th>Category</th>
@@ -33,6 +27,11 @@
             <tbody>
                 {% for product in products %}
                 <tr>
+                    <td>
+                        {% if product.primary_image %}
+                            <img src = "{{ product.primary_image.url}}" class="" style="width:50px"/>
+                        {% endif %}
+                    </td>
                     <td>{{ product.model_name }}</td>
                     <td>{{ product.brand.brand_name }}</td>
                     <td>{{ product.category.name }}</td>
@@ -46,6 +45,55 @@
                 {% endfor %}
             </tbody>
         </table>
+    </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="modal fade" id="addProductModal" tabindex="-1" aria-labelledby="addProductModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <form id="addProductForm" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addProductModalLabel">Add New Product</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Stepper wrapper -->
+                <div class="stepper-wrapper mb-4">
+                    <div class="stepper-item active">
+                        <div class="step-counter">1</div>
+                        <div class="step-name">Basic Info</div>
+                    </div>
+                    <div class="stepper-item">
+                        <div class="step-counter">2</div>
+                        <div class="step-name">Details</div>
+                    </div>
+                    <div class="stepper-item">
+                        <div class="step-counter">3</div>
+                        <div class="step-name">Additional</div>
+                    </div>
+                    <div class="stepper-item">
+                        <div class="step-counter">4</div>
+                        <div class="step-name">Description</div>
+                    </div>
+                </div>
+                <!-- Scrollable content area -->
+                <div class="modal-scroll-area">
+                    <div class="row">
+                        <div id="formSections">
+                            <!-- Form sections will be dynamically added here -->
+                        </div>
+                    </div>  
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="prevBtn">Previous</button>
+                <button type="button" class="btn btn-primary" id="nextBtn">Next</button>
+                <button type="submit" class="btn btn-success" id="submitBtn" style="display: none;">Submit</button>
+            </div>
+        </div>
+    </form>
     </div>
 </div>
 {% endblock %}
@@ -63,7 +111,7 @@
             "info": true,
             "autoWidth": false,
             "responsive": true,
-            "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
+            "dom": '<"row"<"col-sm-12 col-md-6"f><"col-sm-12 col-md-6"l>>' +
                    '<"row"<"col-sm-12"tr>>' +
                    '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
             "language": {
@@ -71,6 +119,396 @@
                 "searchPlaceholder": "Search products..."
             }
         });
+
+        // Move search bar to the left
+        $('.dataTables_filter').css('text-align', 'left');
+
+        // Form sections
+        const formSections = [
+            {
+                title: "Basic Information and Images",
+                fields: ['model_name', 'brand', 'category', 'base_price', 'available_stock', 'primary_image']
+            },
+            {
+                title: "Product Details",
+                fields: ['color', 'strap_material', 'case_size', 'movement_type', 'water_resistance']
+            },
+            {
+                title: "Additional Information",
+                fields: ['display_type', 'style_code', 'series', 'occasion', 'pack_of', 'strap_color', 'net_quantity', 'strap_type', 'case_material', 'water_resistance_depth', 'dial_color', 'width', 'diameter', 'warranty_period']
+            },
+            {
+                title: "Description",
+                fields: ['description']
+            }
+        ];
+
+        let currentSection = 0;
+
+        function updateStepper(sectionIndex) {
+            $('.stepper-item').removeClass('active completed');
+            $('.stepper-item').eq(sectionIndex).addClass('active');
+            for (let i = 0; i < sectionIndex; i++) {
+                $('.stepper-item').eq(i).addClass('completed');
+            }
+            // Validate all sections
+            formSections.forEach((section, index) => {
+                //validateSection(index);
+            });
+        }
+
+        function showSection(sectionIndex) {
+            const section = formSections[sectionIndex];
+            formSections.forEach((sec, index) => {
+                sec.fields.forEach(field => {
+                    let fieldElement = $(`#id_${field}`);
+                    let fieldContainer = fieldElement.closest('.col-md-6');
+                    if (index === sectionIndex) {
+                        fieldContainer.show();
+                        fieldElement.prop('required', true);
+                    } else {
+                        fieldContainer.hide();
+                        fieldElement.prop('required', false);
+                    }
+                });
+            });
+
+            $('h6.section-title').remove();
+            $('#formSections').prepend(`<h6 class="section-title">${section.title}</h6>`);
+
+            // Add image upload fields only to the first section
+            if (sectionIndex === 0) {
+                if (!$('#primary_image').length) {
+                    let imageUploadHtml = `
+                        <div class="mb-3">
+                            <label for="product_images" class="form-label">Additional Product Images</label>
+                            <div id="drop-area" class="drop-area">
+                                <p>Drag and drop images here or click to browse</p>
+                                <input type="file" name="product_images" id="product_images" class="form-control" multiple accept="image/*" style="display: none;">
+                                <div id="image-preview" class="mt-3 d-flex flex-wrap"></div>
+                                <div class="invalid-feedback" id="error_product_images"></div>
+                            </div>
+                        </div>
+                    `;
+                    $('#formSections').append(imageUploadHtml);
+                    initializeDragAndDrop();
+                }
+            }
+            $('#primary_image').closest('.mb-3').toggle(sectionIndex === 0);
+            $('#product_images').closest('.mb-3').toggle(sectionIndex === 0);
+
+            updateButtons();
+            updateStepper(sectionIndex);
+            //validateSection(sectionIndex);
+
+            // Scroll to the top of the modal content area
+            $('.modal-scroll-area').scrollTop(0);
+        }
+
+        async function validateSection(sectionIndex) {
+            let isValid = true;
+            const section = formSections[sectionIndex];
+            for (let field of section.fields) {
+                let fieldElement = $(`#id_${field}`);
+                let errorElement = $(`#error_${field}`);
+                fieldElement.removeClass('is-invalid');
+                errorElement.text('');
+
+                if (fieldElement.prop('required') && !fieldElement.val()) {
+                    isValid = false;
+                    fieldElement.addClass('is-invalid');
+                    errorElement.text('This field is required.');
+                    continue;
+                }
+
+                switch (field) {
+                    case 'model_name':
+                        if (fieldElement.val()) {
+                            try {
+                                const isUnique = await checkUniqueModelName(fieldElement.val());
+                                if (!isUnique) {
+                                    isValid = false;
+                                    fieldElement.addClass('is-invalid');
+                                    errorElement.text('Model name must be unique.');
+                                }
+                            } catch (error) {
+                                console.error('Error checking unique model name:', error);
+                            }
+                        }
+                        break;
+                    case 'base_price':
+                    case 'available_stock':
+                    case 'case_size':
+                    case 'width':
+                    case 'diameter':
+                        if (fieldElement.val()) {
+                            const value = parseFloat(fieldElement.val());
+                            if (isNaN(value) || value < 0) {
+                                isValid = false;
+                                fieldElement.addClass('is-invalid');
+                                errorElement.text('Please enter a valid positive number.');
+                            }
+                        }
+                        break;
+                    case 'primary_image':
+                        if (fieldElement[0].files.length > 0) {
+                            for (let i = 0; i < fieldElement[0].files.length; i++) {
+                                if (!validateImageFile(fieldElement[0].files[i])) {
+                                    isValid = false;
+                                    fieldElement.addClass('is-invalid');
+                                    errorElement.text('Please upload valid image file(s) (jpg, jpeg, png, or gif).');
+                                    break;
+                                }
+                            }
+                        }
+                        break;
+                    case 'product_images':
+                        if ($('#product_images')[0].files.length > 0) {
+                            for (let i = 0; i < $('#product_images')[0].files.length; i++) {
+                                if (!validateImageFile($('#product_images')[0].files[i])) {
+                                    isValid = false;
+                                    $('#product_images').addClass('is-invalid');
+                                    $('#error_product_images').text('Please upload valid image file(s) (jpg, jpeg, png, or gif).');
+                                    break;
+                                }
+                            }
+                        }
+                        break;
+                }
+            }
+
+            $('.stepper-item').eq(sectionIndex).toggleClass('error', !isValid);
+            return isValid;
+        }
+
+        function validateImageFile(file) {
+            const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+            const fileName = file.name.toLowerCase();
+            const fileExtension = fileName.split('.').pop();
+            return allowedExtensions.includes(fileExtension);
+        }
+
+        function updateButtons() {
+            $('#prevBtn').toggle(currentSection > 0);
+            $('#nextBtn').toggle(currentSection < formSections.length - 1);
+            $('#submitBtn').toggle(currentSection === formSections.length - 1);
+            
+            let isValid = true;
+            $('#formSections .col-md-6:visible').each(function() {
+                let input = $(this).find('input, select, textarea');
+                if (input.prop('required') && !input.val()) {
+                    isValid = false;
+                    return false;
+                }
+            });
+            $('#submitBtn').prop('disabled', !isValid);
+        }
+
+        $('#nextBtn').click(async function() {
+            if (currentSection < formSections.length - 1) {
+                if (await validateSection(currentSection)) {
+                    currentSection++;
+                    showSection(currentSection);
+                } else {
+                    showCustomAlert('Please correct the errors before proceeding.');
+                }
+            }
+        });
+
+        $('#prevBtn').click(function() {
+            if (currentSection > 0) {
+                currentSection--;
+                showSection(currentSection);
+            }
+        });
+
+        $('#addProductModal').on('show.bs.modal', function () {
+            let allFieldsHtml = '<div class="row">';
+            formSections.forEach(section => {
+                section.fields.forEach(field => {
+                    allFieldsHtml += `
+                        <div class="col-md-6 mb-3" style="display: none;">
+                            <label for="id_${field}" class="form-label">${field.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</label>
+                            ${window.form_fields[field]}
+                            <div class="invalid-feedback" id="error_${field}"></div>
+                        </div>
+                    `;
+                });
+            });
+            $('#formSections').html(allFieldsHtml + '</div>');
+            
+            currentSection = 0;
+            showSection(currentSection);
+            updateStepper(currentSection);
+        });
+
+        $('#addProductForm').submit(async function(e) {
+            e.preventDefault();
+            
+            let isValid = true;
+            for (let index = 0; index < formSections.length; index++) {
+                if (!await validateSection(index)) {
+                    isValid = false;
+                    break;
+                }
+            }
+
+            if (!isValid) {
+                showCustomAlert('Please correct all errors before submitting.');
+                return;
+            }
+
+            let formData = new FormData(this);
+
+            $.ajax({
+                url: '{% url "vendorapp:add_product" %}',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        $('#addProductModal').modal('hide');
+                        location.reload();
+                    } else {
+                        for (let field in response.errors) {
+                            let fieldElement = $(`#id_${field}`);
+                            let errorElement = $(`#error_${field}`);
+                            fieldElement.addClass('is-invalid');
+                            errorElement.text(response.errors[field].join(', '));
+                        }
+                        showCustomAlert('Please correct the errors in the form.');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    showCustomAlert('An error occurred. Please try again.');
+                }
+            });
+        });
+
+        function initializeDragAndDrop() {
+            let dropArea = document.getElementById('drop-area');
+            let fileInput = document.getElementById('product_images');
+            let preview = document.getElementById('image-preview');
+            let errorElement = $('#error_product_images');
+
+            function validateImageFile(file) {
+                const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif'];
+                const fileName = file.name.toLowerCase();
+                const fileExtension = fileName.split('.').pop();
+                return allowedExtensions.includes(fileExtension);
+            }
+
+            function handleFiles(files) {
+                let allValid = true;
+                errorElement.text('');
+                preview.innerHTML = ''; // Clear existing previews
+
+                Array.from(files).forEach(file => {
+                    if (validateImageFile(file)) {
+                        previewFile(file);
+                    } else {
+                        allValid = false;
+                    }
+                });
+
+                if (!allValid) {
+                    errorElement.text('Some files are not valid image files (jpg, jpeg, png, or gif).');
+                    fileInput.value = ''; // Clear the file input
+                }
+            }
+
+            function previewFile(file) {
+                let reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onloadend = function() {
+                    let div = document.createElement('div');
+                    div.className = 'image-container';
+                    div.innerHTML = `
+                        <img src="${reader.result}" class="img-thumbnail" style="max-width: 150px; max-height: 150px;">
+                        <span class="close-btn">&times;</span>
+                    `;
+                    preview.appendChild(div);
+
+                    div.querySelector('.close-btn').addEventListener('click', function() {
+                        div.remove();
+                        // Remove the file from the file input
+                        const dt = new DataTransfer();
+                        const { files } = fileInput;
+                        for (let i = 0; i < files.length; i++) {
+                            const f = files[i];
+                            if (f !== file) dt.items.add(f);
+                        }
+                        fileInput.files = dt.files;
+                    });
+                }
+            }
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+
+            function highlight(e) {
+                dropArea.classList.add('highlight');
+            }
+
+            function unhighlight(e) {
+                dropArea.classList.remove('highlight');
+            }
+
+            dropArea.addEventListener('drop', handleDrop, false);
+
+            function handleDrop(e) {
+                let dt = e.dataTransfer;
+                let files = dt.files;
+                handleFiles(files);
+            }
+
+            dropArea.addEventListener('click', () => fileInput.click());
+
+            fileInput.addEventListener('change', function() {
+                handleFiles(this.files);
+            });
+        }
+
+        function checkUniqueModelName(modelName) {
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    url: '{% url "vendorapp:check_unique_model_name" %}',
+                    type: 'GET',
+                    data: { model_name: modelName },
+                    success: function(response) {
+                        resolve(response.is_unique);
+                    },
+                    error: function(xhr, status, error) {
+                        reject(error);
+                    }
+                });
+            });
+        }
+
+        {% if messages %}
+            {% for message in messages %}
+                let message = '{{ message }}';
+                message = message.replace(/&quot;/g, '"');
+                showCustomAlert(message);
+            {% endfor %}
+        {% endif %}
     });
+
+    window.form_fields = {{ form_fields|safe }};
 </script>
 {% endblock %}

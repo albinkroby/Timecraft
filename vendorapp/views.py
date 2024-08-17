@@ -7,6 +7,7 @@ from .models import VendorProfile
 from mainapp.utils import hash_url
 from django.urls import reverse
 from adminapp.models import Category, BaseWatch, WatchImage
+from mainapp.models import Order, OrderItem
 from django.shortcuts import get_object_or_404
 import os
 from django.http import JsonResponse
@@ -14,6 +15,7 @@ from django.views.decorators.cache import never_cache
 from django.db.models import Sum, Count
 from django.utils import timezone
 from datetime import timedelta
+from django.core.paginator import Paginator
 
 @never_cache
 def home(request):
@@ -62,48 +64,48 @@ def index(request):
         
         # Get total sales for the last 30 days
         thirty_days_ago = timezone.now() - timedelta(days=30)
-        # total_sales = BaseWatch.objects.filter(
-        #     vendor=vendor_profile,
-        #     orderitem__order__created_at__gte=thirty_days_ago
-        # ).aggregate(
-        #     total_sales=Sum('orderitem__quantity')
-        # )['total_sales'] or 0
-        
-        total_sales = 0
+        total_sales = BaseWatch.objects.filter(
+            vendor=vendor_profile,
+            orderitem__order__created_at__gte=thirty_days_ago
+        ).aggregate(
+            total_sales=Sum('orderitem__quantity')
+        )['total_sales'] or 0
         
         # Get sales growth percentage
         previous_thirty_days = timezone.now() - timedelta(days=60)
-        # previous_sales = BaseWatch.objects.filter(
-        #     vendor=vendor_profile,
-        #     orderitem__order__created_at__gte=previous_thirty_days,
-        #     orderitem__order__created_at__lt=thirty_days_ago
-        # ).aggregate(
-        #     total_sales=Sum('orderitem__quantity')
-        # )['total_sales'] or 0
-        previous_sales = 0
+        previous_sales = BaseWatch.objects.filter(
+            vendor=vendor_profile,
+            orderitem__order__created_at__gte=previous_thirty_days,
+            orderitem__order__created_at__lt=thirty_days_ago
+        ).aggregate(
+            total_sales=Sum('orderitem__quantity')
+        )['total_sales'] or 0
         
         sales_growth_percentage = ((total_sales - previous_sales) / previous_sales * 100) if previous_sales > 0 else 0
         
         # Get total orders
-        total_orders = 0
-        # total_orders = BaseWatch.objects.filter(
-        #     vendor=vendor_profile,
-        #     orderitem__isnull=False
-        # ).aggregate(
-        #  total_orders=Count('orderitem__order', distinct=True)
-        # )['total_orders'] or 0
+        total_orders = BaseWatch.objects.filter(
+            vendor=vendor_profile,
+            orderitem__isnull=False
+        ).aggregate(
+            total_orders=Count('orderitem__order', distinct=True)
+        )['total_orders'] or 0
         
         # Get order growth percentage
-        new_orders_this_week = 0
-        # new_orders_this_week = BaseWatch.objects.filter(
-        #     vendor=vendor_profile,
-        #     orderitem__order__created_at__gte=one_week_ago
-        # ).aggregate(
-        #     new_orders=Count('orderitem__order', distinct=True)
-        # )['new_orders'] or 0
+        new_orders_this_week = BaseWatch.objects.filter(
+            vendor=vendor_profile,
+            orderitem__order__created_at__gte=one_week_ago
+        ).aggregate(
+            new_orders=Count('orderitem__order', distinct=True)
+        )['new_orders'] or 0
         
         order_growth_percentage = (new_orders_this_week / total_orders * 100) if total_orders > 0 else 0
         
+        # Get 4 most recent orders
+        recent_orders = Order.objects.filter(
+            items__watch__vendor=vendor_profile
+        ).distinct().order_by('-created_at')[:4]
+
         context = {
             'total_sales': total_sales,
             'sales_growth_percentage': round(sales_growth_percentage, 1),
@@ -111,6 +113,7 @@ def index(request):
             'product_growth_percentage': round(product_growth_percentage, 1),
             'total_orders': total_orders,
             'order_growth_percentage': round(order_growth_percentage, 1),
+            'recent_orders': recent_orders,
         }
         
         return render(request, 'vendorapp/index.html', context)
@@ -124,28 +127,36 @@ def add_product(request):
     if request.method == 'POST':
         form = BaseWatchForm(request.POST, request.FILES)
         if form.is_valid():
-            watch = form.save(commit=False)
-            watch.vendor = request.user.vendorprofile
-            watch.save()
-
-            # Handle primary image
-            if 'primary_image' in request.FILES:
-                watch.primary_image = request.FILES['primary_image']
+            try:
+                watch = form.save(commit=False)
+                watch.vendor = request.user.vendorprofile
                 watch.save()
 
-            # Handle additional images
-            images = request.FILES.getlist('product_images')
-            for image in images:
-                WatchImage.objects.create(base_watch=watch, image=image)
+                # Handle primary image
+                if 'primary_image' in request.FILES:
+                    watch.primary_image = request.FILES['primary_image']
+                    watch.save()
 
-            messages.success(request, f'Product "{watch.model_name}" has been added successfully!')
-            return redirect('vendorapp:add_product')
+                # Handle additional images
+                images = request.FILES.getlist('product_images')
+                for image in images:
+                    WatchImage.objects.create(base_watch=watch, image=image)
+
+                return JsonResponse({'success': True, 'message': f'Product "{watch.model_name}" has been added successfully!'})
+            except Exception as e:
+                return JsonResponse({'success': False, 'error': str(e)})
         else:
-            print(form.errors)  # Print form errors for debugging
+            return JsonResponse({'success': False, 'errors': form.errors})
     else:
-        form = BaseWatchForm()
+        return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
-    return render(request, 'vendorapp/add_product.html', {'form': form})
+@never_cache
+@login_required
+@user_type_required('vendor')
+def check_unique_model_name(request):
+    model_name = request.GET.get('model_name', '')
+    is_unique = not BaseWatch.objects.filter(model_name=model_name).exists()
+    return JsonResponse({'is_unique': is_unique})
 
 @never_cache
 @login_required
@@ -153,7 +164,12 @@ def add_product(request):
 def product_list(request):
     vendor_profile = VendorProfile.objects.get(user=request.user)
     products = BaseWatch.objects.filter(vendor=vendor_profile)
-    return render(request, 'vendorapp/product_list.html', {'products': products})
+    form = BaseWatchForm()
+    form_fields = {field: str(form[field]) for field in form.fields}
+    return render(request, 'vendorapp/product_list.html', {
+        'products': products,
+        'form_fields': form_fields
+    })
 
 @never_cache
 @login_required
@@ -240,11 +256,21 @@ def update_stock(request, product_id):
             return JsonResponse({'success': False, 'error': 'Invalid stock quantity'})
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
+
 @never_cache
 @login_required
 @user_type_required('vendor')
-def delete_product(request, product_id):
-    product = get_object_or_404(BaseWatch, id=product_id)
-    product.delete()
-    messages.success(request, 'Product deleted successfully.')
-    return redirect('vendorapp:product_list')
+def order_list(request):
+    vendor_profile = request.user.vendorprofile
+    orders = Order.objects.filter(
+        items__watch__vendor=vendor_profile
+    ).distinct().order_by('-created_at')
+
+    paginator = Paginator(orders, 10)  # Show 10 orders per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'page_obj': page_obj,
+    }
+    return render(request, 'vendorapp/order_list.html', context)

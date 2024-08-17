@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse,HttpResponse
 from django.contrib.auth import login, get_user_model,authenticate,logout
@@ -7,7 +8,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 from django.urls import reverse
 from django.db import transaction
-from .models import Address,UserProfile, Cart, CartItem
+from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem
 from .forms import SignUpForm
 from social_django.models import UserSocialAuth
 from django.core.mail import send_mail
@@ -392,6 +393,7 @@ def create_checkout_session(request):
                 },
                 'quantity': 1,
             }]
+            total_amount = product.base_price
         else:
             # Cart checkout
             cart = Cart.objects.filter(user=request.user).first()
@@ -408,6 +410,7 @@ def create_checkout_session(request):
                 },
                 'quantity': item.quantity,
             } for item in cart.items.all()]
+            total_amount = sum(item.watch.base_price * item.quantity for item in cart.items.all())
 
         # Create or update Stripe Customer with shipping address
         # Check if the customer already exists in Stripe
@@ -447,6 +450,7 @@ def create_checkout_session(request):
                 }
             )
 
+        # Create Stripe checkout session
         checkout_session = stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=line_items,
@@ -477,6 +481,11 @@ def create_checkout_session(request):
                     'message': 'Your order will be delivered within 5-7 business days.',
                 },
             },
+            metadata={
+                'address_id': str(address_id),
+                'product_id': str(product_id) if product_id else '',
+                'total_amount': str(total_amount),
+            },
             success_url=request.build_absolute_uri(reverse('mainapp:payment_success')) + '?session_id={CHECKOUT_SESSION_ID}',
             cancel_url=request.build_absolute_uri(reverse('mainapp:payment_cancel')),
         )
@@ -494,28 +503,69 @@ def payment_success(request):
         try:
             session = stripe.checkout.Session.retrieve(session_id)
             if session.payment_status == 'paid':
-                # Payment was successful
-                cart = Cart.objects.filter(user=request.user).first()
-                if cart:
-                    # Clear the cart
-                    cart.items.all().delete()
-                    cart.delete()
-                
-                # Here you would typically create an order record in your database
-                # For single product purchase, you can get the product details from the session
-                line_items = stripe.checkout.Session.list_line_items(session_id, limit=1)
-                if line_items.data:
-                    product_name = line_items.data[0].description
-                    quantity = line_items.data[0].quantity
-                    # Create order for single product
-                    # Order.objects.create(user=request.user, product_name=product_name, quantity=quantity, ...)
-                
-                return render(request, 'registration/payment_success.html', {'paid': True})
+                try:
+                    # Create order
+                    order = create_order(request.user, session)
+                    
+                    # Clear the cart if it was a cart checkout
+                    cart = Cart.objects.filter(user=request.user).first()
+                    if cart:
+                        cart.items.all().delete()
+                        cart.delete()
+                    
+                    return render(request, 'registration/payment_success.html', {'paid': True, 'order': order})
+                except Exception as e:
+                    # Log the error for debugging
+                    print(f"Error creating order: {str(e)}")
+                    return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Error creating order. Please contact support.'})
             else:
-                return render(request, 'registration/payment_success.html', {'paid': False})
+                return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Payment not successful.'})
+        except stripe.error.StripeError as e:
+            # Log the Stripe error for debugging
+            print(f"Stripe error: {str(e)}")
+            return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Error processing payment. Please contact support.'})
         except Exception as e:
-            return render(request, 'registration/payment_success.html', {'paid': False, 'error': str(e)})
-    return render(request, 'registration/payment_success.html', {'paid': False})
+            # Log the error for debugging
+            print(f"Unexpected error: {str(e)}")
+            return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'An unexpected error occurred. Please contact support.'})
+    return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Invalid session ID.'})
+
+def create_order(user, session):
+    address_id = session.metadata.get('address_id')
+    product_id = session.metadata.get('product_id')
+    total_amount = Decimal(session.metadata.get('total_amount'))
+
+    address = Address.objects.get(id=address_id)
+
+    order = Order.objects.create(
+        user=user,
+        address=address,
+        total_amount=total_amount,
+        stripe_session_id=session.id
+    )
+
+    if product_id:
+        # Single product order
+        product = BaseWatch.objects.get(id=product_id)
+        OrderItem.objects.create(
+            order=order,
+            watch=product,
+            quantity=1,
+            price=product.base_price
+        )
+    else:
+        # Cart order
+        line_items = stripe.checkout.Session.list_line_items(session.id, limit=100)
+        for item in line_items.data:
+            product = BaseWatch.objects.get(model_name=item.description)
+            OrderItem.objects.create(
+                order=order,
+                watch=product,
+                quantity=item.quantity,
+                price=item.price.unit_amount / 100  # Convert from cents to dollars
+            )
+
+    return order
 
 
 @never_cache
