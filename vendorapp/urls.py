@@ -16,5 +16,8 @@ urlpatterns = [
     
     path('manage-stock/', views.manage_stock, name='manage_stock'),
     path('update-stock/<int:product_id>/', views.update_stock, name='update_stock'),
+    
+    path('orders/', views.order_list, name='order_list'),
+    path('check-unique-model-name/', views.check_unique_model_name, name='check_unique_model_name'),
 
 ]
