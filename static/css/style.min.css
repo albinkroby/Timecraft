@@ -597,10 +597,23 @@ input::placeholder {
   color: #dc3545;
 }
 
+.stepper-item:last-child::after,
+.stepper-item.last-visible::after {
+  content: none;
+}
+
+.stepper-item.last-visible {
+  flex-grow: 0;
+  flex-basis: auto;
+  padding-right: 20px;
+  /* Adjust as needed */
+}
+
 
 /* Modal styles */
 .modal-content {
-  height: 90vh; /* Set the modal height to 90% of the viewport height */
+  height: 90vh;
+  /* Set the modal height to 90% of the viewport height */
   display: flex;
   flex-direction: column;
 }
@@ -616,7 +629,8 @@ input::placeholder {
   flex: 1;
   overflow-y: auto;
   padding: 1rem;
-  max-height: calc(90vh - 200px); /* Adjust this value as needed */
+  max-height: calc(90vh - 200px);
+  /* Adjust this value as needed */
 }
 
 /* Ensure the stepper stays at the top */

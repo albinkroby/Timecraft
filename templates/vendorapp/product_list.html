@@ -77,6 +77,14 @@
                         <div class="step-counter">4</div>
                         <div class="step-name">Description</div>
                     </div>
+                    <div class="stepper-item smart-watch-step" style="display: none;">
+                        <div class="step-counter">5</div>
+                        <div class="step-name">Smart Watch Features</div>
+                    </div>
+                    <div class="stepper-item premium-watch-step" style="display: none;">
+                        <div class="step-counter">5</div>
+                        <div class="step-name">Premium Watch Features</div>
+                    </div>
                 </div>
                 <!-- Scrollable content area -->
                 <div class="modal-scroll-area">
@@ -103,6 +111,7 @@
 <script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
 <script>
     $(document).ready(function() {
+        $('.smart-watch-step, .premium-watch-step').hide();
         $('#productTable').DataTable({
             "pageLength": 10,
             "lengthChange": false,
@@ -127,30 +136,69 @@
         const formSections = [
             {
                 title: "Basic Information and Images",
-                fields: ['model_name', 'brand', 'category', 'base_price', 'available_stock', 'primary_image']
+                fields: ['model_name', 'brand', 'category', 'collection', 'watch_type', 'gender', 'base_price', 'available_stock', 'color', 'primary_image']
             },
             {
                 title: "Product Details",
-                fields: ['color', 'strap_material', 'case_size', 'movement_type', 'water_resistance']
+                fields: ['strap_material', 'glass_material', 'case_material', 'case_size', 'water_resistance', 'water_resistance_depth', 'function_display', 'style_code', 'net_quantity', 'alarms']
             },
             {
                 title: "Additional Information",
-                fields: ['display_type', 'style_code', 'series', 'occasion', 'pack_of', 'strap_color', 'net_quantity', 'strap_type', 'case_material', 'water_resistance_depth', 'dial_color', 'width', 'diameter', 'warranty_period']
+                fields: ['series', 'occasion', 'strap_color', 'strap_type', 'dial_color', 'warranty_period']
             },
             {
-                title: "Description",
-                fields: ['description']
+                title: "Description and Features",
+                fields: ['description', 'features']
+            },
+            {
+                title: "Smart Watch Features",
+                fields: ['heart_rate_monitor', 'gps', 'step_counter', 'sleep_tracker'],
+                condition: (data) => data.watch_type === '1' // Assuming 1 is Smart Watch
+            },
+            {
+                title: "Premium Watch Features",
+                fields: ['sapphire_glass', 'automatic_movement', 'chronograph'],
+                condition: (data) => data.watch_type === '2' // Assuming 2 is Premium Watch
             }
         ];
 
         let currentSection = 0;
 
         function updateStepper(sectionIndex) {
-            $('.stepper-item').removeClass('active completed');
-            $('.stepper-item').eq(sectionIndex).addClass('active');
-            for (let i = 0; i < sectionIndex; i++) {
-                $('.stepper-item').eq(i).addClass('completed');
+            $('.stepper-item').removeClass('active completed last-visible');
+            
+            // Hide both conditional steps initially
+            $('.smart-watch-step, .premium-watch-step').hide();
+            
+            // Show the appropriate step based on watch type
+            let watchType = $('#id_watch_type').val();
+            let lastVisibleStep;
+            if (watchType === '1') {
+                $('.smart-watch-step').show();
+                lastVisibleStep = $('.smart-watch-step');
+            } else if (watchType === '2') {
+                $('.premium-watch-step').show();
+                lastVisibleStep = $('.premium-watch-step');
+            } else {
+                lastVisibleStep = $('.stepper-item:not(.smart-watch-step):not(.premium-watch-step)').last();
             }
+            
+            // Add last-visible class to the last visible step
+            lastVisibleStep.addClass('last-visible');
+            
+            // Update step numbers
+            $('.stepper-item:visible').each(function(index) {
+                $(this).find('.step-counter').text(index + 1);
+            });
+            
+            // Set active and completed classes
+            $('.stepper-item:visible').each(function(index) {
+                if (index < sectionIndex) {
+                    $(this).addClass('completed');
+                } else if (index === sectionIndex) {
+                    $(this).addClass('active');
+                }
+            });
             // Validate all sections
             formSections.forEach((section, index) => {
                 //validateSection(index);
@@ -160,6 +208,9 @@
         function showSection(sectionIndex) {
             const section = formSections[sectionIndex];
             formSections.forEach((sec, index) => {
+                if (sec.condition && !sec.condition(getFormData())) {
+                    return;
+                }
                 sec.fields.forEach(field => {
                     let fieldElement = $(`#id_${field}`);
                     let fieldContainer = fieldElement.closest('.col-md-6');
@@ -340,6 +391,12 @@
             currentSection = 0;
             showSection(currentSection);
             updateStepper(currentSection);
+
+            // Add event listener for watch_type change
+            $('#id_watch_type').on('change', function() {
+                showSection(currentSection);
+                updateStepper(currentSection);
+            });
         });
 
         $('#addProductForm').submit(async function(e) {
@@ -498,6 +555,14 @@
                     }
                 });
             });
+        }
+
+        function getFormData() {
+            let formData = {};
+            $('#addProductForm').serializeArray().forEach(item => {
+                formData[item.name] = item.value;
+            });
+            return formData;
         }
 
         {% if messages %}

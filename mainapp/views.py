@@ -33,9 +33,11 @@ User = get_user_model()
 
 @never_cache
 def index(request):
-    basewatch = BaseWatch.objects.all()
-    featured_watch = get_object_or_404(BaseWatch, model_name="Chronograph Analog Watch")
-    return render(request,'index.html',{'basewatch':basewatch, 'featured_watch': featured_watch})
+    basewatch = BaseWatch.objects.filter(is_active=True)
+    featured_watch = BaseWatch.objects.filter(is_featured=True, is_active=True).first()
+    if not featured_watch:
+        featured_watch = basewatch.first()
+    return render(request, 'index.html', {'basewatch': basewatch, 'featured_watch': featured_watch})
 
 @never_cache
 def signin(request):
@@ -278,7 +280,7 @@ def search_results(request):
     max_price = request.GET.get('max_price')
     colors = request.GET.getlist('color')
     strap_materials = request.GET.getlist('strap_material')
-    movement_types = request.GET.getlist('movement_type')
+    movement_types = request.GET.getlist('function_display')
     sort_by = request.GET.get('sort_by', 'relevance')
 
     watches = BaseWatch.objects.filter(
@@ -319,7 +321,7 @@ def search_results(request):
         'price_range': BaseWatch.get_price_range(),
         'colors': BaseWatch.get_unique_values('color'),
         'strap_materials': BaseWatch.get_unique_values('strap_material'),
-        'movement_types': BaseWatch.get_unique_values('movement_type'),
+        'movement_types': BaseWatch.get_unique_values('function_display'),
         'selected_brands': brands,
         'selected_categories': categories,
         'selected_min_price': min_price,
