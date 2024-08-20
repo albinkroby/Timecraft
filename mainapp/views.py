@@ -505,31 +505,24 @@ def payment_success(request):
         try:
             session = stripe.checkout.Session.retrieve(session_id)
             if session.payment_status == 'paid':
+                existing_order = Order.objects.filter(stripe_session_id=session_id).first()
+                if existing_order:
+                    return render(request, 'registration/payment_success.html', {'paid': True, 'order': existing_order})
                 try:
-                    # Create order
                     order = create_order(request.user, session)
-                    
-                    # Clear the cart if it was a cart checkout
+                
                     cart = Cart.objects.filter(user=request.user).first()
                     if cart:
                         cart.items.all().delete()
                         cart.delete()
                     
-                    return render(request, 'registration/payment_success.html', {'paid': True, 'order': order})
-                except Exception as e:
-                    # Log the error for debugging
-                    print(f"Error creating order: {str(e)}")
-                    return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Error creating order. Please contact support.'})
+                        return render(request, 'registration/payment_success.html', {'paid': True, 'order': order})
+                except ValueError as e:
+                    return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'There was an issue with the product stock. Please contact support.'})
             else:
                 return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Payment not successful.'})
-        except stripe.error.StripeError as e:
-            # Log the Stripe error for debugging
-            print(f"Stripe error: {str(e)}")
+        except (stripe.error.StripeError, Exception):
             return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Error processing payment. Please contact support.'})
-        except Exception as e:
-            # Log the error for debugging
-            print(f"Unexpected error: {str(e)}")
-            return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'An unexpected error occurred. Please contact support.'})
     return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Invalid session ID.'})
 
 def create_order(user, session):
@@ -539,33 +532,41 @@ def create_order(user, session):
 
     address = Address.objects.get(id=address_id)
 
-    order = Order.objects.create(
-        user=user,
-        address=address,
-        total_amount=total_amount,
-        stripe_session_id=session.id
-    )
+    with transaction.atomic():
+        # Check if an order with this session ID already exists
+        existing_order = Order.objects.filter(stripe_session_id=session.id).first()
+        if existing_order:
+            return existing_order
 
-    if product_id:
-        # Single product order
-        product = BaseWatch.objects.get(id=product_id)
-        OrderItem.objects.create(
-            order=order,
-            watch=product,
-            quantity=1,
-            price=product.base_price
+        order = Order.objects.create(
+            user=user,
+            address=address,
+            total_amount=total_amount,
+            stripe_session_id=session.id
         )
-    else:
-        # Cart order
-        line_items = stripe.checkout.Session.list_line_items(session.id, limit=100)
-        for item in line_items.data:
-            product = BaseWatch.objects.get(model_name=item.description)
+
+        if product_id:
+            # Single product order
+            product = BaseWatch.objects.get(id=product_id)
             OrderItem.objects.create(
                 order=order,
                 watch=product,
-                quantity=item.quantity,
-                price=item.price.unit_amount / 100  # Convert from cents to dollars
+                quantity=1,
+                price=product.base_price
             )
+            product.update_stock_after_order(1)
+        else:
+            # Cart order
+            line_items = stripe.checkout.Session.list_line_items(session.id, limit=100)
+            for item in line_items.data:
+                product = BaseWatch.objects.get(model_name=item.description)
+                OrderItem.objects.create(
+                    order=order,
+                    watch=product,
+                    quantity=item.quantity,
+                    price=item.price.unit_amount / 100  # Convert from cents to dollars
+                )
+                product.update_stock_after_order(item.quantity)
 
     return order
 

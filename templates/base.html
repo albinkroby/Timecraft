@@ -36,22 +36,22 @@
     <div id="custom-alert" class="custom-alert">
         <span id="alert-message"></span>
     </div>
-{% comment %} <!-- </div> --> {% endcomment %}
-{% include 'footer.html' %}
-        <!--=============== SCROLL UP ===============-->
+    {% comment %} <!-- </div> --> {% endcomment %}
+    {% include 'footer.html' %}
+    <!--=============== SCROLL UP ===============-->
 
-        <a href="#" class="scrollup" id="scroll-up"> 
-            <i class='bx bx-up-arrow-alt scrollup__icon' ></i>
-        </a>
-        <script src="{% static 'js/bootstrap.bundle.min.js'%}"></script>
-        <!--=============== SWIPER JS ===============-->
-        <script src="{% static 'js/swiper-bundle.min.js'%}"></script>
+    <a href="#" class="scrollup" id="scroll-up"> 
+        <i class='bx bx-up-arrow-alt scrollup__icon' ></i>
+    </a>
+    <script src="{% static 'js/bootstrap.bundle.min.js'%}"></script>
+    <!--=============== SWIPER JS ===============-->
+    <script src="{% static 'js/swiper-bundle.min.js'%}"></script>
 
-        <!--=============== Extra JS ===============-->
-        {% block extra_js %}
-        {% endblock %}
-        <!--=============== MAIN JS ===============-->
-        <script src="{% static 'js/main.js'%}"></script>
+    <!--=============== Extra JS ===============-->
+    {% block extra_js %}
+    {% endblock %}
+    <!--=============== MAIN JS ===============-->
+    <script src="{% static 'js/main.js'%}"></script>
         
     </body>
 </html>

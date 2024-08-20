@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="home__container container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'mainapp:index' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'userapp:profile' %}">My Account</a></li>
+            <li class="breadcrumb-item active" aria-current="page">My Orders</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Filters Sidebar -->
+        <div class="col-md-3">
+            <form method="get">
+                <div class="d-flex justify-content-between mb-3">
+                    <h4>Filters</h4>
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                </div>
+                <h5>ORDER STATUS</h5>
+                {% with status_list=request.GET|get_list:'status' %}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="status" value="on_the_way" id="statusOnTheWay"
+                        {% if 'on_the_way' in status_list %}checked{% endif %}>
+                    <label class="form-check-label" for="statusOnTheWay">On the way</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="status" value="delivered" id="statusDelivered"
+                        {% if 'delivered' in status_list %}checked{% endif %}>
+                    <label class="form-check-label" for="statusDelivered">Delivered</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="status" value="cancelled" id="statusCancelled"
+                        {% if 'cancelled' in status_list %}checked{% endif %}>
+                    <label class="form-check-label" for="statusCancelled">Cancelled</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="status" value="returned" id="statusReturned"
+                        {% if 'returned' in status_list %}checked{% endif %}>
+                    <label class="form-check-label" for="statusReturned">Returned</label>
+                </div>
+                {% endwith %}
+
+                <h5 class="mt-4">ORDER TIME</h5>
+                {% with time_list=request.GET|get_list:'time' %}
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="time" value="last_30_days" id="timeLast30Days"
+                        {% if 'last_30_days' in time_list %}checked{% endif %}>
+                    <label class="form-check-label" for="timeLast30Days">Last 30 days</label>
+                </div>
+                {% for year in year_range %}
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="time" value="{{ year }}" id="time{{ year }}"
+                        {% if year|stringformat:"i" in time_list %}checked{% endif %}>
+                    <label class="form-check-label" for="time{{ year }}">{{ year }}</label>
+                </div>
+                {% endfor %}
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="time" value="older" id="timeOlder"
+                        {% if 'older' in time_list %}checked{% endif %}>
+                    <label class="form-check-label" for="timeOlder">Older</label>
+                </div>
+                {% endwith %}
+            </form>
+        </div>
+        <!-- Orders List -->
+        <div class="col-md-9">
+            <form method="get" class="mb-4">
+                <div class="input-group">
+                    <input type="text" class="form-control" placeholder="Search your orders here" name="search"
+                        value="{{ request.GET.search }}">
+                    <button class="btn btn-primary" type="submit">Search Orders</button>
+                </div>
+            </form>
+            {% if orders %}
+                {% for order in orders %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        {% for item in order.items.all %}
+                        <div class="row" style="border-bottom: 1px solid #ccc; padding-bottom: 10px; background-color: #f9f9f9;">
+                            <div class="col-md-2">
+                                <img src="{{ item.watch.primary_image.url }}" alt="{{ item.watch.model_name }}"
+                                    class="img-fluid">
+                            </div>
+                            <div class="col-md-6">
+                                <h5>{{ item.watch.model_name }}</h5>
+                                <p>Color: {{ item.watch.color }}</p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <h5>₹{{ item.price }}</h5>
+                                <p class="text-success">{{ order.get_status_display }} on {{ order.delivery_date|date:"M d"
+                                    }}</p>
+                                <p>Your item has been {{ order.get_status_display|lower }}</p>
+                                {% if order.status == 'delivered' %}
+                                <a href="#" class="btn btn-outline-primary btn-sm">Rate & Review Product</a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+                <div class="text-center mt-4">
+                    <button class="btn btn-outline-primary">No More Results To Display</button>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    No orders found. Start shopping to see your orders here!
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

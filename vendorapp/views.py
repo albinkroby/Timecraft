@@ -6,16 +6,18 @@ from django.contrib import messages
 from .models import VendorProfile
 from mainapp.utils import hash_url
 from django.urls import reverse
-from adminapp.models import Category, BaseWatch, WatchImage
+from adminapp.models import Category, BaseWatch, WatchImage, SmartWatchFeature, PremiumWatchFeature, WatchType
 from mainapp.models import Order, OrderItem
 from django.shortcuts import get_object_or_404
 import os
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.cache import never_cache
 from django.db.models import Sum, Count
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime
 from django.core.paginator import Paginator
+import pandas as pd
+import io
 
 @never_cache
 def home(request):
@@ -131,6 +133,7 @@ def add_product(request):
                 watch = form.save(commit=False)
                 watch.vendor = request.user.vendorprofile
                 watch.save()
+                form.save_m2m()  # Save many-to-many relationships
 
                 # Handle primary image
                 if 'primary_image' in request.FILES:
@@ -141,6 +144,25 @@ def add_product(request):
                 images = request.FILES.getlist('product_images')
                 for image in images:
                     WatchImage.objects.create(base_watch=watch, image=image)
+
+                # Handle SmartWatchFeature
+                if watch.watch_type.type_name == 'Smart Watch':
+                    SmartWatchFeature.objects.create(
+                        base_watch=watch,
+                        heart_rate_monitor=form.cleaned_data.get('heart_rate_monitor', False),
+                        gps=form.cleaned_data.get('gps', False),
+                        step_counter=form.cleaned_data.get('step_counter', False),
+                        sleep_tracker=form.cleaned_data.get('sleep_tracker', False)
+                    )
+
+                # Handle PremiumWatchFeature
+                elif watch.watch_type.type_name == 'Premium Watch':
+                    PremiumWatchFeature.objects.create(
+                        base_watch=watch,
+                        sapphire_glass=form.cleaned_data.get('sapphire_glass', False),
+                        automatic_movement=form.cleaned_data.get('automatic_movement', False),
+                        chronograph=form.cleaned_data.get('chronograph', False)
+                    )
 
                 return JsonResponse({'success': True, 'message': f'Product "{watch.model_name}" has been added successfully!'})
             except Exception as e:
@@ -163,12 +185,14 @@ def check_unique_model_name(request):
 @user_type_required('vendor')
 def product_list(request):
     vendor_profile = VendorProfile.objects.get(user=request.user)
-    products = BaseWatch.objects.filter(vendor=vendor_profile)
+    products = BaseWatch.objects.filter(vendor=vendor_profile).select_related('brand', 'category', 'watch_type')
     form = BaseWatchForm()
     form_fields = {field: str(form[field]) for field in form.fields}
+    watch_types = WatchType.objects.all()
     return render(request, 'vendorapp/product_list.html', {
         'products': products,
-        'form_fields': form_fields
+        'form_fields': form_fields,
+        'watch_types': watch_types
     })
 
 @never_cache
@@ -197,12 +221,40 @@ def edit_product(request, product_id):
                 watch.primary_image = None
 
             watch.save()
+            form.save_m2m()  # Save many-to-many relationships
 
             # Handle additional images
             if 'product_images' in request.FILES:
                 images = request.FILES.getlist('product_images')
                 for image in images:
                     WatchImage.objects.create(base_watch=watch, image=image)
+
+            # Handle SmartWatchFeature
+            if watch.watch_type.type_name == 'Smart Watch':
+                SmartWatchFeature.objects.update_or_create(
+                    base_watch=watch,
+                    defaults={
+                        'heart_rate_monitor': form.cleaned_data.get('heart_rate_monitor', False),
+                        'gps': form.cleaned_data.get('gps', False),
+                        'step_counter': form.cleaned_data.get('step_counter', False),
+                        'sleep_tracker': form.cleaned_data.get('sleep_tracker', False)
+                    }
+                )
+            else:
+                SmartWatchFeature.objects.filter(base_watch=watch).delete()
+
+            # Handle PremiumWatchFeature
+            if watch.watch_type.type_name == 'Premium Watch':
+                PremiumWatchFeature.objects.update_or_create(
+                    base_watch=watch,
+                    defaults={
+                        'sapphire_glass': form.cleaned_data.get('sapphire_glass', False),
+                        'automatic_movement': form.cleaned_data.get('automatic_movement', False),
+                        'chronograph': form.cleaned_data.get('chronograph', False)
+                    }
+                )
+            else:
+                PremiumWatchFeature.objects.filter(base_watch=watch).delete()
 
             messages.success(request, f'Product "{watch.model_name}" has been updated successfully!')
             return redirect('vendorapp:product_list')
@@ -256,7 +308,6 @@ def update_stock(request, product_id):
             return JsonResponse({'success': False, 'error': 'Invalid stock quantity'})
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
-
 @never_cache
 @login_required
 @user_type_required('vendor')
@@ -266,6 +317,15 @@ def order_list(request):
         items__watch__vendor=vendor_profile
     ).distinct().order_by('-created_at')
 
+    # Date filtering
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    if start_date:
+        orders = orders.filter(created_at__gte=start_date)
+    if end_date:
+        orders = orders.filter(created_at__lte=end_date)
+
     paginator = Paginator(orders, 10)  # Show 10 orders per page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -274,3 +334,46 @@ def order_list(request):
         'page_obj': page_obj,
     }
     return render(request, 'vendorapp/order_list.html', context)
+
+@never_cache
+@login_required
+@user_type_required('vendor')
+def download_orders(request):
+    vendor_profile = request.user.vendorprofile
+    orders = Order.objects.filter(
+        items__watch__vendor=vendor_profile
+    ).distinct().order_by('-created_at')
+
+    # Date filtering
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    if start_date:
+        orders = orders.filter(created_at__gte=start_date)
+    if end_date:
+        orders = orders.filter(created_at__lte=end_date)
+
+    # Prepare data for Excel
+    data = []
+    for order in orders:
+        for item in order.items.filter(watch__vendor=vendor_profile):
+            data.append({
+                'Order ID': order.order_id,
+                'Model Name': item.watch.model_name,
+                'Customer': order.user.email,
+                'Total Amount': item.price * item.quantity,
+                'Status': order.get_status_display(),
+                'Date': order.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'Quantity': item.quantity,
+            })
+
+    # Create DataFrame and Excel file
+    df = pd.DataFrame(data)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Orders')
+
+    output.seek(0)
+    response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=orders.xlsx'
+    return response

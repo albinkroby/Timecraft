@@ -16,6 +16,8 @@ urlpatterns = [
     path('wishlist/add/<int:watch_id>/', views.add_to_wishlist, name='add_to_wishlist'),
     path('wishlist/remove/<int:watch_id>/', views.remove_from_wishlist, name='remove_from_wishlist'),
     
+    path('my-orders/', views.my_orders, name='my_orders'),
+    
     path('password_reset/', auth_views.PasswordResetView.as_view(
         template_name='registration/password_reset.html',
         email_template_name='registration/password_reset_email.html',

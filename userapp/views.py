@@ -1,13 +1,15 @@
 from django.shortcuts import render, redirect,get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from mainapp.models import Address,UserProfile, User
+from mainapp.models import Address,UserProfile, User, Order, OrderItem
 from .forms import AddressForm, UserProfileForm
 from django.db import IntegrityError
 from django.http import JsonResponse
 from .models import Wishlist
 from adminapp.models import BaseWatch
 from django.views.decorators.cache import never_cache
+from django.db.models import Q
+from datetime import datetime, timedelta
 
 @never_cache
 @login_required
@@ -159,3 +161,41 @@ def remove_from_wishlist(request, watch_id):
     wishlist = get_object_or_404(Wishlist, user=request.user)
     wishlist.watches.remove(watch)
     return JsonResponse({'status': 'success'})
+
+@never_cache
+@login_required
+def my_orders(request):
+    orders = Order.objects.filter(user=request.user).order_by('-created_at')
+
+    # Filter by status
+    status = request.GET.getlist('status')
+    if status:
+        orders = orders.filter(status__in=status)
+
+    # Filter by time
+    order_time = request.GET.get('time')
+    if order_time:
+        if order_time == 'last_30_days':
+            start_date = datetime.now() - timedelta(days=30)
+            orders = orders.filter(created_at__gte=start_date)
+        elif order_time.isdigit():
+            year = int(order_time)
+            orders = orders.filter(created_at__year=year)
+
+    # Search functionality
+    search_query = request.GET.get('search')
+    if search_query:
+        orders = orders.filter(
+            Q(items__watch__model_name__icontains=search_query) |
+            Q(order_id__icontains=search_query)
+        ).distinct()
+
+    current_year = datetime.now().year
+    year_range = range(current_year, 2019, -1)  # Adjust the start year as needed
+
+    context = {
+        'orders': orders,
+        'current_year': current_year,
+        'year_range': year_range,
+    }
+    return render(request, 'userapp/my_orders.html', context)

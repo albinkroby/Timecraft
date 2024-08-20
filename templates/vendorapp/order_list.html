@@ -3,11 +3,29 @@
 
 {% block admin_content %}
     <h2 class="mb-4">All Orders</h2>
+    
+    <!-- Add date filter and download button -->
+    <div class="row mb-3 justify-content-between">
+        <div class="col-md-6">
+            <form method="get" class="form-inline">
+                <div class="input-group">
+                    <input type="date" name="start_date" class="form-control" placeholder="Start Date" value="{{ request.GET.start_date }}">
+                    <input type="date" name="end_date" class="form-control" placeholder="End Date" value="{{ request.GET.end_date }}">
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-md-6 text-right">
+            <a href="{% url 'vendorapp:download_orders' %}?{{ request.GET.urlencode }}" class="btn btn-success"><i class='bx bx-spreadsheet'></i> Download Excel</a>
+        </div>
+    </div>
+
     <div class="table-responsive">
-        <table class="table table-hover">
+        <table id="OrderTable" class="table table-hover">
             <thead>
                 <tr>
                     <th>Order ID</th>
+                    <th>Model Name</th>
                     <th>Customer</th>
                     <th>Total Amount</th>
                     <th>Status</th>
@@ -19,6 +37,7 @@
                 {% for order in page_obj %}
                     <tr>
                         <td>{{ order.order_id }}</td>
+                        <td>{{ order.items.first.watch.model_name }}</td>
                         <td>{{ order.user.email }}</td>
                         <td>₹{{ order.total_amount }}</td>
                         <td>{{ order.get_status_display }}</td>
@@ -65,4 +84,29 @@
             </ul>
         </nav>
     {% endif %}
+{% endblock %}
+
+{% block extra_js %}
+    <script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#OrderTable').DataTable({
+                "pageLength": 10,
+                "lengthChange": false,
+                "searching": true,
+                "ordering": true,
+                "info": true,
+                "autoWidth": false,
+                "responsive": true,
+                "dom": '<"row"<"col-sm-12 col-md-6"f><"col-sm-12 col-md-6"l>>' +
+                       '<"row"<"col-sm-12"tr>>' +
+                       '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                "language": {
+                    "search": "_INPUT_",
+                    "searchPlaceholder": "Search orders..."
+                }
+            });
+        });
+    </script>
 {% endblock %}

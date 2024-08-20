@@ -37,6 +37,8 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                             <li><a class="dropdown-item" href="{% url 'userapp:profile' %}"><i class='bx bx-user'></i> Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'userapp:wishlist' %}"><i class='bx bx-heart'></i> Wishlist</a></li>
+                            <li><a class="dropdown-item" href="{% url 'userapp:my_orders' %}"><i class='bx bx-folder' ></i> My Orders</a></li>
                             {% if user.role == 'vendor' %}  
                                 <li><a class="dropdown-item" href="{% url 'vendorapp:index' %}"><i class='bx bx-user'></i> Seller Dashboard</a></li>
                             {% endif %}

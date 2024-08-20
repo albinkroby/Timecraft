@@ -177,6 +177,15 @@ class BaseWatch(models.Model):
         self.sold_stock = self.total_stock - self.available_stock
         self.save()
 
+    def update_stock_after_order(self, quantity):
+        if self.available_stock >= quantity:
+            self.available_stock -= quantity
+            self.sold_stock += quantity
+            self.is_in_stock = self.available_stock > 0
+            self.save()
+        else:
+            raise ValueError(f"Not enough stock for {self.model_name}")
+
 def pre_save_base_watch_receiver(sender, instance, *args, **kwargs):
     if not instance.slug:
         instance.slug = slugify(instance.model_name)
