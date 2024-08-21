@@ -33,6 +33,43 @@
 
     {% block content %}
     {% endblock %}
+    <!-- Image Search Modal -->
+    <div class="modal fade" id="imageSearchModal" tabindex="-1" aria-labelledby="imageSearchModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <form action="{% url 'mainapp:search_results' %}" method="post" id="search-form" enctype="multipart/form-data">
+                {% csrf_token %}
+                <input type="hidden" name="image_search" value="{{ image_search|yesno:'true,false' }}">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="imageSearchModalLabel">Image Search</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="d-flex justify-content-around mb-3">
+                            <button type="button" id="takePhotoBtn" class="btn btn-primary">Take Photo</button>
+                            <button type="button" id="uploadPhotoBtn" class="btn btn-secondary">Upload Photo</button>
+                        </div>
+                        <div id="cameraContainer" style="display: none;">
+                            <video id="camera" width="100%" autoplay></video>
+                            <div class="mt-2">
+                                <button id="captureBtn" class="btn btn-success">Capture</button>
+                                <button id="cancelCaptureBtn" class="btn btn-danger">Cancel</button>
+                            </div>
+                        </div>
+                        <div id="previewContainer" style="display: none;">
+                            <img id="imagePreview" src="" alt="Preview" style="max-width: 100%;">
+                        </div>
+                        <input type="file" id="image-upload" name="image" accept="image/*" style="display: none;">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary" id="searchImageBtn">Search</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="custom-alert" class="custom-alert">
         <span id="alert-message"></span>
     </div>
@@ -43,9 +80,131 @@
     <a href="#" class="scrollup" id="scroll-up"> 
         <i class='bx bx-up-arrow-alt scrollup__icon' ></i>
     </a>
+
     <script src="{% static 'js/bootstrap.bundle.min.js'%}"></script>
     <!--=============== SWIPER JS ===============-->
     <script src="{% static 'js/swiper-bundle.min.js'%}"></script>
+    <script>
+        $(document).ready(function() {
+            const $takePhotoBtn = $('#takePhotoBtn');
+            const $uploadPhotoBtn = $('#uploadPhotoBtn');
+            const $cameraContainer = $('#cameraContainer');
+            const $previewContainer = $('#previewContainer');
+            const $camera = $('#camera');
+            const $captureBtn = $('#captureBtn');
+            const $cancelCaptureBtn = $('#cancelCaptureBtn');
+            const $imagePreview = $('#imagePreview');
+            const $searchImageBtn = $('#searchImageBtn');
+            const $imageUpload = $('#image-upload');
+            const $searchForm = $('#search-form');
+    
+            let stream;
+            let capturedImage;
+    
+            function stopCameraStream() {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                $cameraContainer.hide();
+            }
+    
+            $takePhotoBtn.on('click', async function(e) {
+                e.preventDefault();
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    $camera[0].srcObject = stream;
+                    $cameraContainer.show();
+                    $previewContainer.hide();
+                } catch (err) {
+                    console.error('Error accessing camera:', err);
+                }
+            });
+    
+            $captureBtn.on('click', function(e) {
+                e.preventDefault();
+                const canvas = document.createElement('canvas');
+                canvas.width = $camera[0].videoWidth;
+                canvas.height = $camera[0].videoHeight;
+                canvas.getContext('2d').drawImage($camera[0], 0, 0);
+                capturedImage = canvas.toDataURL('image/jpeg');
+                $imagePreview.attr('src', capturedImage);
+                stopCameraStream();
+                $previewContainer.show();
+            });
+    
+            $cancelCaptureBtn.on('click', function(e) {
+                e.preventDefault();
+                stopCameraStream();
+                $previewContainer.hide();
+            });
+    
+            $uploadPhotoBtn.on('click', function(e) {
+                e.preventDefault();
+                $imageUpload.click();
+            });
+    
+            $imageUpload.on('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        $imagePreview.attr('src', e.target.result);
+                        capturedImage = e.target.result;
+                        $cameraContainer.hide();
+                        $previewContainer.show();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+    
+            $searchImageBtn.on('click', function(e) {
+                e.preventDefault();
+                if (capturedImage) {
+                    fetch(capturedImage)
+                        .then(res => res.blob())
+                        .then(blob => {
+                            const file = new File([blob], "captured_image.jpg", { type: "image/jpeg" });
+                            const formData = new FormData($searchForm[0]);
+                            formData.set('image', file);
+            
+                            $.ajax({
+                                url: $searchForm.attr('action'),  // Make sure this URL is correct
+                                type: 'POST',
+                                data: formData,
+                                processData: false,
+                                contentType: false,
+                                headers: {
+                                    'X-CSRFToken': $('[name=csrfmiddlewaretoken]').val()
+                                },
+                                success: function(response) {
+                                    // Explicitly redirect to the desired page
+                                    window.location.href = '/search/?image_search=true';
+                                },
+                                error: function() {
+                                    alert('An error occurred while processing the image search.');
+                                }
+                            });
+                        });
+                }
+            });
+            
+    
+            $('#imageSearchModal').on('hidden.bs.modal', function() {
+                stopCameraStream();
+                $previewContainer.hide();
+                capturedImage = null;
+                $imagePreview.attr('src', '');
+            });
+    
+            $searchForm.on('submit', function(e) {
+                if (e.originalEvent.submitter !== $searchImageBtn[0]) {
+                    e.preventDefault();
+                }
+            });
+        });
+    </script>
+    
 
     <!--=============== Extra JS ===============-->
     {% block extra_js %}

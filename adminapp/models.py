@@ -6,6 +6,10 @@ from django.db.models.signals import pre_save
 from django.db.models import Min, Max
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
+import imagehash
+from PIL import Image
+from django.conf import settings
+import numpy as np
 
 class Brand(models.Model):
     brand_name = models.CharField(max_length=100, unique=True)
@@ -133,7 +137,8 @@ class BaseWatch(models.Model):
     features = models.ManyToManyField(Feature, related_name='watches')
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
-    
+    image_hash = models.CharField(max_length=512, blank=True, null=True)  # Increased max_length to accommodate larger hash
+
     def __str__(self):
         return self.model_name
     
@@ -156,6 +161,19 @@ class BaseWatch(models.Model):
             self.primary_image.name = new_filename
         self.is_in_stock = self.available_stock > 0 
         super().save(*args, **kwargs)
+        if self.primary_image and not self.image_hash:
+            self.generate_image_hash()
+
+    def generate_image_hash(self):
+        if self.primary_image:
+            image_path = self.primary_image.path
+            with Image.open(image_path) as img:
+                img = img.convert('RGB')
+                img = img.resize((256, 256))
+                phash = imagehash.phash(img)
+                dhash = imagehash.dhash(img)
+                whash = imagehash.whash(img)
+                self.image_hash = f"{phash},{dhash},{whash}"
 
     def get_primary_image(self):
         return self.primary_image

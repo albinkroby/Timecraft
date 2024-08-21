@@ -4,14 +4,23 @@
         <a href="{% url 'mainapp:index' %}" class="nav__logo">
             <i class='bx bxs-watch nav__logo-icon'></i> TIME&nbspCRAFT
         </a>
-        <div class="nav__search w-100   " id="nav-search">
-            <form action="{% url 'mainapp:search_results' %}" method="GET" class="nav__search-form" id="search-form">
-                <input type="search" placeholder="Search here..." class="form-control" id="search-input" name="search">
-                <button type="submit" class="nav__search-button" id="search-button">
-                    <i class='bx bx-search nav__search-icon' id="search-icon"></i>
-                </button> 
+        <div class="nav__search w-100" id="nav-search">
+            <form action="{% url 'mainapp:search_results' %}" method="GET" class="nav__search-form">
+                <div class="input-group">
+                    <!-- Image search on the left -->
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#imageSearchModal">
+                        <i class='bx bx-camera'></i>
+                    </button>
+                    
+                    <!-- Text search on the right -->
+                    <input type="search" placeholder="Search here..." class="form-control" id="search-input" name="search">
+                    <button type="submit" class="nav__search-button" id="search-button">
+                        <i class='bx bx-search nav__search-icon' id="search-icon"></i>
+                    </button>
+                </div>
             </form>
         </div>
+        
         <div class="nav__menu w-50" id="nav-menu">
             <div class="nav_bar">
                 <ul class="nav__list">
