@@ -281,7 +281,6 @@ def update_cart(request):
 def search_results(request):
     query = request.GET.get('search', '')
     image_search = request.GET.get('image_search', '')
-    print(f"image_search: {image_search}")
     
     brands = request.GET.getlist('brand')
     categories = request.GET.getlist('category')
@@ -414,18 +413,11 @@ def find_similar_watches(search_hash, similarity_threshold=0.75):
 
         # Calculate similarity
         similarity = 1 - np.sum(search_hash_binary != watch_hash) / len(watch_hash)
-        
-        # Debug output
-        print(f"Comparing with watch {watch.id}: similarity = {similarity}")
-        
+          
         if similarity > similarity_threshold:
             similar_watches.append((watch, similarity))
     
-    # Debug output
-    print(f"Found {len(similar_watches)} similar watches")
-    
     return sorted(similar_watches, key=lambda x: x[1], reverse=True)
-
 
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
