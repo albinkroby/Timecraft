@@ -127,3 +127,11 @@ class OrderItem(models.Model):
     @property
     def total_price(self):
         return self.price * self.quantity
+
+class WatchNotification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    watch = models.ForeignKey(BaseWatch, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'watch')

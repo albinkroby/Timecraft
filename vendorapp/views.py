@@ -171,6 +171,11 @@ def add_product(request):
             return JsonResponse({'success': False, 'errors': form.errors})
     else:
         return JsonResponse({'success': False, 'error': 'Invalid request method'})
+    
+def addproducttest(request):
+    form = BaseWatchForm()
+    watch_types = WatchType.objects.all()
+    return render(request,'vendorapp/add_product.html',{'form':form,'watch_types':watch_types})
 
 @never_cache
 @login_required

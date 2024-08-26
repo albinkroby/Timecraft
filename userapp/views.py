@@ -5,11 +5,12 @@ from mainapp.models import Address,UserProfile, User, Order, OrderItem
 from .forms import AddressForm, UserProfileForm
 from django.db import IntegrityError
 from django.http import JsonResponse
-from .models import Wishlist
+from .models import Wishlist, Review
 from adminapp.models import BaseWatch
 from django.views.decorators.cache import never_cache
 from django.db.models import Q
 from datetime import datetime, timedelta
+from django.views.decorators.http import require_POST
 
 @never_cache
 @login_required
@@ -190,6 +191,10 @@ def my_orders(request):
             Q(order_id__icontains=search_query)
         ).distinct()
 
+    for order in orders:
+        for item in order.items.all():
+            item.user_review = Review.objects.filter(user=request.user, watch=item.watch).first()
+
     current_year = datetime.now().year
     year_range = range(current_year, 2019, -1)  # Adjust the start year as needed
 
@@ -199,3 +204,24 @@ def my_orders(request):
         'year_range': year_range,
     }
     return render(request, 'userapp/my_orders.html', context)
+
+@require_POST
+@login_required
+def submit_review(request):
+    order_item_id = request.POST.get('order_item_id')
+    rating = request.POST.get('rating')
+    comment = request.POST.get('comment')
+
+    try:
+        order_item = OrderItem.objects.get(id=order_item_id, order__user=request.user)
+        review, created = Review.objects.update_or_create(
+            user=request.user,
+            watch=order_item.watch,
+            defaults={'rating': rating, 'comment': comment}
+        )
+        message = "Thank you for your review!" if created else "Your review has been updated!"
+        return JsonResponse({'success': True, 'message': message})
+    except OrderItem.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Invalid order item'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})

@@ -8,7 +8,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST, require_http_methods
 from django.urls import reverse
 from django.db import transaction
-from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem
+from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem, WatchNotification
 from .forms import SignUpForm
 from social_django.models import UserSocialAuth
 from django.core.mail import send_mail
@@ -281,6 +281,7 @@ def update_cart(request):
 def search_results(request):
     query = request.GET.get('search', '')
     image_search = request.GET.get('image_search', '')
+    print(f"image_search: {image_search}")
     
     brands = request.GET.getlist('brand')
     categories = request.GET.getlist('category')
@@ -413,9 +414,15 @@ def find_similar_watches(search_hash, similarity_threshold=0.75):
 
         # Calculate similarity
         similarity = 1 - np.sum(search_hash_binary != watch_hash) / len(watch_hash)
+        
+         # Debug output
+        print(f"Comparing with watch {watch.id}: similarity = {similarity}")
           
         if similarity > similarity_threshold:
             similar_watches.append((watch, similarity))
+        
+         # Debug output
+        print(f"Found {len(similar_watches)} similar watches")
     
     return sorted(similar_watches, key=lambda x: x[1], reverse=True)
 
@@ -588,29 +595,33 @@ def create_checkout_session(request):
 @login_required
 def payment_success(request):
     session_id = request.GET.get('session_id')
-    if session_id:
-        try:
-            session = stripe.checkout.Session.retrieve(session_id)
-            if session.payment_status == 'paid':
-                existing_order = Order.objects.filter(stripe_session_id=session_id).first()
-                if existing_order:
-                    return render(request, 'registration/payment_success.html', {'paid': True, 'order': existing_order})
-                try:
-                    order = create_order(request.user, session)
-                
-                    cart = Cart.objects.filter(user=request.user).first()
-                    if cart:
-                        cart.items.all().delete()
-                        cart.delete()
-                    
-                        return render(request, 'registration/payment_success.html', {'paid': True, 'order': order})
-                except ValueError as e:
-                    return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'There was an issue with the product stock. Please contact support.'})
-            else:
-                return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Payment not successful.'})
-        except (stripe.error.StripeError, Exception):
-            return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Error processing payment. Please contact support.'})
-    return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Invalid session ID.'})
+    if not session_id:
+        return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'No session ID provided.'})
+
+    try:
+        session = stripe.checkout.Session.retrieve(session_id)
+        if session.payment_status == 'paid':
+            existing_order = Order.objects.filter(stripe_session_id=session_id).first()
+            if existing_order:
+                return render(request, 'registration/payment_success.html', {'paid': True, 'order': existing_order})
+            
+            try:
+                order = create_order(request.user, session)
+                cart = Cart.objects.filter(user=request.user).first()
+                if cart:
+                    cart.items.all().delete()
+                    cart.delete()
+                return render(request, 'registration/payment_success.html', {'paid': True, 'order': order})
+            except ValueError as e:
+                return render(request, 'registration/payment_success.html', {'paid': False, 'error': str(e)})
+        else:
+            return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Payment not successful. Please try again or contact support.'})
+    except stripe.error.InvalidRequestError:
+        return render(request, 'registration/payment_success.html', {'paid': False, 'error': 'Invalid session ID. Please contact support if this persists.'})
+    except stripe.error.StripeError as e:
+        return render(request, 'registration/payment_success.html', {'paid': False, 'error': f'An error occurred: {str(e)}. Please contact support.'})
+    except Exception as e:
+        return render(request, 'registration/payment_success.html', {'paid': False, 'error': f'An unexpected error occurred: {str(e)}. Please contact support.'})
 
 def create_order(user, session):
     address_id = session.metadata.get('address_id')
@@ -662,3 +673,19 @@ def create_order(user, session):
 @login_required
 def payment_cancel(request):
     return render(request, 'registration/payment_cancel.html')
+
+@require_POST
+@login_required
+def notify_me(request):
+    watch_id = request.POST.get('watch_id')
+    watch = get_object_or_404(BaseWatch, id=watch_id)
+    
+    notification, created = WatchNotification.objects.get_or_create(
+        user=request.user,
+        watch=watch
+    )
+    
+    if created:
+        return JsonResponse({'success': True, 'message': 'You will be notified when this product is back in stock.'})
+    else:
+        return JsonResponse({'success': False, 'message': 'You are already subscribed to notifications for this product.'})

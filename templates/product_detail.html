@@ -21,19 +21,25 @@
             </div>
             <div class="mt-3 row text-center">
                 {% if user.is_authenticated %}
-                <div class="col-md-6">
-                    <button type="submit" class="w-100 button button--gray rounded" id="add-to-cart" data-watch-id="{{ watch.id }}">Add to Cart</button>
-                </div>
-                <div class="col-md-6">
-                    <a href="{% url 'mainapp:order_review' %}?product_id={{ watch.id }}" class="w-100 button rounded">Buy Now</a>
-                </div>
+                    <div class="col-md-6">
+                        <button type="submit" class="w-100 button button--gray rounded" id="add-to-cart" data-watch-id="{{ watch.id }}">Add to Cart</button>
+                    </div>
+                    {% if watch.is_active and watch.available_stock > 0 %}
+                    <div class="col-md-6">
+                        <a href="{% url 'mainapp:order_review' %}?product_id={{ watch.id }}" class="w-100 button rounded">Buy Now</a>
+                    </div>
+                    {% else %}
+                    <div class="col-md-6">
+                        <button type="button" class="w-100 button rounded" id="notify-me" data-watch-id="{{ watch.id }}">Notify Me</button>
+                    </div>
+                    {% endif %}
                 {% else %}
-                <div class="col-md-6">
-                    <a href="{% url 'mainapp:login' %}" class="w-100 button button--gray rounded">Add to Cart</a>
-                </div>
-                <div class="col-md-6">
-                    <a href="{% url 'mainapp:login' %}" class="w-100 button rounded">Buy Now</a>
-                </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'mainapp:login' %}" class="w-100 button button--gray rounded">Add to Cart</a>
+                    </div>
+                    <div class="col-md-6">
+                        <a href="{% url 'mainapp:login' %}" class="w-100 button rounded">Buy Now</a>
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -48,6 +54,13 @@
                 <p class="text-muted">{{ watch.total_reviews }} ratings</p>
             </div>
             
+            <!-- Stock Status -->
+            {% if watch.is_active and watch.available_stock > 0 %}
+            <p class="text-success">In Stock</p>
+            {% else %}
+            <p class="text-danger">Out of Stock</p>
+            {% endif %}
+
             <div class="mt-4">
                 <h5>Product Details:</h5>
                 <table class="table table-borderless">
@@ -221,6 +234,33 @@
                 },
                 error: function(xhr, status, error) {
                     var errorMessage = 'An error occurred while adding to cart.';
+                    if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMessage = xhr.responseJSON.message;
+                    }
+                    showCustomAlert(errorMessage, 'error');
+                    console.error('Error:', error);
+                }
+            });
+        });
+
+        $('#notify-me').click(function() {
+            var watchId = $(this).data('watch-id');
+            $.ajax({
+                url: "{% url 'mainapp:notify_me' %}",
+                type: 'POST',
+                data: {
+                    'watch_id': watchId
+                },
+                headers: {'X-CSRFToken': '{{ csrf_token }}'},
+                success: function(data) {
+                    if (data.success) {
+                        showCustomAlert(data.message, 'success');
+                    } else {
+                        showCustomAlert(data.message, 'error');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    var errorMessage = 'An error occurred while notifying.';
                     if (xhr.responseJSON && xhr.responseJSON.message) {
                         errorMessage = xhr.responseJSON.message;
                     }
