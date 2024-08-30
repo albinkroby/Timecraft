@@ -20,5 +20,9 @@ urlpatterns = [
     path('orders/', views.order_list, name='order_list'),
     path('check-unique-model-name/', views.check_unique_model_name, name='check_unique_model_name'),
     path('orders/download/', views.download_orders, name='download_orders'),
+    
+    path('add-product2/', views.add_product_step1, name='add_product_step1'),
+    path('request-brand-approval/<int:brand_id>/', views.request_brand_approval, name='request_brand_approval'),
+    path('add-product2/<int:brand_id>/', views.add_product_step2, name='add_product_step2'),
 
 ]

@@ -1,250 +1,359 @@
 {% extends 'vendorapp/base.html' %}
-
-{% block title %}Add Product{% endblock %}
-
 {% block admin_content %}
-<div id="message-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;">
-    {% if messages %}
-        {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        {% endfor %}
-    {% endif %}
-</div>
-
-<div class="card">
-    <div class="card-body">
-        <h5 class="card-title mb-4">Add New Product</h5>
-        <form method="post" enctype="multipart/form-data" id="add-product-form">
-            {% csrf_token %}
-            <div class="row">
-                <div class="mb-3 col-md-6">
-                    <label for="id_model_name" class="form-label">Model Name</label>
-                    <input type="text" name="model_name" id="id_model_name" class="form-control" required>
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_brand" class="form-label">Brand</label>
-                    {{ form.brand }}
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_category" class="form-label">Category</label>
-                    {{ form.category }}
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_base_price" class="form-label">Base Price</label>
-                    <input type="number" name="base_price" id="id_base_price" class="form-control" step="0.01" min="0" required>
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_available_stock" class="form-label">Stock Quantity</label>
-                    <input type="number" name="available_stock" id="id_available_stock" class="form-control" min="0" required>
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_color" class="form-label">Color</label>
-                    <input type="text" name="color" id="id_color" class="form-control" required>
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_strap_material" class="form-label">Strap Material</label>
-                    <input type="text" name="strap_material" id="id_strap_material" class="form-control" required>
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_case_size" class="form-label">Case Size (mm)</label>
-                    <input type="number" name="case_size" id="id_case_size" class="form-control" step="0.1" min="0" required>
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_movement_type" class="form-label">Movement Type</label>
-                    <input type="text" name="movement_type" id="id_movement_type" class="form-control" required>
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_water_resistance" class="form-label">Water Resistance</label>
-                    <input type="text" name="water_resistance" id="id_water_resistance" class="form-control" required>
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_display_type" class="form-label">Display Type</label>
-                    <input type="text" name="display_type" id="id_display_type" class="form-control" value="Analog">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_style_code" class="form-label">Style Code</label>
-                    <input type="text" name="style_code" id="id_style_code" class="form-control">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_series" class="form-label">Series</label>
-                    <input type="text" name="series" id="id_series" class="form-control">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_occasion" class="form-label">Occasion</label>
-                    <input type="text" name="occasion" id="id_occasion" class="form-control">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_pack_of" class="form-label">Pack of</label>
-                    <input type="number" name="pack_of" id="id_pack_of" class="form-control" value="1" min="1">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_strap_color" class="form-label">Strap Color</label>
-                    <input type="text" name="strap_color" id="id_strap_color" class="form-control">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_net_quantity" class="form-label">Net Quantity</label>
-                    <input type="number" name="net_quantity" id="id_net_quantity" class="form-control" value="1" min="1">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_strap_type" class="form-label">Strap Type</label>
-                    <input type="text" name="strap_type" id="id_strap_type" class="form-control" value="Band">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_case_material" class="form-label">Case Material</label>
-                    <input type="text" name="case_material" id="id_case_material" class="form-control" value="Stainless Steel Back Case">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_water_resistance_depth" class="form-label">Water Resistance Depth (m)</label>
-                    <input type="number" name="water_resistance_depth" id="id_water_resistance_depth" class="form-control" min="0">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_dial_color" class="form-label">Dial Color</label>
-                    <input type="text" name="dial_color" id="id_dial_color" class="form-control">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_width" class="form-label">Width (mm)</label>
-                    <input type="number" name="width" id="id_width" class="form-control" step="0.1" min="0">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_diameter" class="form-label">Diameter (mm)</label>
-                    <input type="number" name="diameter" id="id_diameter" class="form-control" step="0.1" min="0">
-                </div>
-                <div class="mb-3 col-md-6">
-                    <label for="id_warranty_period" class="form-label">Warranty Period (months)</label>
-                    <input type="number" name="warranty_period" id="id_warranty_period" class="form-control" min="0">
-                </div>
-                <div class="mb-3 col-12">
-                    <label for="id_description" class="form-label">Description</label>
-                    <textarea name="description" id="id_description" class="form-control" rows="4" required></textarea>
-                </div>
-            </div>
-            <div class="mb-3">
-                <label for="primary_image" class="form-label">Primary Image</label>
-                <input type="file" name="primary_image" id="primary_image" class="form-control" accept="image/*" required>
-            </div>
-            <div class="mb-3">
-                <label for="product_images" class="form-label">Additional Product Images</label>
-                <div id="drop-area" class="drop-area">
-                    <p>Drag and drop images here or click to browse</p>
-                    <input type="file" name="product_images" id="product_images" class="form-control" multiple accept="image/*" style="display: none;">
-                    <div id="image-preview" class="mt-3 d-flex flex-wrap"></div>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-primary">Add Product</button>
-        </form>
+{% load custom_filters %}
+<div class="container">
+    <h2 class="mb-4">Add Product</h2>
+    
+    <div class="progress mb-4">
+        <div class="progress-bar" role="progressbar" style="width: 33%;" aria-valuenow="1" aria-valuemin="0" aria-valuemax="3">Step <span id="current-step">1</span> of 3</div>
     </div>
+
+    <form method="post" enctype="multipart/form-data" id="baseWatchForm" class="needs-validation" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="step" id="step-input" value="1">
+        
+        <div id="step1">
+            <h3>Base Watch Information</h3>
+            <div class="row">
+                {% for field in base_watch_form %}
+                    {% if field.name != 'primary_image' %}
+                        <div class="col-6">
+                            <div class="form-group">
+                                {{ field.label_tag }}
+                                {{ field }}
+                                <div class="invalid-feedback">
+                                    {% if field.errors %}
+                                        {{ field.errors|join:", " }}
+                                    {% else %}
+                                        This field is required.
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <div class="form-group">
+                <label for="primaryImageInput">Primary Image</label>
+                <div id="primaryImageUpload" class="image-upload">
+                    {{ base_watch_form.primary_image }}
+                    <div class="plus-sign">+</div>
+                </div>
+                <div id="primaryImagePreview"></div>
+                <div class="invalid-feedback" id="primaryImageError">
+                    Primary image is required.
+                </div>
+            </div>
+
+            <h3>Additional Images</h3>
+            <div class="form-group">
+                <label for="multipleImageUpload">Product Images</label>
+                <div id="imageUploadContainer">
+                    <input type="file" id="multipleImageUpload" name="images" multiple accept="image/*" style="display: none;">
+                    <div class="image-upload" id="imageUploadPlaceholder">
+                        <div class="plus-sign">+</div>
+                    </div>
+                </div>
+                <div id="imagePreviewContainer" class="row mt-3"></div>
+            </div>
+        </div>
+
+        <div id="step2" style="display: none;">
+            <h3>Watch Details and Materials</h3>
+            {% for field in details_form %}
+                <div class="form-group">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    <div class="invalid-feedback">
+                        {% if field.errors %}
+                            {{ field.errors|join:", " }}
+                        {% else %}
+                            This field is required.
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+
+            <h3>Watch Materials</h3>
+            {% for field in materials_form %}
+                <div class="form-group">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    <div class="invalid-feedback">
+                        {% if field.errors %}
+                            {{ field.errors|join:", " }}
+                        {% else %}
+                            This field is required.
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div id="step3" style="display: none;">
+            <h3>Additional Features</h3>
+            {% for field in smart_feature_form %}
+                <div class="form-check">
+                    {{ field }}
+                    <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                </div>
+            {% endfor %}
+            {% for field in premium_feature_form %}
+                <div class="form-check">
+                    {{ field }}
+                    <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="mt-4">
+            <button type="button" id="prev-btn" class="btn btn-secondary" style="display: none;">Previous</button>
+            <button type="button" id="next-btn" class="btn btn-primary">Next</button>
+            <button type="submit" id="submit-btn" class="btn btn-success" style="display: none;">Submit</button>
+        </div>
+    </form>
 </div>
-{% endblock %}
 
-{% block extra_js %}
 <script>
-    let dropArea = document.getElementById('drop-area');
-    let fileInput = document.getElementById('product_images');
-    let preview = document.getElementById('image-preview');
-
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, preventDefaults, false);
-    });
-
-    function preventDefaults(e) {
-        e.preventDefault();
-        e.stopPropagation();
-    }
-
-    ['dragenter', 'dragover'].forEach(eventName => {
-        dropArea.addEventListener(eventName, highlight, false);
-    });
-
-    ['dragleave', 'drop'].forEach(eventName => {
-        dropArea.addEventListener(eventName, unhighlight, false);
-    });
-
-    function highlight(e) {
-        dropArea.classList.add('highlight');
-    }
-
-    function unhighlight(e) {
-        dropArea.classList.remove('highlight');
-    }
-
-    dropArea.addEventListener('drop', handleDrop, false);
-
-    function handleDrop(e) {
-        let dt = e.dataTransfer;
-        let files = dt.files;
-        handleFiles(files);
-    }
-
-    dropArea.addEventListener('click', () => fileInput.click());
-
-    fileInput.addEventListener('change', function() {
-        handleFiles(this.files);
-    });
-
-    function handleFiles(files) {
-        ([...files]).forEach(previewFile);
-    }
-
-    function previewFile(file) {
-        let reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onloadend = function() {
-            let div = document.createElement('div');
-            div.className = 'image-container';
-            div.innerHTML = `
-                <img src="${reader.result}" class="img-thumbnail" style="max-width: 150px; max-height: 150px;">
-                <span class="close-btn">&times;</span>
-            `;
-            preview.appendChild(div);
-
-            div.querySelector('.close-btn').addEventListener('click', function() {
-                div.remove();
-            });
-        }
-    }
-
     // Form validation
-    document.getElementById('add-product-form').addEventListener('submit', function(event) {
-        let form = event.target;
-        let isValid = true;
+    (function() {
+        'use strict';
+        window.addEventListener('load', function() {
+            var forms = document.getElementsByClassName('needs-validation');
+            var validation = Array.prototype.filter.call(forms, function(form) {
+                form.addEventListener('submit', function(event) {
+                    if (form.checkValidity() === false) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    form.classList.add('was-validated');
+                }, false);
+            });
+        }, false);
+    })();
 
-        // Check required fields
-        form.querySelectorAll('[required]').forEach(function(input) {
-            if (!input.value) {
-                isValid = false;
-                input.classList.add('is-invalid');
-            } else {
-                input.classList.remove('is-invalid');
-            }
+    // Step navigation
+    const steps = ['step1', 'step2', 'step3'];
+    let currentStep = 1;
+
+    function updateStep(step) {
+        steps.forEach((s, index) => {
+            const stepElement = document.getElementById(s);
+            stepElement.style.display = index + 1 === step ? 'block' : 'none';
         });
 
-        // Check numeric fields
-        form.querySelectorAll('input[type="number"]').forEach(function(input) {
-            if (input.value && parseFloat(input.value) < 0) {
-                isValid = false;
-                input.classList.add('is-invalid');
-            } else {
-                input.classList.remove('is-invalid');
-            }
-        });
+        document.getElementById('current-step').textContent = step;
+        document.getElementById('step-input').value = step;
+        document.querySelector('.progress-bar').style.width = `${(step / 3) * 100}%`;
 
-        if (!isValid) {
-            event.preventDefault();
-            alert('Please fill in all required fields correctly.');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const submitBtn = document.getElementById('submit-btn');
+
+        prevBtn.style.display = step > 1 ? 'inline-block' : 'none';
+        nextBtn.style.display = step < 3 ? 'inline-block' : 'none';
+        submitBtn.style.display = step === 3 ? 'inline-block' : 'none';
+    }
+
+    document.getElementById('next-btn').addEventListener('click', () => {
+        if (currentStep < 3) {
+            if (validateCurrentStep()) {
+                currentStep++;
+                updateStep(currentStep);
+            }
         }
     });
 
-    // Auto-hide alerts after 5 seconds
-    setTimeout(function() {
-        $('.alert').fadeOut('slow', function() {
-            $(this).remove();
-        });
-    }, 5000);
+    document.getElementById('prev-btn').addEventListener('click', () => {
+        if (currentStep > 1) {
+            currentStep--;
+            updateStep(currentStep);
+        }
+    });
 
-    // Animate the alert sliding in from the right
-    $('.alert').hide().slideDown('slow');
+    function validateCurrentStep() {
+        const form = document.getElementById('baseWatchForm');
+        const currentStepElement = document.getElementById(`step${currentStep}`);
+        const fields = currentStepElement.querySelectorAll('input, select, textarea');
+        
+        let isValid = true;
+        fields.forEach(field => {
+            if (!field.checkValidity()) {
+                field.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+
+        // Validate primary image
+        const primaryImageInput = document.getElementById('primaryImageInput');
+        const primaryImageError = document.getElementById('primaryImageError');
+        if (primaryImageInput.files.length === 0) {
+            primaryImageInput.classList.add('is-invalid');
+            primaryImageError.style.display = 'block';
+            isValid = false;
+        } else {
+            primaryImageInput.classList.remove('is-invalid');
+            primaryImageError.style.display = 'none';
+        }
+
+        // Validate model name uniqueness
+        const modelNameInput = document.getElementById('id_model_name');
+        if (modelNameInput && currentStep === 1) {
+            isValid = isValid && checkModelNameUniqueness(modelNameInput);
+        }
+
+        return isValid;
+    }
+
+    function checkModelNameUniqueness(input) {
+        const modelName = input.value;
+        const errorElement = input.nextElementSibling;
+        
+        return new Promise((resolve) => {
+            fetch(`{% url 'vendorapp:check_unique_model_name' %}?model_name=${encodeURIComponent(modelName)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.is_unique) {
+                        input.classList.remove('is-invalid');
+                        errorElement.style.display = 'none';
+                        resolve(true);
+                    } else {
+                        console.log(data)
+                        input.classList.add('is-invalid');
+                        errorElement.textContent = 'This model name is already in use';
+                        errorElement.style.display = 'block';
+                        resolve(false);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    resolve(true);
+                });
+        });
+    }
+
+    // Add event listener for model name input
+    const modelNameInput = document.getElementById('id_model_name');
+    if (modelNameInput) {
+        modelNameInput.addEventListener('blur', () => {
+            checkModelNameUniqueness(modelNameInput);
+        });
+    }
+
+    // Modify the next button click event to handle async validation
+    document.getElementById('next-btn').addEventListener('click', async () => {
+        if (currentStep < 3) {
+            const isValid = await validateCurrentStep();
+            if (isValid) {
+                currentStep++;
+                updateStep(currentStep);
+            }
+        }
+    });
+
+    // Initialize the form
+    updateStep(1);
+
+    // Primary image upload
+    const primaryImageUpload = document.getElementById('primaryImageUpload');
+    const primaryImageInput = document.getElementById('primaryImageInput');
+    const primaryImagePreview = document.getElementById('primaryImagePreview');
+
+    primaryImageUpload.addEventListener('click', () => {
+        primaryImageInput.click();
+    });
+
+    primaryImageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                primaryImagePreview.innerHTML = `
+                    <div class="image-preview-wrapper">
+                        <img src="${event.target.result}" class="image-preview" alt="Uploaded image">
+                        <div class="remove-image" onclick="removePrimaryImage()">×</div>
+                    </div>
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    function removePrimaryImage() {
+        primaryImagePreview.innerHTML = '';
+        primaryImageInput.value = '';
+    }
+
+    // Additional images upload
+    const imageUploadPlaceholder = document.getElementById('imageUploadPlaceholder');
+    const multipleImageUpload = document.getElementById('multipleImageUpload');
+    const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+
+    imageUploadPlaceholder.addEventListener('click', () => {
+        multipleImageUpload.click();
+    });
+
+    multipleImageUpload.addEventListener('change', (e) => {
+        handleFileSelection(e.target.files);
+    });
+
+    function handleFileSelection(files) {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'col-md-3 mb-3';
+                previewDiv.innerHTML = `
+                    <div class="image-preview-wrapper">
+                        <img src="${event.target.result}" class="image-preview" alt="Uploaded image">
+                        <div class="remove-image" onclick="removeImage(this, '${file.name}')">×</div>
+                    </div>
+                `;
+                imagePreviewContainer.appendChild(previewDiv);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    function removeImage(removeButton, fileName) {
+        // Remove the preview
+        removeButton.closest('.col-md-3').remove();
+
+        // Remove the file from the input
+        const dt = new DataTransfer();
+        const input = document.getElementById('multipleImageUpload');
+        const { files } = input;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.name !== fileName) {
+                dt.items.add(file);
+            }
+        }
+
+        input.files = dt.files;
+    }
+
+    // Drag and drop functionality
+    const dropZone = document.getElementById('imageUploadContainer');
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        handleFileSelection(e.dataTransfer.files);
+    });
 </script>
 {% endblock %}

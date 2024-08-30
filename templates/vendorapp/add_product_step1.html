@@ -1,0 +1,59 @@
+{% extends 'vendorapp/base.html' %}
+
+{% block admin_content %}
+<h2>Add Product - Step 1: Select Brand</h2>
+<div class="row">
+    <div class="col-md-6">
+        <h3>Select a Brand</h3>
+        <form method="post" id="brandForm">
+            {% csrf_token %}
+            <select name="brand" id="brandSelect" class="form-control">
+                <option value="">Select a brand</option>
+                {% for brand in brands %}
+                    <option value="{{ brand.id }}">{{ brand.brand_name }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+    <div class="col-md-6">
+        <h3>Brand Status</h3>
+        <div id="brandStatus">
+            <p>Please select a brand to see its status.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#brandSelect').change(function() {
+        var brandId = $(this).val();
+        var status = '{{ brand_status|safe }}';
+        var brandStatus;
+        console.log(status);
+        try {
+            brandStatus = JSON.parse(status);
+        } catch (error) {
+            console.error("Error parsing brand_status:", error);
+            brandStatus = {};
+        }
+        var $statusDiv = $('#brandStatus');
+        
+        if (brandId && brandStatus[brandId]) {
+            var currentStatus = brandStatus[brandId];
+            $statusDiv.html('<p>Status: ' + currentStatus + '</p>');
+            
+            if (currentStatus === 'Approved') {
+                $statusDiv.html('<p>You are approved for this brand.</p>');
+                $statusDiv.append('<button type="submit" form="brandForm" class="btn btn-primary">Add Product</button>');
+            } else if (currentStatus === 'Not Requested' || currentStatus === 'Request Again') {
+                $statusDiv.append('<button type="submit" form="brandForm" class="btn btn-warning">Request Approval</button>');
+            } else if (currentStatus === 'Waiting') {
+                $statusDiv.append('<p>Please wait 30 days before requesting approval again.</p>');
+            }
+        } else {
+            $statusDiv.html('<p>Please select a brand to see its status.</p>');
+        }
+    });
+});
+</script>
+{% endblock %}

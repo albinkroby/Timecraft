@@ -22,11 +22,12 @@
                         <span class="home__price">Rs.{{ featured_watch.base_price }}</span>
 
                         <div class="home__btns">
+                            {% if featured_watch.details %}
                             <a href="{% url 'mainapp:product_detail' slug=featured_watch.slug %}" class="button button--gray button--small">
                                 Discover
                             </a>
-
                             <button class="button home__button" data-watch-id="{{ featured_watch.id }}">ADD TO WISHLIST</button>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

@@ -19,7 +19,7 @@ from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import default_token_generator
 from .utils import hash_url, verify_hashed_url
 from django.db.models import Q
-from adminapp.models import BaseWatch, WatchImage, Brand, Category
+from adminapp.models import BaseWatch, WatchImage, Brand, Category, ImageFeature, Material
 from django.contrib import messages
 from django.core.paginator import Paginator
 import stripe
@@ -31,7 +31,12 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from PIL import Image
 import numpy as np
-import imagehash
+from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
+from tensorflow.keras.preprocessing import image
+from scipy.spatial.distance import cosine
+from rembg import remove
+import io
+from django.core.files.uploadedfile import InMemoryUploadedFile
 
 User = get_user_model()
 # Create your views here.
@@ -281,7 +286,6 @@ def update_cart(request):
 def search_results(request):
     query = request.GET.get('search', '')
     image_search = request.GET.get('image_search', '')
-    print(f"image_search: {image_search}")
     
     brands = request.GET.getlist('brand')
     categories = request.GET.getlist('category')
@@ -292,60 +296,66 @@ def search_results(request):
     movement_types = request.GET.getlist('function_display')
     sort_by = request.GET.get('sort_by', 'relevance')
 
-    watches = BaseWatch.objects.filter(
-        Q(model_name__icontains=query) | 
-        Q(brand__brand_name__icontains=query) |
-        Q(description__icontains=query)
-    )
+    watches = BaseWatch.objects.filter(is_active=True)
 
-    similar_watches = []
-    if request.method == 'POST' and request.FILES.get('image'):
-        image = request.FILES['image']
-        image_hash = get_image_hash(image)
-        similar_watches = find_similar_watches(image_hash)
-        watch_ids = [watch.id for watch, similarity in similar_watches if similarity > 0.75]  # Filter by threshold
-        watches = watches.filter(id__in=watch_ids)  # Ensure only similar watches are included
-        image_search = True
-        
-        # Save search parameters and results in session
-        request.session['image_search'] = True
-        request.session['image_hash'] = image_hash
-        request.session['similar_watches'] = [(watch.id, float(similarity)) for watch, similarity in similar_watches]
-    elif image_search:
-        # Retrieve image search results from session if they exist
-        saved_similar_watches = request.session.get('similar_watches', [])
-        if saved_similar_watches:
-            watch_ids = [watch_id for watch_id, similarity in saved_similar_watches if similarity > 0.75]  # Filter by threshold
-            watches = watches.filter(id__in=watch_ids)
-            similar_watches = [(BaseWatch.objects.get(id=watch_id), similarity) for watch_id, similarity in saved_similar_watches]
+    if query:
+        watches = watches.filter(
+            Q(model_name__icontains=query) | 
+            Q(brand__brand_name__icontains=query) |
+            Q(description__icontains=query)
+        )
 
-    # Apply filters for both regular and image search
     if brands:
         watches = watches.filter(brand__id__in=brands)
     if categories:
         watches = watches.filter(category__id__in=categories)
-    if min_price and max_price:
-        watches = watches.filter(base_price__gte=min_price, base_price__lte=max_price)
+    if min_price:
+        watches = watches.filter(base_price__gte=min_price)
+    if max_price:
+        watches = watches.filter(base_price__lte=max_price)
     if colors:
         watches = watches.filter(color__in=colors)
     if strap_materials:
-        watches = watches.filter(strap_material__in=strap_materials)
+        watches = watches.filter(materials__strap_material__name__in=strap_materials)
     if movement_types:
-        watches = watches.filter(movement_type__in=movement_types)
+        watches = watches.filter(function_display__in=movement_types)
 
-    # Apply sorting
     if sort_by == 'price_low_to_high':
         watches = watches.order_by('base_price')
     elif sort_by == 'price_high_to_low':
         watches = watches.order_by('-base_price')
     elif sort_by == 'newest':
         watches = watches.order_by('-id')
-    else:
-        watches = watches.order_by('id')  # Default ordering
 
-    if image_search:
-        similar_watches = [(watch, similarity) for watch, similarity in similar_watches if watch.id in watches.values_list('id', flat=True)]
+    similar_watches = []
+    if request.method == 'POST' and request.FILES.get('image'):
+        uploaded_image = request.FILES['image']
         
+        # Remove background from the uploaded image
+        uploaded_image_nobg = remove_background(uploaded_image)
+        
+        search_features = extract_features(uploaded_image_nobg)
+        similar_watches = find_similar_watches(search_features, similarity_threshold=0.5)
+        watch_ids = [watch.id for watch, similarity in similar_watches if similarity > 0.5]
+        watches = watches.filter(id__in=watch_ids)
+        image_search = True
+        
+        # Debug information
+        print("Search features shape:", search_features.shape)
+        print("Number of similar watches found:", len(similar_watches))
+        for watch, similarity in similar_watches[:5]:  # Print top 5 matches
+            print(f"Watch: {watch.model_name}, Similarity: {similarity}")
+        
+        request.session['image_search'] = True
+        request.session['search_features'] = search_features.tolist()
+        request.session['similar_watches'] = [(watch.id, float(similarity)) for watch, similarity in similar_watches]
+    elif image_search:
+        saved_similar_watches = request.session.get('similar_watches', [])
+        if saved_similar_watches:
+            watch_ids = [watch_id for watch_id, similarity in saved_similar_watches if similarity > 0.6]
+            watches = watches.filter(id__in=watch_ids)
+            similar_watches = [(BaseWatch.objects.get(id=watch_id), similarity) for watch_id, similarity in saved_similar_watches]
+
     paginator = Paginator(watches, 12)  # Show 12 watches per page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -359,7 +369,7 @@ def search_results(request):
         'categories': Category.objects.all(),
         'price_range': BaseWatch.get_price_range(),
         'colors': BaseWatch.get_unique_values('color'),
-        'strap_materials': BaseWatch.get_unique_values('strap_material'),
+        'strap_materials': Material.objects.filter(strap_watches__isnull=False).distinct(),
         'movement_types': BaseWatch.get_unique_values('function_display'),
         'selected_brands': brands,
         'selected_categories': categories,
@@ -372,60 +382,50 @@ def search_results(request):
     }
     return render(request, 'search_results.html', context)
 
-def get_image_hash(image):
-    temp_path = default_storage.save('temp/search_image.jpg', ContentFile(image.read()))
-    with Image.open(default_storage.path(temp_path)) as img:
-        # Check if the image is in palette mode with transparency
-        if img.mode == 'P' and 'transparency' in img.info:
-            img = img.convert('RGBA')
-        # Convert to RGB (remove alpha channel if present)
-        if img.mode in ('RGBA', 'LA'):
-            img = img.convert('RGB')
-        # Resize image for consistency
-        img = img.resize((256, 256))
-        # Generate the hash
-        phash = imagehash.phash(img)
-        dhash = imagehash.dhash(img)
-        whash = imagehash.whash(img)
-    default_storage.delete(temp_path)
-    # Combine all hashes into a single string
-    return f"{phash},{dhash},{whash}"
+def remove_background(image_file):
+    # Open the image using PIL
+    img = Image.open(image_file)
+    
+    # Remove the background
+    img_without_bg = remove(img)
+    
+    # Convert the image back to bytes
+    img_byte_arr = io.BytesIO()
+    img_without_bg.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+    
+    # Create a new InMemoryUploadedFile
+    return InMemoryUploadedFile(
+        img_byte_arr,
+        'ImageField',
+        f"{image_file.name.split('.')[0]}_nobg.png",
+        'image/png',
+        img_byte_arr.tell(),
+        None
+    )
 
+def extract_features(image_file):
+    model = ResNet50(weights='imagenet', include_top=False, pooling='avg')
+    img = Image.open(image_file)
+    img = img.convert('RGB')
+    img = img.resize((224, 224))
+    x = image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    x = preprocess_input(x)
+    features = model.predict(x)
+    return features.flatten()
 
-
-def find_similar_watches(search_hash, similarity_threshold=0.75):
+def find_similar_watches(search_features, similarity_threshold=0.6):
     similar_watches = []
-    for watch in BaseWatch.objects.exclude(image_hash__isnull=True).exclude(image_hash=''):
-        # Convert hexadecimal hash to binary array
-        watch_hash = np.array([
-            [int(bit) for bit in format(int(h, 16), '064b')]
-            for h in watch.image_hash.split(',')
-        ]).flatten()
-
-        # Ensure search_hash is a binary array
-        if isinstance(search_hash[0], np.uint8):
-            search_hash_binary = search_hash
-        else:
-            # If search_hash is a string (hexadecimal), convert it to binary
-            search_hash_binary = np.array([
-                [int(bit) for bit in format(int(h, 16), '064b')]
-                for h in search_hash.split(',')
-            ]).flatten()
-
-        # Calculate similarity
-        similarity = 1 - np.sum(search_hash_binary != watch_hash) / len(watch_hash)
+    for image_feature in ImageFeature.objects.all():
+        watch_features = np.frombuffer(image_feature.feature_vector, dtype=np.float32)
+        similarity = 1 - cosine(search_features, watch_features)  # Cosine similarity
+        print(f"Similarity: {similarity}")
         
-         # Debug output
-        print(f"Comparing with watch {watch.id}: similarity = {similarity}")
-          
         if similarity > similarity_threshold:
-            similar_watches.append((watch, similarity))
-        
-         # Debug output
-        print(f"Found {len(similar_watches)} similar watches")
+            similar_watches.append((image_feature.base_watch, similarity))
     
     return sorted(similar_watches, key=lambda x: x[1], reverse=True)
-
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 

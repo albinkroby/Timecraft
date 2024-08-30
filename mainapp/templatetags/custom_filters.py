@@ -13,3 +13,10 @@ def range_filter(value):
 @register.filter(name='get_list')
 def get_list(dictionary, key):
     return dictionary.getlist(key) if hasattr(dictionary, 'getlist') else dictionary.get(key, [])
+
+@register.filter
+def multiplyfloat(value, arg):
+    try:
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return ''

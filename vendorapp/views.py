@@ -1,12 +1,12 @@
 from django.shortcuts import render,redirect
 from django.contrib.auth.decorators import login_required
 from mainapp.decorators import user_type_required
-from .forms import VendorRegistrationForm, BaseWatchForm
+from .forms import VendorRegistrationForm, BaseWatchForm, BrandSelectionForm, BrandApprovalRequestForm, WatchDetailsForm, WatchMaterialsForm, SmartWatchFeatureForm, PremiumWatchFeatureForm, WatchImageFormSet
 from django.contrib import messages
 from .models import VendorProfile
 from mainapp.utils import hash_url
 from django.urls import reverse
-from adminapp.models import Category, BaseWatch, WatchImage, SmartWatchFeature, PremiumWatchFeature, WatchType
+from adminapp.models import Category, BaseWatch, WatchImage, SmartWatchFeature, PremiumWatchFeature, WatchType, BrandApproval, Brand
 from mainapp.models import Order, OrderItem
 from django.shortcuts import get_object_or_404
 import os
@@ -17,7 +17,7 @@ from django.utils import timezone
 from datetime import timedelta, datetime
 from django.core.paginator import Paginator
 import pandas as pd
-import io
+import io,json
 
 @never_cache
 def home(request):
@@ -126,62 +126,90 @@ def index(request):
 @login_required
 @user_type_required('vendor')
 def add_product(request):
-    if request.method == 'POST':
-        form = BaseWatchForm(request.POST, request.FILES)
-        if form.is_valid():
-            try:
-                watch = form.save(commit=False)
-                watch.vendor = request.user.vendorprofile
-                watch.save()
-                form.save_m2m()  # Save many-to-many relationships
-
-                # Handle primary image
-                if 'primary_image' in request.FILES:
-                    watch.primary_image = request.FILES['primary_image']
-                    watch.save()
-
-                # Handle additional images
-                images = request.FILES.getlist('product_images')
-                for image in images:
-                    WatchImage.objects.create(base_watch=watch, image=image)
-
-                # Handle SmartWatchFeature
-                if watch.watch_type.type_name == 'Smart Watch':
-                    SmartWatchFeature.objects.create(
-                        base_watch=watch,
-                        heart_rate_monitor=form.cleaned_data.get('heart_rate_monitor', False),
-                        gps=form.cleaned_data.get('gps', False),
-                        step_counter=form.cleaned_data.get('step_counter', False),
-                        sleep_tracker=form.cleaned_data.get('sleep_tracker', False)
-                    )
-
-                # Handle PremiumWatchFeature
-                elif watch.watch_type.type_name == 'Premium Watch':
-                    PremiumWatchFeature.objects.create(
-                        base_watch=watch,
-                        sapphire_glass=form.cleaned_data.get('sapphire_glass', False),
-                        automatic_movement=form.cleaned_data.get('automatic_movement', False),
-                        chronograph=form.cleaned_data.get('chronograph', False)
-                    )
-
-                return JsonResponse({'success': True, 'message': f'Product "{watch.model_name}" has been added successfully!'})
-            except Exception as e:
-                return JsonResponse({'success': False, 'error': str(e)})
-        else:
-            return JsonResponse({'success': False, 'errors': form.errors})
-    else:
-        return JsonResponse({'success': False, 'error': 'Invalid request method'})
+    step = request.GET.get('step', '1')
     
-def addproducttest(request):
-    form = BaseWatchForm()
-    watch_types = WatchType.objects.all()
-    return render(request,'vendorapp/add_product.html',{'form':form,'watch_types':watch_types})
+    if request.method == 'POST':
+        step = request.POST.get('step', '1')
+        if step == '1':
+            base_watch_form = BaseWatchForm(request.POST, request.FILES)
+            image_formset = WatchImageFormSet(request.POST, request.FILES)
+            if base_watch_form.is_valid() and image_formset.is_valid():
+                base_watch = base_watch_form.save(commit=False)
+                base_watch.vendor = request.user.vendorprofile
+                base_watch.save()
+                base_watch_form.save_m2m()
+                images = image_formset.save(commit=False)
+                for image in images:
+                    image.base_watch = base_watch
+                    image.save()
+                request.session['base_watch_id'] = base_watch.id
+                return redirect('/add_product?step=2')
+            else:
+                step = '1'  # Stay on step 1 if there are errors
+        elif step == '2':
+            details_form = WatchDetailsForm(request.POST)
+            materials_form = WatchMaterialsForm(request.POST)
+            if details_form.is_valid() and materials_form.is_valid():
+                base_watch = BaseWatch.objects.get(id=request.session['base_watch_id'])
+                details = details_form.save(commit=False)
+                details.base_watch = base_watch
+                details.save()
+                materials = materials_form.save(commit=False)
+                materials.base_watch = base_watch
+                materials.save()
+                if base_watch.watch_type.name.lower() in ['smart watch', 'premium watch']:
+                    return redirect('/add_product?step=3')
+                else:
+                    messages.success(request, 'Product added successfully!')
+                    return redirect('/product_list')
+            else:
+                step = '2'  # Stay on step 2 if there are errors
+        elif step == '3':
+            base_watch = BaseWatch.objects.get(id=request.session['base_watch_id'])
+            if base_watch.watch_type.name.lower() == 'smart watch':
+                form = SmartWatchFeatureForm(request.POST)
+            else:
+                form = PremiumWatchFeatureForm(request.POST)
+            if form.is_valid():
+                features = form.save(commit=False)
+                features.base_watch = base_watch
+                features.save()
+                messages.success(request, 'Product added successfully!')
+                return redirect('/product_list')
+            else:
+                step = '3'  # Stay on step 3 if there are errors
+
+    # Prepare forms for rendering
+    if step == '1':
+        base_watch_form = base_watch_form if request.method == 'POST' else BaseWatchForm()
+        image_formset = image_formset if request.method == 'POST' else WatchImageFormSet()
+    elif step == '2':
+        details_form = details_form if request.method == 'POST' else WatchDetailsForm()
+        materials_form = materials_form if request.method == 'POST' else WatchMaterialsForm()
+    elif step == '3':
+        base_watch = BaseWatch.objects.get(id=request.session['base_watch_id'])
+        if base_watch.watch_type.name.lower() == 'smart watch':
+            form = form if request.method == 'POST' else SmartWatchFeatureForm()
+        else:
+            form = form if request.method == 'POST' else PremiumWatchFeatureForm()
+
+    context = {
+        'step': step,
+        'base_watch_form': base_watch_form if step == '1' else None,
+        'image_formset': image_formset if step == '1' else None,
+        'details_form': details_form if step == '2' else None,
+        'materials_form': materials_form if step == '2' else None,
+        'smart_feature_form': form if step == '3' and base_watch.watch_type.name.lower() == 'smart watch' else None,
+        'premium_feature_form': form if step == '3' and base_watch.watch_type.name.lower() == 'premium watch' else None,
+    }
+    return render(request, 'vendorapp/add_product.html', context)
 
 @never_cache
 @login_required
 @user_type_required('vendor')
 def check_unique_model_name(request):
     model_name = request.GET.get('model_name', '')
+    model_name = model_name.replace('%20', ' ')
     is_unique = not BaseWatch.objects.filter(model_name=model_name).exists()
     return JsonResponse({'is_unique': is_unique})
 
@@ -382,3 +410,151 @@ def download_orders(request):
     response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename=orders.xlsx'
     return response
+
+
+# test
+
+@login_required
+@user_type_required('vendor')
+def add_product_step1(request):
+    vendor = request.user.vendorprofile
+    brands = Brand.objects.all()
+    brand_approvals = BrandApproval.objects.filter(vendor=vendor)
+
+    if request.method == 'POST':
+        selected_brand_id = request.POST.get('brand')
+        if selected_brand_id:
+            brand = get_object_or_404(Brand, id=selected_brand_id)
+            approval = brand_approvals.filter(brand=brand).first()
+            
+            return redirect('vendorapp:add_product_step2', brand_id=brand.id)
+            if approval and approval.is_approved:
+                return redirect('vendorapp:add_product_step2', brand_id=brand.id)
+            elif approval and not approval.is_approved:
+                if approval.requested_at + timedelta(days=30) > timezone.now():
+                    messages.warning(request, f"Please wait 30 days before requesting approval for {brand.brand_name} again.")
+                else:
+                    return redirect('vendorapp:request_brand_approval', brand_id=brand.id)
+            else:
+                return redirect('vendorapp:request_brand_approval', brand_id=brand.id)
+    
+    brand_status = {}
+    for brand in brands:
+        approval = brand_approvals.filter(brand=brand).first()
+        if approval:
+            if approval.is_approved:
+                status = "Approved"
+            elif approval.requested_at + timedelta(days=30) > timezone.now():
+                status = "Waiting"
+            else:
+                status = "Request Again"
+        else:
+            status = "Not Requested"
+        brand_status[str(brand.id)] = status  # Convert brand.id to string
+
+    # brand_status_json = json.dumps(brand_status)
+    brand_status_json = json.dumps({"1": "Approved"})
+
+    context = {
+        'brands': brands,
+        'brand_status': brand_status_json,
+    }
+    return render(request, 'vendorapp/add_product_step1.html', context)
+
+@login_required
+@user_type_required('vendor')
+def request_brand_approval(request, brand_id):
+    brand = get_object_or_404(Brand, id=brand_id)
+    vendor = request.user.vendorprofile
+
+    if request.method == 'POST':
+        form = BrandApprovalRequestForm(request.POST)
+        if form.is_valid():
+            approval_request = form.save(commit=False)
+            approval_request.vendor = vendor
+            approval_request.brand = brand
+            approval_request.save()
+            messages.success(request, f"Approval request for {brand.brand_name} has been submitted.")
+            return redirect('vendorapp:vendor_dashboard')
+    else:
+        form = BrandApprovalRequestForm(initial={'brand': brand})
+
+    return render(request, 'vendorapp/request_brand_approval.html', {'form': form, 'brand': brand})
+
+@login_required
+@user_type_required('vendor')
+def add_product_step2(request, brand_id):
+    brand = get_object_or_404(Brand, id=brand_id)
+    vendor = request.user.vendorprofile
+
+    if request.method == 'POST':
+        base_watch_form = BaseWatchForm(request.POST, request.FILES)
+        details_form = WatchDetailsForm(request.POST)
+        materials_form = WatchMaterialsForm(request.POST)
+        smart_feature_form = SmartWatchFeatureForm(request.POST)
+        premium_feature_form = PremiumWatchFeatureForm(request.POST)
+
+        if all([base_watch_form.is_valid(), details_form.is_valid(), materials_form.is_valid(), 
+                smart_feature_form.is_valid(), premium_feature_form.is_valid()]):
+            
+            base_watch = base_watch_form.save(commit=False)
+            base_watch.vendor = vendor
+            base_watch.brand = brand
+
+            # Handle primary image upload
+            if 'primary_image' in request.FILES:
+                base_watch.primary_image = request.FILES['primary_image']
+
+            base_watch.save()
+            base_watch_form.save_m2m()
+
+            details = details_form.save(commit=False)
+            details.base_watch = base_watch
+            details.save()
+
+            materials = materials_form.save(commit=False)
+            materials.base_watch = base_watch
+            materials.save()
+
+            smart_features = smart_feature_form.save(commit=False)
+            smart_features.base_watch = base_watch
+            smart_features.save()
+
+            premium_features = premium_feature_form.save(commit=False)
+            premium_features.base_watch = base_watch
+            premium_features.save()
+
+            # Handle multiple image uploads
+            images = request.FILES.getlist('images')
+            for image in images:
+                WatchImage.objects.create(base_watch=base_watch, image=image)
+
+            messages.success(request, f"Product {base_watch.model_name} has been added successfully.")
+            return redirect('vendorapp:product_list')
+        else:
+            # If there are errors, we'll render the form again with error messages
+            context = {
+                'base_watch_form': base_watch_form,
+                'details_form': details_form,
+                'materials_form': materials_form,
+                'smart_feature_form': smart_feature_form,
+                'premium_feature_form': premium_feature_form,
+                'brand': brand,
+            }
+            return render(request, 'vendorapp/add_product.html', context)
+    else:
+        base_watch_form = BaseWatchForm()
+        details_form = WatchDetailsForm()
+        materials_form = WatchMaterialsForm()
+        smart_feature_form = SmartWatchFeatureForm()
+        premium_feature_form = PremiumWatchFeatureForm()
+
+    context = {
+        'base_watch_form': base_watch_form,
+        'details_form': details_form,
+        'materials_form': materials_form,
+        'smart_feature_form': smart_feature_form,
+        'premium_feature_form': premium_feature_form,
+        'brand': brand,
+    }
+    return render(request, 'vendorapp/add_product.html', context)

@@ -9,7 +9,10 @@ from django.core.validators import RegexValidator
 import imagehash
 from PIL import Image
 from django.conf import settings
+from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
+from tensorflow.keras.preprocessing import image
 import numpy as np
+
 
 class Brand(models.Model):
     brand_name = models.CharField(max_length=100, unique=True)
@@ -32,6 +35,16 @@ class Brand(models.Model):
 
     class Meta:
         ordering = ['brand_name']
+
+class BrandApproval(models.Model):
+    vendor = models.ForeignKey(VendorProfile, on_delete=models.CASCADE)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
+    is_approved = models.BooleanField(default=False)
+    requested_at = models.DateTimeField(auto_now_add=True)
+    approved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('vendor', 'brand')
 
 class Collection(models.Model):
     name = models.CharField(max_length=100, unique=True)
@@ -100,44 +113,17 @@ class BaseWatch(models.Model):
     color = models.CharField(max_length=50)
     style_code = models.CharField(max_length=100, blank=True, null=True)
     
-    # Materials
-    strap_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='strap_watches')
-    glass_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='glass_watches')
-    case_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='case_watches')
-    
-    case_size = models.CharField(
-        max_length=20,
-        validators=[
-            RegexValidator(
-                regex=r'^\d+(\.\d+)?\s*X\s*\d+(\.\d+)?\s*X\s*\d+(\.\d+)?$',
-                message="Case size must be in the format '23 X 34 X 45' or '23.5 X 34.5 X 45.5'",
-                code='invalid_case_size'
-            )
-        ],
-        help_text="Enter case size in the format '23 X 34 X 45' (length X width X height in mm)"
-    )
-    water_resistance = models.CharField(max_length=50,choices=[('yes','yes'),('no','no')],blank=True,null=True)
-    water_resistance_depth = models.IntegerField(help_text="Water resistance depth in meters", blank=True, null=True)
-    
     net_quantity = models.IntegerField(default=1)
-    alarms = models.IntegerField(default=0)
     function_display = models.CharField(max_length=100, blank=True, null=True)
     
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
     total_reviews = models.IntegerField(default=0)
     
-    series = models.CharField(max_length=200, blank=True, null=True)
-    occasion = models.CharField(max_length=200, blank=True, null=True)
-    strap_color = models.CharField(max_length=50, blank=True, null=True)
-    strap_type = models.CharField(max_length=50, default="Band")
-    dial_color = models.CharField(max_length=50, blank=True, null=True)
-    warranty_period = models.IntegerField(help_text="Warranty period in months", blank=True, null=True)
 
     primary_image = models.ImageField(upload_to='Watch/primary/', null=True, blank=True)
     features = models.ManyToManyField(Feature, related_name='watches')
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
-    image_hash = models.CharField(max_length=512, blank=True, null=True)  # Increased max_length to accommodate larger hash
 
     def __str__(self):
         return self.model_name
@@ -145,9 +131,9 @@ class BaseWatch(models.Model):
     def clean(self):
         super().clean()
         # Additional validation if needed
-        if self.case_size:
+        if hasattr(self, 'dimensions') and self.dimensions.case_size:
             try:
-                dimensions = [float(dim.strip()) for dim in self.case_size.split('X')]
+                dimensions = [float(dim.strip()) for dim in self.dimensions.case_size.split('X')]
                 if len(dimensions) != 3:
                     raise ValidationError({'case_size': "Case size must have exactly three dimensions."})
             except ValueError:
@@ -161,24 +147,27 @@ class BaseWatch(models.Model):
             self.primary_image.name = new_filename
         self.is_in_stock = self.available_stock > 0 
         super().save(*args, **kwargs)
-        if self.primary_image and not self.image_hash:
-            self.generate_image_hash()
-
-    def generate_image_hash(self):
         if self.primary_image:
-            image_path = self.primary_image.path
-            with Image.open(image_path) as img:
-                img = img.convert('RGB')
-                img = img.resize((256, 256))
-                phash = imagehash.phash(img)
-                dhash = imagehash.dhash(img)
-                whash = imagehash.whash(img)
-                self.image_hash = f"{phash},{dhash},{whash}"
+            self.generate_image_feature()
+
+    def generate_image_feature(self):
+        model = ResNet50(weights='imagenet', include_top=False, pooling='avg')
+        img = Image.open(self.primary_image.path)
+        img = img.convert('RGB')
+        img = img.resize((224, 224))
+        x = image.img_to_array(img)
+        x = np.expand_dims(x, axis=0)
+        x = preprocess_input(x)
+        features = model.predict(x)
+        
+        ImageFeature.objects.update_or_create(
+            base_watch=self,
+            defaults={'feature_vector': features.flatten().tobytes()}
+        )
 
     def get_primary_image(self):
         return self.primary_image
     
-
     @classmethod
     def get_price_range(cls):
         price_range = cls.objects.aggregate(min_price=Min('base_price'), max_price=Max('base_price'))
@@ -204,6 +193,13 @@ class BaseWatch(models.Model):
         else:
             raise ValueError(f"Not enough stock for {self.model_name}")
 
+class ImageFeature(models.Model):
+    base_watch = models.OneToOneField(BaseWatch, on_delete=models.CASCADE, related_name='image_feature')
+    feature_vector = models.BinaryField()
+
+    def __str__(self):
+        return f"Feature vector for {self.base_watch.model_name}"
+
 def pre_save_base_watch_receiver(sender, instance, *args, **kwargs):
     if not instance.slug:
         instance.slug = slugify(instance.model_name)
@@ -223,6 +219,34 @@ class WatchImage(models.Model):
 
     def __str__(self):
         return f"Additional image for {self.base_watch.model_name}"
+
+class WatchDetails(models.Model):
+    base_watch = models.OneToOneField('BaseWatch', on_delete=models.CASCADE, related_name='details')
+    case_size = models.CharField(
+        max_length=20,
+        validators=[
+            RegexValidator(
+                regex=r'^\d+(\.\d+)?\s*X\s*\d+(\.\d+)?\s*X\s*\d+(\.\d+)?$',
+                message="Case size must be in the format '23 X 34 X 45' or '23.5 X 34.5 X 45.5'",
+                code='invalid_case_size'
+            )
+        ],
+        help_text="Enter case size in the format '23 X 34 X 45' (length X width X height in mm)"
+    )
+    water_resistance = models.CharField(max_length=50, choices=[('yes','yes'),('no','no')], blank=True, null=True)
+    water_resistance_depth = models.IntegerField(help_text="Water resistance depth in meters", blank=True, null=True)
+    series = models.CharField(max_length=200, blank=True, null=True)
+    occasion = models.CharField(max_length=200, blank=True, null=True)
+    strap_color = models.CharField(max_length=50, blank=True, null=True)
+    strap_type = models.CharField(max_length=50, default="Band")
+    dial_color = models.CharField(max_length=50, blank=True, null=True)
+    warranty_period = models.IntegerField(help_text="Warranty period in months", blank=True, null=True)
+
+class WatchMaterials(models.Model):
+    base_watch = models.OneToOneField('BaseWatch', on_delete=models.CASCADE, related_name='materials')
+    strap_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='strap_watches')
+    glass_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='glass_watches')
+    case_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='case_watches')
 
 class SmartWatchFeature(models.Model):
     base_watch = models.OneToOneField(BaseWatch, on_delete=models.CASCADE, related_name='smartwatch_features')
