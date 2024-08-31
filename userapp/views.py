@@ -2,15 +2,17 @@ from django.shortcuts import render, redirect,get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from mainapp.models import Address,UserProfile, User, Order, OrderItem
-from .forms import AddressForm, UserProfileForm
+from .forms import AddressForm, UserProfileForm, ReviewForm
 from django.db import IntegrityError
 from django.http import JsonResponse
-from .models import Wishlist, Review
+from .models import Wishlist, Review, ReviewImage
+from mainapp.models import Address
 from adminapp.models import BaseWatch
 from django.views.decorators.cache import never_cache
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from datetime import datetime, timedelta
 from django.views.decorators.http import require_POST
+from django.urls import reverse
 
 @never_cache
 @login_required
@@ -67,8 +69,19 @@ def add_address(request):
             try:
                 address = form.save(commit=False)
                 address.user = request.user
+                
+                # Check if this is the first address for the user
+                if not Address.objects.filter(user=request.user).exists():
+                    address.is_primary = True
+                
                 address.save()
-                return redirect('userapp:Address')
+                
+                # Check if the request came from the order review page
+                referer = request.META.get('HTTP_REFERER', '')
+                if 'order_review' in referer:
+                    return redirect('mainapp:order_review')
+                else:
+                    return redirect('userapp:Address')
             except IntegrityError:
                 form.add_error(None, "This address already exists for your account.")
     else:
@@ -168,6 +181,20 @@ def remove_from_wishlist(request, watch_id):
 def my_orders(request):
     orders = Order.objects.filter(user=request.user).order_by('-created_at')
 
+    # Prefetch related items and reviews
+    orders = orders.prefetch_related(
+        Prefetch(
+            'items',
+            queryset=OrderItem.objects.select_related('watch').prefetch_related(
+                Prefetch(
+                    'watch__reviews',
+                    queryset=Review.objects.filter(user=request.user),
+                    to_attr='user_review'
+                )
+            )
+        )
+    )
+
     # Filter by status
     status = request.GET.getlist('status')
     if status:
@@ -193,7 +220,10 @@ def my_orders(request):
 
     for order in orders:
         for item in order.items.all():
-            item.user_review = Review.objects.filter(user=request.user, watch=item.watch).first()
+            if hasattr(item.watch, 'user_review') and item.watch.user_review:
+                item.user_review = item.watch.user_review[0]
+            else:
+                item.user_review = None
 
     current_year = datetime.now().year
     year_range = range(current_year, 2019, -1)  # Adjust the start year as needed
@@ -205,23 +235,75 @@ def my_orders(request):
     }
     return render(request, 'userapp/my_orders.html', context)
 
-@require_POST
-@login_required
-def submit_review(request):
-    order_item_id = request.POST.get('order_item_id')
-    rating = request.POST.get('rating')
-    comment = request.POST.get('comment')
 
-    try:
-        order_item = OrderItem.objects.get(id=order_item_id, order__user=request.user)
-        review, created = Review.objects.update_or_create(
-            user=request.user,
-            watch=order_item.watch,
-            defaults={'rating': rating, 'comment': comment}
-        )
-        message = "Thank you for your review!" if created else "Your review has been updated!"
-        return JsonResponse({'success': True, 'message': message})
-    except OrderItem.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Invalid order item'})
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)})
+@never_cache
+@login_required
+def order_details(request, order_id):
+    order = get_object_or_404(Order, order_id=order_id, user=request.user)
+    
+    for item in order.items.all():
+        item.user_review = Review.objects.filter(user=request.user, watch=item.watch).first()
+        
+    print(item)
+    
+    context = {
+        'order': order,
+    }
+    return render(request, 'userapp/order_details.html', context)
+
+@never_cache
+@login_required
+def write_review(request, item_id):
+    item = get_object_or_404(OrderItem, id=item_id, order__user=request.user)
+    
+    if request.method == 'POST':
+        form = ReviewForm(request.POST, request.FILES)
+        if form.is_valid():
+            review = form.save(commit=False)
+            review.user = request.user
+            review.watch = item.watch
+            review.save()
+            
+            # Handle multiple image uploads
+            for image in request.FILES.getlist('image[]'):
+                ReviewImage.objects.create(review=review, image=image)
+            
+            return redirect('userapp:my_orders')
+    else:
+        form = ReviewForm()
+    
+    context = {
+        'form': form,
+        'item': item,
+    }
+    return render(request, 'userapp/write_review.html', context)
+
+@never_cache
+@login_required
+def edit_review(request, item_id):
+    item = get_object_or_404(OrderItem, id=item_id, order__user=request.user)
+    review = get_object_or_404(Review, user=request.user, watch=item.watch)
+    
+    if request.method == 'POST':
+        form = ReviewForm(request.POST, request.FILES, instance=review)
+        if form.is_valid():
+            form.save()
+            
+            # Handle multiple image uploads
+            for image in request.FILES.getlist('image[]'):
+                ReviewImage.objects.create(review=review, image=image)
+            
+            # Handle image deletions
+            for image_id in request.POST.getlist('delete_images[]'):
+                ReviewImage.objects.filter(id=image_id, review=review).delete()
+            
+            return redirect('userapp:my_orders')
+    else:
+        form = ReviewForm(instance=review)
+    
+    context = {
+        'form': form,
+        'item': item,
+        'review_images': review.images.all(),
+    }
+    return render(request, 'userapp/write_review.html', context)

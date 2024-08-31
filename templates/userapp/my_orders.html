@@ -80,6 +80,9 @@
                     <div class="card-body">
                         {% for item in order.items.all %}
                         <div class="row" style="border-bottom: 1px solid #ccc; padding-bottom: 10px; background-color: #f9f9f9;">
+                        <div class="col-md-8">
+                        <a href="{% url 'userapp:order_details' order.order_id %}" style="text-decoration: none; color: inherit;">
+                        <div class="row">
                             <div class="col-md-2">
                                 <img src="{{ item.watch.primary_image.url }}" alt="{{ item.watch.model_name }}"
                                     class="img-fluid">
@@ -88,64 +91,22 @@
                                 <h5>{{ item.watch.model_name }}</h5>
                                 <p>Color: {{ item.watch.color }}</p>
                             </div>
-                            <div class="col-md-4 text-end">
+                        </div>
+                        </a>
+                        </div>
+                        <div class="col-md-4">
                                 <h5>₹{{ item.price }}</h5>
                                 <p class="text-success">{{ order.get_status_display }} {{ order.delivery_date|date:"M d"}}</p>
                                 <p>Your item has been {{ order.get_status_display|lower }}</p>
                                 {% if order.status == 'delivered' %}
                                     {% if item.user_review %}
-                                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#reviewModal{{ item.id }}">Edit Review</button>
+                                        <p>Your review: {{ item.user_review.comment|truncatechars:50 }}</p>
+                                        <a href="{% url 'userapp:edit_review' item.id %}" class="btn btn-outline-primary btn-sm">Edit Review</a>
                                     {% else %}
-                                        <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#reviewModal{{ item.id }}">Rate & Review Product</button>
+                                        <p>No review yet</p>
+                                        <a href="{% url 'userapp:write_review' item.id %}" class="btn btn-outline-primary btn-sm">Rate & Review Product</a>
                                     {% endif %}
                                 {% endif %}
-                            </div>
-                        </div>
-                        
-                        <!-- Review Modal -->
-                        <div class="modal fade" id="reviewModal{{ item.id }}" tabindex="-1" aria-labelledby="reviewModalLabel{{ item.id }}" aria-hidden="true">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title" id="reviewModalLabel{{ item.id }}">
-                                            {% if item.user_review %}
-                                                Edit Review for {{ item.watch.model_name }}
-                                            {% else %}
-                                                Review for {{ item.watch.model_name }}
-                                            {% endif %}
-                                        </h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <form id="reviewForm{{ item.id }}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="order_item_id" value="{{ item.id }}">
-                                            <div class="mb-3">
-                                                <label for="rating{{ item.id }}" class="form-label">Rating</label>
-                                                <select class="form-select" id="rating{{ item.id }}" name="rating" required>
-                                                    <option value="">Select a rating</option>
-                                                    <option value="1" {% if item.user_review.rating == 1 %}selected{% endif %}>1 - Poor</option>
-                                                    <option value="2" {% if item.user_review.rating == 2 %}selected{% endif %}>2 - Fair</option>
-                                                    <option value="3" {% if item.user_review.rating == 3 %}selected{% endif %}>3 - Good</option>
-                                                    <option value="4" {% if item.user_review.rating == 4 %}selected{% endif %}>4 - Very Good</option>
-                                                    <option value="5" {% if item.user_review.rating == 5 %}selected{% endif %}>5 - Excellent</option>
-                                                </select>
-                                            </div>
-                                            <div class="mb-3">
-                                                <label for="comment{{ item.id }}" class="form-label">Comment</label>
-                                                <textarea class="form-control" id="comment{{ item.id }}" name="comment" rows="3" required>{{ item.user_review.comment }}</textarea>
-                                            </div>
-                                            <button type="submit" class="btn btn-primary">
-                                                {% if item.user_review %}
-                                                    Update Review
-                                                {% else %}
-                                                    Submit Review
-                                                {% endif %}
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
                         </div>
                         {% endfor %}
                     </div>
@@ -166,33 +127,5 @@
 
 {% block extra_js %}
 <script>
-$(document).ready(function() {
-    $('[id^=reviewForm]').on('submit', function(e) {
-        e.preventDefault();
-        var form = $(this);
-        var url = "{% url 'userapp:submit_review' %}";
-
-        $.ajax({
-            type: "POST",
-            url: url,
-            data: form.serialize(),
-            success: function(response) {
-                if (response.success) {
-                    alert(response.message);
-                    form.closest('.modal').modal('hide');
-                    // Update the UI to reflect the new or updated review
-                    var itemId = form.find('input[name="order_item_id"]').val();
-                    var reviewButton = $('button[data-bs-target="#reviewModal' + itemId + '"]');
-                    reviewButton.text('Edit Review');
-                } else {
-                    alert("Error submitting review: " + response.error);
-                }
-            },
-            error: function() {
-                alert("An error occurred. Please try again.");
-            }
-        });
-    });
-});
 </script>
 {% endblock %}

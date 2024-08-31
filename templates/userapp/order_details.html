@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="home__container container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'mainapp:index' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'userapp:profile' %}">My Account</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'userapp:my_orders' %}">My Orders</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ order.order_id }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Order #{{ order.order_id }}</h2>
+            <p>Ordered on: {{ order.created_at|date:"F d, Y" }}</p>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Delivery Address</h5>
+                    <p>{{ order.address.fullname }}</p>
+                    <p>{{ order.address.flat_house_no }}, {{ order.address.area_street }}</p>
+                    <p>{{ order.address.town_city }}, {{ order.address.state }} - {{ order.address.pincode }}</p>
+                    <p>Phone number: {{ order.address.phone }}</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Order Items</h5>
+                    {% for item in order.items.all %}
+                    <div class="row mb-3">
+                        <div class="col-md-2">
+                            <img src="{{ item.watch.primary_image.url }}" alt="{{ item.watch.model_name }}" class="img-fluid">
+                        </div>
+                        <div class="col-md-6">
+                            <h6>{{ item.watch.model_name }}</h6>
+                            <p>Color: {{ item.watch.color }}</p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <h6>₹{{ item.price }}</h6>
+                            <p class="text-success">{{ order.get_status_display }}</p>
+                            {% if order.status == 'delivered' %}
+                                {% if item.user_review %}
+                                    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#reviewModal{{ item.id }}">Edit Review</button>
+                                {% else %}
+                                    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#reviewModal{{ item.id }}">Rate & Review Product</button>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Your Rewards</h5>
+                    <p>{{ order.supercoins_earned }} SuperCoins Cashback</p>
+                    <small>Use it to save on your next order</small>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">More actions</h5>
+                    <a href="#" class="btn btn-outline-primary btn-block mb-2">Download Invoice</a>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Order Summary</h5>
+                    <table class="table table-borderless">
+                        <tr>
+                            <td>Subtotal</td>
+                            <td class="text-end">₹{{ order.total_price }}</td>
+                        </tr>
+                        <tr>
+                            <td>Shipping</td>
+                            <td class="text-end">₹{{ order.shipping_cost }}</td>
+                        </tr>
+                        <tr>
+                            <td>Discount</td>
+                            <td class="text-end">-₹{{ order.discount }}</td>
+                        </tr>
+                        <tr>
+                            <th>Total</th>
+                            <th class="text-end">₹{{ order.final_price }}</th>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include review modals here (similar to my_orders.html) -->
+{% endblock %}
+
+{% block extra_js %}
+<!-- Include the JavaScript for handling reviews (similar to my_orders.html) -->
+{% endblock %}

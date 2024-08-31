@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="home__container container mt-4">
+    <h2>Ratings & Reviews</h2>
+    <div class="row">
+        <div class="col-md-4">
+            <h4>What makes a good review</h4>
+            <h5>Have you used this product?</h5>
+            <p>Your review should be about your experience with the product.</p>
+            
+            <h5>Why review a product?</h5>
+            <p>Your valuable feedback will help fellow shoppers decide!</p>
+            
+            <h5>How to review a product?</h5>
+            <p>Your review should include facts. An honest opinion is always appreciated. If you have an issue with the product or service please contact us from the help centre.</p>
+        </div>
+        <div class="col-md-8">
+            <div class="d-flex align-items-center mb-3">
+                <img src="{{ item.watch.primary_image.url }}" alt="{{ item.watch.model_name }}" class="img-thumbnail mr-3" style="max-width: 100px;">
+                <h4>{{ item.watch.model_name }}</h4>
+            </div>
+            
+            <form method="post" enctype="multipart/form-data" id="reviewForm">
+                {% csrf_token %}
+                <h5>Rate this product</h5>
+                <div class="write-rating mb-3">
+                    <input type="radio" id="star5" name="rating" value="5" {% if form.rating.value == 5 %}checked{% endif %} required>
+                    <label for="star5" title="Excellent"><i class='bx bxs-star'></i></label>
+                    <input type="radio" id="star4" name="rating" value="4" {% if form.rating.value == 4 %}checked{% endif %}>
+                    <label for="star4" title="Very Good"><i class='bx bxs-star'></i></label>
+                    <input type="radio" id="star3" name="rating" value="3" {% if form.rating.value == 3 %}checked{% endif %}>
+                    <label for="star3" title="Good"><i class='bx bxs-star'></i></label>
+                    <input type="radio" id="star2" name="rating" value="2" {% if form.rating.value == 2 %}checked{% endif %}>
+                    <label for="star2" title="Fair"><i class='bx bxs-star'></i></label>
+                    <input type="radio" id="star1" name="rating" value="1" {% if form.rating.value == 1 %}checked{% endif %}>
+                    <label for="star1" title="Poor"><i class='bx bxs-star'></i></label>
+                </div>
+                
+                <h5>Review this product</h5>
+                <div class="form-group mb-3">
+                    <label for="description">Description</label>
+                    <textarea class="form-control" id="description" name="comment" rows="4" required>{{ form.comment.value|default_if_none:'' }}</textarea>
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label for="title">Title (optional)</label>
+                    <input type="text" class="form-control" id="title" name="title" value="{{ form.title.value|default_if_none:'' }}">
+                </div>
+                
+                <div class="form-group mb-3">
+                    <label>Add photos</label>
+                    <div class="image-upload-container">
+                        <div class="image-upload-box">
+                            <input type="file" id="image" name="image[]" accept="image/*" class="image-upload-input" multiple>
+                            <i class='bx bx-camera'></i>
+                            <span>Add photos</span>
+                        </div>
+                        <div class="image-preview-container">
+                            {% if review_images %}
+                                {% for review_image in review_images %}
+                                    <div class="image-preview-wrapper">
+                                        <img src="{{ review_image.image.url }}" alt="Review image" class="image-preview">
+                                        <span class="delete-image" data-image-id="{{ review_image.id }}">&times;</span>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    <p class="text-muted small mt-2">You can add up to 5 photos</p>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">SUBMIT</button>
+            </form>
+        </div>
+    </div>
+</div>
+<style>
+    .image-upload-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .image-upload-box {
+        width: 100px;
+        height: 100px;
+        border: 2px dashed #ccc;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    .image-upload-box i {
+        font-size: 24px;
+        color: #999;
+    }
+    .image-upload-box span {
+        font-size: 12px;
+        color: #999;
+        margin-top: 5px;
+    }
+    .image-upload-input {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: pointer;
+    }
+    .image-preview-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .image-preview-wrapper {
+        position: relative;
+    }
+    .image-preview {
+        width: 100px;
+        height: 100px;
+        object-fit: cover;
+        border: 1px solid #ccc;
+    }
+    .delete-image {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background-color: rgba(255, 255, 255, 0.7);
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        text-align: center;
+        line-height: 20px;
+        cursor: pointer;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const imageInput = document.getElementById('image');
+        const previewContainer = document.querySelector('.image-preview-container');
+        const form = document.getElementById('reviewForm');
+
+        imageInput.addEventListener('change', function(event) {
+            const files = event.target.files;
+
+            for (let i = 0; i < Math.min(files.length, 5); i++) {
+                const file = files[i];
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    const wrapper = document.createElement('div');
+                    wrapper.classList.add('image-preview-wrapper');
+
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.classList.add('image-preview');
+
+                    const deleteBtn = document.createElement('span');
+                    deleteBtn.classList.add('delete-image');
+                    deleteBtn.innerHTML = '&times;';
+                    deleteBtn.addEventListener('click', function() {
+                        wrapper.remove();
+                    });
+
+                    wrapper.appendChild(img);
+                    wrapper.appendChild(deleteBtn);
+                    previewContainer.appendChild(wrapper);
+                }
+
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Handle deletion of existing images
+        previewContainer.addEventListener('click', function(event) {
+            if (event.target.classList.contains('delete-image')) {
+                const wrapper = event.target.closest('.image-preview-wrapper');
+                const imageId = event.target.dataset.imageId;
+                
+                if (imageId) {
+                    // Create a hidden input to mark this image for deletion
+                    const deleteInput = document.createElement('input');
+                    deleteInput.type = 'hidden';
+                    deleteInput.name = 'delete_images[]';
+                    deleteInput.value = imageId;
+                    form.appendChild(deleteInput);
+                }
+                
+                wrapper.remove();
+            }
+        });
+    });
+</script>
+{% endblock %}

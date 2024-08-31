@@ -30,7 +30,33 @@
                             </form>
                         </div>
                         <div class="col-md-3">
-                            <a href="" class="button p-3 rounded">ADD NEW ADDRESS</a>
+                            <a href="#" id="add-address" class="button p-3 rounded">ADD NEW ADDRESS</a>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <div id="add-address-content" style="display: none;">
+                                <h3 id="form-title">Add New Address</h3>
+                                <form id="new-address-form" action="{% url 'userapp:add_address' %}" method="post">
+                                    {% csrf_token %}
+                                    <div class="row">
+                                        {% for field in form %}
+                                        <div class="col-6">
+                                            <div class="form-floating mb-3">
+                                                {{ field }}
+                                                {{ field.label_tag }}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="mb-3 row">
+                                        <div class="col-md-6">
+                                            <button type="submit" class="custom-btn-1">Add Address</button> 
+                                        </div>
+                                        <div class="col-md-6">
+                                            <button type="button" id="add-cancel" class="custom-btn">Cancel</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -154,6 +180,37 @@
         .catch(function(error) {
             console.error('Error:', error);
             alert('An error occurred. Please try again.');
+        });
+    });
+</script>
+{% endblock %}
+{% block extra_js %}
+<script>
+    $(document).ready(function(){
+        $("#add-address").click(function(e){
+            e.preventDefault();
+            $("#add-address-content").toggle();
+        });
+        $("#add-cancel").click(function(){
+            $("#add-address-content").hide();
+        });
+
+        // Handle form submission
+        $("#new-address-form").submit(function(e){
+            e.preventDefault();
+            $.ajax({
+                url: $(this).attr('action'),
+                type: 'POST',
+                data: $(this).serialize(),
+                success: function(response){
+                    if(response.success){
+                        location.reload(); // Reload the page to show the new address
+                    } else {
+                        // Replace the form with the returned partial (which will show errors)
+                        $("#add-address-content").html(response);
+                    }
+                }
+            });
         });
     });
 </script>

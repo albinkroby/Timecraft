@@ -4,6 +4,7 @@ from django.contrib.auth.forms import PasswordResetForm,SetPasswordForm
 from django.contrib.auth import get_user_model
 from mainapp.models import Address, UserProfile,User
 from django.core.exceptions import ValidationError
+from .models import Review
 import re
 
 class CustomPasswordResetForm(PasswordResetForm):
@@ -110,3 +111,11 @@ class UserProfileForm(forms.ModelForm):
             profile.save()
             userprofile.save()
         return profile
+
+class ReviewForm(forms.ModelForm):
+    class Meta:
+        model = Review
+        fields = ['rating', 'comment', 'title']
+        widgets = {
+            'rating': forms.HiddenInput(),
+        }

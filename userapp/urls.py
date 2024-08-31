@@ -17,7 +17,10 @@ urlpatterns = [
     path('wishlist/remove/<int:watch_id>/', views.remove_from_wishlist, name='remove_from_wishlist'),
     
     path('my-orders/', views.my_orders, name='my_orders'),
-    path('submit-review/', views.submit_review, name='submit_review'),
+    path('orders/<str:order_id>/', views.order_details, name='order_details'),
+    
+    path('write-review/<int:item_id>/', views.write_review, name='write_review'),
+    path('edit-review/<int:item_id>/', views.edit_review, name='edit_review'),
     
     path('password_reset/', auth_views.PasswordResetView.as_view(
         template_name='registration/password_reset.html',
@@ -35,6 +38,8 @@ urlpatterns = [
     path('reset/done/', auth_views.PasswordResetCompleteView.as_view(
         template_name='registration/password_reset_complete.html'
     ), name='password_reset_complete'),
+    
+    
 ]
 
 #email_template_name='registration/password_reset_email.html'

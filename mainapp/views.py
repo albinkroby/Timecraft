@@ -4,12 +4,15 @@ from django.http import JsonResponse,HttpResponse
 from django.contrib.auth import login, get_user_model,authenticate,logout
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.decorators import login_required
+from mainapp.decorators import user_type_required
+from django.contrib.auth.decorators import user_passes_test
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST, require_http_methods
 from django.urls import reverse
 from django.db import transaction
 from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem, WatchNotification
 from .forms import SignUpForm
+from userapp.forms import AddressForm
 from social_django.models import UserSocialAuth
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -152,8 +155,12 @@ def login_redirect(request):
     # if user_role:
     #     user.role = user_role
     #     user.save()
-    if user.role == 'staff':
+    if user.role == 'admin':
+        return redirect('adminapp:index')
+    elif user.role == 'staff':
         return redirect('mainapp:index')
+    elif user.role == 'vendor':
+        return redirect('vendorapp:index')
     elif user.role == 'user':
         return redirect('mainapp:index')
     return redirect('login')
@@ -434,6 +441,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 def order_review(request):
     addresses = Address.objects.filter(user=request.user)
     primary_address = addresses.filter(is_primary=True).first()
+    form = AddressForm()
     
     product_id = request.GET.get('product_id')
     if product_id:
@@ -459,6 +467,7 @@ def order_review(request):
         'primary_address': primary_address,
         'stripe_publishable_key': settings.STRIPE_PUBLIC_KEY,
         'single_product': single_product,
+        'form': form,
     }
     return render(request, 'order_review.html', context)
 
