@@ -32,7 +32,7 @@ class BaseWatchForm(forms.ModelForm):
     class Meta:
         model = BaseWatch
         fields = '__all__'
-        exclude = ['vendor', 'slug', 'average_rating', 'total_reviews', 'total_stock', 'sold_stock', 'is_in_stock', 'image_hash','is_featured']
+        exclude = ['vendor', 'slug', 'total_stock', 'sold_stock', 'is_in_stock', 'image_hash','is_featured']
         widgets = {
             'category': forms.Select(attrs={'class': 'form-control'}),
             'brand': forms.Select(attrs={'class': 'form-control'}),

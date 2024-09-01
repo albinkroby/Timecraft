@@ -21,7 +21,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import default_token_generator
 from .utils import hash_url, verify_hashed_url
-from django.db.models import Q
+from django.db.models import Q,Count
 from adminapp.models import BaseWatch, WatchImage, Brand, Category, ImageFeature, Material
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -198,11 +198,21 @@ def check_email(request):
 
 @never_cache
 def product_detail(request, slug):
-    watch = get_object_or_404(BaseWatch, slug=slug)
-    context = {
-        'watch': watch,
-        'other_images': watch.additional_images.all(),
-    }
+    watch = get_object_or_404(
+        BaseWatch.objects.select_related(
+            'brand', 'collection', 'watch_type', 'details', 'materials', 
+            'smartwatch_features', 'premium_features'
+        ).prefetch_related('additional_images', 'reviews__images', 'reviews__user__profile')
+        .annotate(
+            rating_5=Count('reviews', filter=Q(reviews__rating=5)),
+            rating_4=Count('reviews', filter=Q(reviews__rating=4)),
+            rating_3=Count('reviews', filter=Q(reviews__rating=3)),
+            rating_2=Count('reviews', filter=Q(reviews__rating=2)),
+            rating_1=Count('reviews', filter=Q(reviews__rating=1)),
+        ),
+        slug=slug
+    )
+    context = {'watch': watch}
     return render(request, 'product_detail.html', context)
 
 @never_cache

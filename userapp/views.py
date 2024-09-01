@@ -13,6 +13,15 @@ from django.db.models import Q, Prefetch
 from datetime import datetime, timedelta
 from django.views.decorators.http import require_POST
 from django.urls import reverse
+from django.http import HttpResponse
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.platypus import Table, TableStyle
+from reportlab.lib import colors
+from io import BytesIO
+from django.conf import settings
+import os
 
 @never_cache
 @login_required
@@ -307,3 +316,113 @@ def edit_review(request, item_id):
         'review_images': review.images.all(),
     }
     return render(request, 'userapp/write_review.html', context)
+
+@never_cache
+@login_required
+def download_invoice(request, order_id):
+    order = get_object_or_404(Order, order_id=order_id, user=request.user)
+    vender = OrderItem.objects.get(order_id=order).watch.vendor
+    company_name = vender.company_name
+    # Create a file-like buffer to receive PDF data
+    buffer = BytesIO()
+
+    # Create the PDF object, using the buffer as its "file."
+    p = canvas.Canvas(buffer, pagesize=letter)
+
+    # Set up some variables
+    width, height = letter
+    margin = 0.5 * inch  # Set narrow margin
+    
+    # Add the Time Craft logo at the top right corner
+    logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
+    p.drawImage(logo_path, width - 2.2*inch, height - 12*margin - inch, width=2*inch, height=inch, preserveAspectRatio=True)
+
+    # Add seller details
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(margin, height - margin, f"Sold By: {company_name}")
+    p.setFont("Helvetica", 10)
+    p.drawString(margin, height - margin - 15, "Ship from Address: NDR warehousing private ltd, SF No. 525, 526, 529-533,")
+    p.drawString(margin, height - margin - 30, "Okkilipalayam, Palladam Road, Othakalmandapam, Coimbatore, Tamilnadu, India - 641032, IN-TN.")
+    p.drawString(margin, height - margin - 45, "GSTIN: 33AAECS1679J1Z5")
+
+    # Add invoice title
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(width / 2 - inch, height - 3*margin, "  Tax Invoice")
+
+    # Add order details on the left side
+    p.setFont("Helvetica", 10)
+    p.drawString(margin, height - 4*margin, f"Order ID: {order.order_id}")
+    p.drawString(margin, height - 4.4*margin, f"Order Date: {order.created_at.strftime('%d-%m-%Y')}")
+    p.drawString(margin, height - 4.8*margin, f"Invoice Date: {datetime.now().strftime('%d-%m-%Y')}")
+    p.drawString(margin, height - 5.2*margin, f"PAN: AAECS1679J")
+
+    # Add customer details on the right side
+    p.drawString(width / 2 + 1.5*inch, height - 4*margin, "Bill To:")
+    p.drawString(width / 2 + 1.5*inch, height - 4.4*margin, order.user.fullname)
+    p.drawString(width / 2 + 1.5*inch, height - 4.8*margin, f"{order.address.flat_house_no}, {order.address.area_street}")
+    p.drawString(width / 2 + 1.5*inch, height - 5.2*margin, f"{order.address.town_city}, {order.address.state} - {order.address.pincode}")
+    p.drawString(width / 2 + 1.5*inch, height - 5.6*margin, f"Phone: {order.user.profile.phone}")
+
+    
+
+    def format_price(price):
+        return f"Rs.{price}"
+    
+    # Create table for order items
+    data = [['Product', 'Qty', 'Gross Amount', 'Discounts', 'Taxable Value', 'IGST', 'Total']]
+    for item in order.items.all():
+        item.discount = 0
+        item.igst = 0
+        data.append([
+            item.watch.model_name,
+            str(item.quantity),
+            format_price(item.price),
+            format_price(item.discount),
+            format_price(item.quantity * item.price - item.discount),
+            format_price(item.igst),
+            format_price(item.quantity * item.price - item.discount + item.igst)
+        ])
+    
+    # Add totals
+    total_amount = sum(item.quantity * item.price for item in order.items.all())
+    total_discount = sum(0 for item in order.items.all())
+    total_igst = sum(0 for item in order.items.all())
+    grand_total = total_amount - total_discount + total_igst
+
+    data.extend([
+        ['', '', '', '', '', '', ''],
+        ['Total', '', format_price(total_amount), format_price(total_discount), '', format_price(total_igst), format_price(grand_total)],
+        ['Grand Total', '', '', '', '', '', format_price(grand_total)]
+    ])
+
+    table = Table(data, colWidths=[2*inch, 0.75*inch, 1*inch, 1*inch, 1*inch, 1*inch, 1*inch])
+    table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.black)
+    ]))
+
+    table_width = 1  # Set table width based on number of columns
+    table_height = len(data) * 0.3 * inch  # Approximate height based on number of rows
+    table_position = height - 7*margin - table_height
+
+    table.wrapOn(p, table_width, table_height)
+    table.drawOn(p, margin, table_position)
+
+    # Add footer with grand total
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(width - 2.2*inch, height - 9*margin - inch, f"Grand Total: {format_price(grand_total)}")
+    p.setFont("Helvetica-Bold", 11)
+    p.drawString(width - 2.2*inch, height - 9.4*margin - inch, company_name.upper())
+
+    # Close the PDF object cleanly, and we're done.
+    p.showPage()
+    p.save()
+
+    # FileResponse sets the Content-Disposition header so that browsers
+    # present the option to save the file.
+    buffer.seek(0)
+    return HttpResponse(buffer, content_type='application/pdf')

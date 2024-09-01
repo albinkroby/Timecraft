@@ -49,10 +49,12 @@
             <p class="text-muted mb-1">{{ watch.brand.brand_name }}</p>
             <h1>{{ watch.model_name }}</h1>
             <h2 class="text-primary">₹{{ watch.base_price }}</h2>
+            {% if watch.reviews.exists %}
             <div class="mt-1 d-flex align-items-center column-gap-2">
                 <p class="badge bg-success">{{ watch.average_rating|floatformat:1 }}</p>
                 <p class="text-muted">{{ watch.total_reviews }} ratings</p>
             </div>
+            {%endif%}
             
             <!-- Stock Status -->
             {% if watch.is_active and watch.available_stock > 0 %}
@@ -64,6 +66,7 @@
             <div class="mt-4">
                 <h5>Product Details:</h5>
                 <table class="table table-borderless">
+                    <tbody id="shortDetails">
                     <tr>
                         <th>Brand</th>
                         <td>{{ watch.brand.brand_name }}</td>
@@ -85,78 +88,81 @@
                         <td>{{ watch.style_code|default:"N/A" }}</td>
                     </tr>
                     <tr>
-                        <th>Series</th>
-                        <td>{{ watch.series|default:"N/A" }}</td>
-                    </tr>
-                    <tr>
-                        <th>Occasion</th>
-                        <td>{{ watch.occasion|default:"N/A" }}</td>
-                    </tr>
-                    <tr>
-                        <th>Pack of</th>
-                        <td>{{ watch.pack_of }}</td>
-                    </tr>
-                    <tr>
                         <th>Color</th>
                         <td>{{ watch.color }}</td>
                     </tr>
+                </tbody>
+                <tbody id="fullDetails" style="display: none;">
                     <tr>
-                        <th>Strap Color</th>
-                        <td>{{ watch.strap_color|default:"N/A" }}</td>
+                        <th>Function Display</th>
+                        <td>{{ watch.function_display|default:"N/A" }}</td>
                     </tr>
-                    <tr>
-                        <th>Strap Material</th>
-                        <td>{{ watch.strap_material.name|default:"N/A" }}</td>
-                    </tr>
-                    <tr>
-                        <th>Strap Type</th>
-                        <td>{{ watch.strap_type }}</td>
-                    </tr>
+                    {% if watch.details %}
                     <tr>
                         <th>Case Size</th>
-                        <td>{{ watch.case_size }}</td>
-                    </tr>
-                    <tr>
-                        <th>Case Material</th>
-                        <td>{{ watch.case_material.name|default:"N/A" }}</td>
-                    </tr>
-                    <tr>
-                        <th>Glass Material</th>
-                        <td>{{ watch.glass_material.name|default:"N/A" }}</td>
+                        <td>{{ watch.details.case_size }}</td>
                     </tr>
                     <tr>
                         <th>Water Resistance</th>
-                        <td>{{ watch.water_resistance|yesno:"Yes,No,N/A" }}</td>
+                        <td>{{ watch.details.water_resistance|yesno:"Yes,No,N/A" }}</td>
                     </tr>
-                    {% if watch.water_resistance_depth %}
+                    {% if watch.details.water_resistance_depth %}
                     <tr>
                         <th>Water Resistance Depth</th>
-                        <td>{{ watch.water_resistance_depth }} meters</td>
+                        <td>{{ watch.details.water_resistance_depth }} meters</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <th>Series</th>
+                        <td>{{ watch.details.series|default:"N/A" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Occasion</th>
+                        <td>{{ watch.details.occasion|default:"N/A" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Strap Color</th>
+                        <td>{{ watch.details.strap_color|default:"N/A" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Strap Type</th>
+                        <td>{{ watch.details.strap_type }}</td>
+                    </tr>
+                    <tr>
+                        <th>Dial Color</th>
+                        <td>{{ watch.details.dial_color|default:"N/A" }}</td>
+                    </tr>
+                    {% if watch.details.warranty_period %}
+                    <tr>
+                        <th>Warranty Period</th>
+                        <td>{{ watch.details.warranty_period }} months</td>
+                    </tr>
+                    {% endif %}
+                    {% endif %}
+                    {% if watch.materials %}
+                    <tr>
+                        <th>Strap Material</th>
+                        <td>{{ watch.materials.strap_material.name|default:"N/A" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Glass Material</th>
+                        <td>{{ watch.materials.glass_material.name|default:"N/A" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Case Material</th>
+                        <td>{{ watch.materials.case_material.name|default:"N/A" }}</td>
                     </tr>
                     {% endif %}
                     <tr>
                         <th>Net Quantity</th>
                         <td>{{ watch.net_quantity }}</td>
                     </tr>
-                    <tr>
-                        <th>Alarms</th>
-                        <td>{{ watch.alarms }}</td>
-                    </tr>
-                    <tr>
-                        <th>Function Display</th>
-                        <td>{{ watch.function_display|default:"N/A" }}</td>
-                    </tr>
-                    {% if watch.warranty_period %}
-                    <tr>
-                        <th>Warranty Period</th>
-                        <td>{{ watch.warranty_period }} months</td>
-                    </tr>
-                    {% endif %}
                 </table>
+                <button id="toggleDetails" class="btn btn-outline-primary btn-sm">Show More</button>
             </div>
 
             {% if watch.smartwatch_features %}
-            <div class="mt-4">
+            <div class="mt-4" id="smartwatchFeatures" style="display: none;">
                 <h5>Smart Watch Features:</h5>
                 <ul>
                     {% if watch.smartwatch_features.heart_rate_monitor %}
@@ -176,7 +182,7 @@
             {% endif %}
 
             {% if watch.premium_features %}
-            <div class="mt-4">
+            <div class="mt-4" id="premiumFeatures" style="display: none;">
                 <h5>Premium Watch Features:</h5>
                 <ul>
                     {% if watch.premium_features.sapphire_glass %}
@@ -196,6 +202,75 @@
                 <h5>Description:</h5>
                 <p>{{ watch.description }}</p>
             </div>
+
+            <!-- Reviews and Ratings Section -->
+            {% if watch.reviews.exists %}
+            <div class="mt-5">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="mb-0">Ratings & Reviews</h3>
+                    <button class="btn btn-outline-primary">Rate Product</button>
+                </div>
+                
+                <div class="d-flex align-items-center mb-4">
+                    <h2 class="me-3 mb-0">{{ watch.average_rating|floatformat:1 }} <span class="fa fa-star text-warning"></span></h2>
+                    <div>
+                        <p class="mb-0">{{ watch.total_reviews }} Ratings &</p>
+                        <p class="mb-0">{{ watch.reviews.count }} Reviews</p>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    {% for i in "54321"|make_list %}
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="me-2">{{ i }} <span class="fa fa-star text-warning"></span></span>
+                            <div class="progress flex-grow-1" style="height: 8px;">
+                                {% with count=watch.reviews.filter.rating|length %}
+                                    {% if watch.total_reviews > 0 %}
+                                        {% widthratio count watch.total_reviews 100 as percentage %}
+                                    {% else %}
+                                        {% with percentage=0 %}
+                                        {% endwith %}
+                                    {% endif %}
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ percentage }}%" aria-valuenow="{{ count }}" aria-valuemin="0" aria-valuemax="{{ watch.total_reviews }}"></div>
+                                {% endwith %}
+                            </div>
+                            <span class="ms-2">{{ watch.reviews.filter.rating|length }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                {% for review in watch.reviews.all %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <span class="badge bg-success me-2">{{ review.rating }} <span class="fa fa-star"></span></span>
+                                <strong>{{ review.title|default:"Untitled" }}</strong>
+                            </div>
+                            <small class="text-muted">{{ review.created_at|date:"d M Y" }}</small>
+                        </div>
+                        <p class="card-text">{{ review.comment }}</p>
+                        {% if review.images.all %}
+                        <div class="review-images">
+                            {% for image in review.images.all %}
+                            <img src="{{ image.image.url }}" alt="Review image" class="img-thumbnail" style="width: 100px; height: 100px; object-fit: cover;">
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <small class="text-muted">{{ review.user.get_full_name|default:review.user.username }}, {{ review.user.profile.city|default:"" }}</small>
+                            <div>
+                                <button class="btn btn-sm btn-outline-secondary me-2"><i class="fa fa-thumbs-up"></i> {{ review.likes }}</button>
+                                <button class="btn btn-sm btn-outline-secondary"><i class="fa fa-thumbs-down"></i> {{ review.dislikes }}</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p>No reviews yet.</p>
+                {% endfor %}
+            </div>
+            {%endif%}
         </div>
     </div>
 </div>
@@ -204,6 +279,29 @@
 
 {% block extra_js %}
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleButton = document.getElementById('toggleDetails');
+        const shortDetails = document.getElementById('shortDetails');
+        const fullDetails = document.getElementById('fullDetails');
+        const smartwatchFeatures = document.getElementById('smartwatchFeatures');
+        const premiumFeatures = document.getElementById('premiumFeatures');
+
+        toggleButton.addEventListener('click', function() {
+            if (shortDetails.style.display !== 'none') {
+                shortDetails.style.display = 'none';
+                fullDetails.style.display = 'table-row-group';
+                if (smartwatchFeatures) smartwatchFeatures.style.display = 'block';
+                if (premiumFeatures) premiumFeatures.style.display = 'block';
+                toggleButton.textContent = 'Show Less';
+            } else {
+                shortDetails.style.display = 'table-row-group';
+                fullDetails.style.display = 'none';
+                if (smartwatchFeatures) smartwatchFeatures.style.display = 'none';
+                if (premiumFeatures) premiumFeatures.style.display = 'none';
+                toggleButton.textContent = 'Show More';
+            }
+        });
+    });
     function changeImage(element) {
         var mainImage = document.getElementById('mainImage');
         mainImage.src = element.src;

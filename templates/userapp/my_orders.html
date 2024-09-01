@@ -100,10 +100,8 @@
                                 <p>Your item has been {{ order.get_status_display|lower }}</p>
                                 {% if order.status == 'delivered' %}
                                     {% if item.user_review %}
-                                        <p>Your review: {{ item.user_review.comment|truncatechars:50 }}</p>
                                         <a href="{% url 'userapp:edit_review' item.id %}" class="btn btn-outline-primary btn-sm">Edit Review</a>
                                     {% else %}
-                                        <p>No review yet</p>
                                         <a href="{% url 'userapp:write_review' item.id %}" class="btn btn-outline-primary btn-sm">Rate & Review Product</a>
                                     {% endif %}
                                 {% endif %}

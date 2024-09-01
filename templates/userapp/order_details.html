@@ -59,16 +59,8 @@
         <div class="col-md-4">
             <div class="card mb-4">
                 <div class="card-body">
-                    <h5 class="card-title">Your Rewards</h5>
-                    <p>{{ order.supercoins_earned }} SuperCoins Cashback</p>
-                    <small>Use it to save on your next order</small>
-                </div>
-            </div>
-
-            <div class="card mb-4">
-                <div class="card-body">
                     <h5 class="card-title">More actions</h5>
-                    <a href="#" class="btn btn-outline-primary btn-block mb-2">Download Invoice</a>
+                    <a href="{% url 'userapp:download_invoice' order.order_id %}" class="btn btn-outline-primary btn-block mb-2">Download Invoice</a>
                 </div>
             </div>
 

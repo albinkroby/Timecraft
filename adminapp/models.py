@@ -3,7 +3,7 @@ from vendorapp.models import VendorProfile
 import os
 from django.utils.text import slugify
 from django.db.models.signals import pre_save
-from django.db.models import Min, Max
+from django.db.models import Min, Max, Avg, Count
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 import imagehash
@@ -116,14 +116,19 @@ class BaseWatch(models.Model):
     net_quantity = models.IntegerField(default=1)
     function_display = models.CharField(max_length=100, blank=True, null=True)
     
-    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
-    total_reviews = models.IntegerField(default=0)
-    
 
     primary_image = models.ImageField(upload_to='Watch/primary/', null=True, blank=True)
     features = models.ManyToManyField(Feature, related_name='watches')
     is_active = models.BooleanField(default=True)
     is_featured = models.BooleanField(default=False)
+    
+    @property
+    def total_reviews(self):
+        return self.reviews.count()
+
+    @property
+    def average_rating(self):
+        return self.reviews.aggregate(Avg('rating'))['rating__avg'] or 0.00
 
     def __str__(self):
         return self.model_name
