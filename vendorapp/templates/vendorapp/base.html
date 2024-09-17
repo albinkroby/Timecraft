@@ -28,8 +28,17 @@
     <link rel="stylesheet" href="{% static 'css/style.min.css'%}">
 
     <title>Time Craft</title>
+    {% block header_scripts %}
+    {% endblock %}
 </head>
 <body>
+    <div id="page-transition-overlay" class="page-transition-overlay"></div>
+    <div id="loading-spinner" class="loading-spinner">
+        <div class="spinner-grow text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+    </div>
+
     <div class="d-flex flex-column" id="wrapper">
         <!-- Navbar -->
         <nav class="navbar sticky-top navbar-expand-lg">
@@ -172,6 +181,66 @@
             // Toggle menu icon
             e.preventDefault();
             $("#wrapper").toggleClass("toggled");
+        });
+    </script>
+    <style>
+        .loading-spinner {
+            display: block;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            z-index: 9999;
+        }
+    
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+    
+        /* Page Transition Overlay */
+        .page-transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            z-index: 9998;
+        }
+    
+        .page-transition-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const pageTransitionOverlay = document.getElementById('page-transition-overlay');
+            
+            window.addEventListener('load', function() {
+                setTimeout(() => {
+                    pageTransitionOverlay.style.opacity = '0';
+                    pageTransitionOverlay.style.visibility = 'hidden';
+                    loadingSpinner.style.display = 'none';
+                }, 500);
+            });
+        });
+    
+        // Add this if you're using Turbolinks or similar libraries
+        document.addEventListener('turbolinks:load', function() {
+            const pageTransitionOverlay = document.getElementById('page-transition-overlay');
+            pageTransitionOverlay.classList.remove('active');
         });
     </script>
 </body>

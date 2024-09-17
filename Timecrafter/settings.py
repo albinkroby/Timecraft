@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'userapp',
     'adminapp',
     'vendorapp',
+    'watch_customizer',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -149,7 +150,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR,'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-TF_ENABLE_ONEDNN_OPTS=0
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

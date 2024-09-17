@@ -1,10 +1,15 @@
 <!--==================== HEADER ====================-->
+<style>
+    .nav{
+        max-width: 90% !important;
+    }
+</style>
 <header class="header" id="header">
     <nav class="nav container">
         <a href="{% url 'mainapp:index' %}" class="nav__logo">
             <i class='bx bxs-watch nav__logo-icon'></i> TIME&nbspCRAFT
         </a>
-        <div class="nav__search w-100" id="nav-search">
+        <div class="nav__search" id="nav-search">
             <form action="{% url 'mainapp:search_results' %}" method="GET" class="nav__search-form">
                 <div class="input-group">
                     <!-- Image search on the left -->
@@ -25,6 +30,9 @@
             <div class="nav_bar">
                 <ul class="nav__list">
                     <li class="nav__item">
+                        <a href="{% url 'watch_customizer:customize_watch' %}" class="nav__link">Customize Watch</a>
+                    </li>
+                    <li class="nav__item">
                         <a href="{% url 'vendorapp:home' %}" class="nav__link">Become a Seller</a>
                     </li>
                     <li class="nav__item">
@@ -42,7 +50,7 @@
                 {% if user.is_authenticated %}
                     <div class="dropdown ">
                         <a class="dropdown-toggle " href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                            {{ user.username }}
+                            {{ user.username|truncatechars:10 }}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                             <li><a class="dropdown-item" href="{% url 'userapp:profile' %}"><i class='bx bx-user'></i> Profile</a></li>
@@ -61,9 +69,9 @@
             </div>
 
             <!-- Theme change button -->
-            <div class="nav__signin">
+            {% comment %} <div class="nav__signin">
                 <i class='bx bx-moon change-theme' id="theme-button"></i>
-            </div>
+            </div> {% endcomment %}
 
             <div class="nav__toggle" id="nav-toggle">
                 <i class='bx bx-grid-alt' ></i>
@@ -71,3 +79,11 @@
         </div>
     </nav>
 </header>
+<style>
+    .nav {
+        padding:0;
+    }
+    .nav__search{
+        width: 80% !important;
+    }
+</style>

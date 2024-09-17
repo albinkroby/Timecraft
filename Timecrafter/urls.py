@@ -24,6 +24,7 @@ urlpatterns = [
     path('admin/',include('adminapp.urls')),
     path('vendor/',include('vendorapp.urls')),
     path('account/',include('userapp.urls')),
+    path('custom-watch/', include('watch_customizer.urls')),
     path('oauth/', include('social_django.urls', namespace='social')),
 ]
 
