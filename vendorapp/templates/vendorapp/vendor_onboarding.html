@@ -1,0 +1,382 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!--=============== FAVICON ===============-->
+    <link rel="shortcut icon" href="{% static 'img/favicon.png' %}" type="image/x-icon">
+
+    
+    <!--=============== BOXICONS ===============-->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/boxicons@latest/css/boxicons.min.css">
+    
+    <!--=============== SWIPER CSS ===============--> 
+    <link rel="stylesheet" href="{% static 'css/swiper-bundle.min.css'%}">
+    
+    
+    <!--=============== CSS ===============-->
+    <link href="{% static 'css/bootstrap.min.css'%}" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{% static 'css/styles.css'%}">
+
+    <!--=============== JQUERY ===============-->
+    <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+
+    <!--=============== ADMIN CSS ===============-->
+    <link rel="stylesheet" href="{% static 'css/style.min.css'%}">
+
+    <title>Time Craft</title>
+    {% block header_scripts %}
+    {% endblock %}
+</head>
+<body>
+    <div id="page-transition-overlay" class="page-transition-overlay"></div>
+    <div id="loading-spinner" class="loading-spinner"></div>
+
+    <div class="d-flex flex-column" id="wrapper">
+        <!-- Navbar -->
+        <nav class="navbar sticky-top navbar-expand-lg">
+            <div class="container-fluid">
+                <div class="navbar-heading">
+                    <a href="{% url 'vendorapp:index' %}" class="nav__logo">
+                    <i class='bx bxs-watch nav__logo-icon'></i> TIME&nbspCRAFT
+                    </a>
+                </div>
+                
+                
+                <ul class="navbar-nav flex-row ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class='bx bx-moon change-theme' id="theme-button"></i>
+                        </a>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class='bx bxs-bell'></i>
+                            <span class="badge bg-primary badge-number">4</span>
+                        </a>
+                        <!-- Dropdown menu for notifications -->
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <!-- Add notification items here -->
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class='bx bxs-comment-dots' ></i>
+                            <span class="badge bg-success badge-number">3</span>
+                        </a>
+                        <!-- Dropdown menu for messages -->
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <!-- Add message items here -->
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            {% comment %} <img src="{% static 'images/profile-img.jpg' %}" alt="Profile" class="rounded-circle" width="30"> {% endcomment %}
+                            <span>{{user.username}}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="{% url 'mainapp:logout' %}"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+        <div class="container mt-5">
+            <div class="row justify-content-center">
+                <div class="col-md-10">
+                    <div class="stepper d-flex justify-content-between mb-5">
+                        <div class="step complete">
+                            <div class="step-icon">1</div>
+                            <div class="step-text">EMAIL ID & GST</div>
+                        </div>
+                        <div class="step complete">
+                            <div class="step-icon">2</div>
+                            <div class="step-text">PASSWORD CREATION</div>
+                        </div>
+                        <div class="step active">
+                            <div class="step-icon">3</div>
+                            <div class="step-text">ONBOARDING DASHBOARD</div>
+                        </div>
+                    </div>
+
+                    <h2 class="mb-4">Hello, {{ vendor_profile.user.fullname }}</h2>
+                    
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title">Mobile & Email Verification</h5>
+                                    <p><i class="bx bx-phone"></i> {{ vendor_profile.contact_phone }} 
+                                        {% if vendor_profile.is_phone_verified %}
+                                            <span class="badge bg-success">Verified</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Not Verified</span>
+                                        {% endif %}
+                                    </p>
+                                    <p><i class="bx bx-envelope"></i> {{ vendor_profile.user.email }} 
+                                        {% if vendor_profile.user.is_email_verified %}
+                                            <span class="badge bg-success">Verified</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Not Verified</span>
+                                            <a href="#" class="text-primary">Resend Email</a>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title">ID & Signature Verification</h5>
+                                    <div class="mb-3">
+                                        <label for="gstin" class="form-label required">Enter GSTIN</label>
+                                        <input type="text" class="form-control" id="gstin" value="{{ vendor_profile.gst_number }}" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="gstin" class="form-label required">Full Name</label>
+                                        <input type="text" class="form-control" id="gstin" value="{{ vendor_profile.user.fullname }}" readonly>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="gstin" class="form-label required">Display Name</label>
+                                        <input type="text" class="form-control" id="gstin" value="{{ vendor_profile.company_name }}" readonly>
+                                    </div>
+                                    <p><strong>Add Your e-Signature</strong></p>
+                                    <div class="mb-3">
+                                        <button class="btn btn-outline-primary me-2">Draw your signature</button>
+                                        <button class="btn btn-outline-secondary">Choose your signature</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <form method="post" action="{% url 'vendorapp:vendor_onboarding' %}">
+                                {% csrf_token %}
+                                <div class="card mb-4">
+                                    <div class="card-body">
+                                        <h5 class="card-title">Store & Pickup Details</h5>
+                                        <div class="mb-3">
+                                            <label for="id_postal_code" class="form-label required">Pickup Pincode</label>
+                                            {{ form.postal_code }}
+                                            {% if form.postal_code.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.postal_code.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="id_address_line1" class="form-label required">Address Line 1</label>
+                                            {{ form.address_line1 }}
+                                            {% if form.address_line1.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.address_line1.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="id_address_line2" class="form-label">Address Line 2</label>
+                                            {{ form.address_line2 }}
+                                            {% if form.address_line2.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.address_line2.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="id_city" class="form-label required">City</label>
+                                            {{ form.city }}
+                                            {% if form.city.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.city.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="id_state" class="form-label required">State</label>
+                                            {{ form.state }}
+                                            {% if form.state.errors %}
+                                                <div class="invalid-feedback d-block">
+                                                    {{ form.state.errors }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <button type="submit" class="btn btn-primary">Save</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div class="col-md-4">
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title">Your onboarding completion status</h5>
+                                    <div class="progress mb-3">
+                                        <div class="progress-bar" role="progressbar" style="width: 33%;" aria-valuenow="33" aria-valuemin="0" aria-valuemax="100">33%</div>
+                                    </div>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bx bx-check-circle text-success"></i> Mobile Verification</li>
+                                        <li><i class="bx bx-check-circle text-success"></i> Email Verification</li>
+                                        <li><i class="bx bx-circle"></i> ID Verification</li>
+                                        <li><i class="bx bx-circle"></i> Signature Verification</li>
+                                        <li><i class="bx bx-circle"></i> Display Name</li>
+                                        <li><i class="bx bx-circle"></i> Pickup Address</li>
+                                        <li><i class="bx bx-circle"></i> Listing Created</li>
+                                        <li><i class="bx bx-circle"></i> Stock Added</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <div class="card mb-4">
+                                <div class="card-body">
+                                    <h5 class="card-title">Do you need help?</h5>
+                                    <p>Our team of specialists would be happy to help you setup your shop on TimeCraft.</p>
+                                    <p>If you would like their assistance,</p>
+                                    <button class="btn btn-outline-primary">Request a Callback</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<a href="#" class="scrollup" id="scroll-up"> 
+    <i class='bx bx-up-arrow-alt scrollup__icon' ></i>
+</a>
+<script src="{% static 'js/bootstrap.bundle.min.js'%}"></script>
+<!--=============== SWIPER JS ===============-->
+<script src="{% static 'js/swiper-bundle.min.js'%}"></script>
+
+<!--=============== Extra JS ===============-->
+
+<!--=============== MAIN JS ===============-->
+<script src="{% static 'js/main.js'%}"></script>
+
+<style>
+    .loading-spinner {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50px;
+        height: 50px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        z-index: 9999;
+    }
+
+    @keyframes spin {
+        0% { transform: translate(-50%, -50%) rotate(0deg); }
+        100% { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+
+    /* Page Transition Overlay */
+    .page-transition-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #ffffff;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        z-index: 9998;
+    }
+
+    .page-transition-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .stepper {
+        position: relative;
+    }
+    .stepper::before {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 40px;
+        right: 40px;
+        height: 2px;
+        background-color: #e0e0e0;
+        z-index: 1;
+    }
+    .step {
+        text-align: center;
+        z-index: 2;
+        background-color: white;
+        padding: 0 10px;
+    }
+    .step-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #e0e0e0;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+    }
+    .step.active .step-icon {
+        background-color: #007bff;
+    }
+
+    .step.complete .step-icon {
+        background-color: #28a745;
+    }
+
+    .step-text {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    .step.active .step-text {
+        color: #007bff;
+    }
+
+    .form-label.required:after {
+        content: " *";
+        color: red;
+    }
+</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('onboarding-form');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const pageTransitionOverlay = document.getElementById('page-transition-overlay');
+
+        // Form submission animation
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            loadingSpinner.style.display = 'block';
+            setTimeout(() => {
+                form.submit();
+            }, 1000); // Delay form submission by 1 second to show the spinner
+        });
+
+        // Page transition animation
+        document.addEventListener('click', function(e) {
+            const target = e.target.closest('a');
+            if (target && target.getAttribute('href').startsWith('/')) {
+                e.preventDefault();
+                pageTransitionOverlay.classList.add('active');
+                setTimeout(() => {
+                    window.location.href = target.getAttribute('href');
+                }, 300); // Delay navigation by 300ms to show the transition effect
+            }
+        });
+    });
+
+    // Add this if you're using Turbolinks or similar libraries
+    document.addEventListener('turbolinks:load', function() {
+        const pageTransitionOverlay = document.getElementById('page-transition-overlay');
+        pageTransitionOverlay.classList.remove('active');
+    });
+</script>
+</body>
+</html>

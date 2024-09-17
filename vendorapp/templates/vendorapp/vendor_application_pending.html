@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="home__container container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-center">Vendor Application Status</h3>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info" role="alert">
+                        <h4 class="alert-heading">Application Pending</h4>
+                        <p>Your vendor application is currently under review.</p>
+                    </div>
+                    <p>We are processing your application to become a vendor on Time Craft. This usually takes 1-3 business days.</p>
+                    <p>We'll notify you via email once your application has been reviewed.</p>
+                    <p class="text-center mt-4">
+                        <a href="{% url 'mainapp:index' %}" class="btn btn-primary">Return to Home</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

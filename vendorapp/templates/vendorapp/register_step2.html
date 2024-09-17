@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="home__container container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="stepper d-flex justify-content-between mb-5">
+                <div class="step active">
+                    <div class="step-icon">✓</div>
+                    <div class="step-text">EMAIL ID & GST</div>
+                </div>
+                <div class="step active">
+                    <div class="step-icon">2</div>
+                    <div class="step-text">PASSWORD CREATION</div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">3</div>
+                    <div class="step-text">ONBOARDING DASHBOARD</div>
+                </div>
+            </div>
+
+            <h2 class="mb-4">Vendor Registration - Step 2</h2>
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    {{ profile_form.company_name }}
+                    <div class="invalid-feedback"></div>
+                </div>
+                <div class="mb-3">
+                    {{ password_form.password1 }}
+                    <div class="invalid-feedback"></div>
+                </div>
+                <div class="mb-3">
+                    {{ password_form.password2 }}
+                    <div class="invalid-feedback"></div>
+                </div>
+                <button type="submit" class="btn btn-primary">Register & Continue</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const companyNameField = document.getElementById('{{ profile_form.company_name.id_for_label }}');
+        const password1Field = document.getElementById('{{ password_form.password1.id_for_label }}');
+        const password2Field = document.getElementById('{{ password_form.password2.id_for_label }}');
+
+        function validateField(field) {
+            const value = field.value.trim();
+            const feedbackElement = field.nextElementSibling;
+            
+            if (value.length > 0) {
+                field.classList.add('is-valid');
+                field.classList.remove('is-invalid');
+                if (feedbackElement) {
+                    feedbackElement.style.display = 'none';
+                }
+                return true;
+            } else {
+                field.classList.remove('is-valid');
+                field.classList.add('is-invalid');
+                if (feedbackElement) {
+                    feedbackElement.textContent = 'This field is required.';
+                    feedbackElement.style.display = 'block';
+                }
+                return false;
+            }
+        }
+
+        function validateCompanyName(field) {
+            const value = field.value.trim();
+            const feedbackElement = field.nextElementSibling;
+
+            if (value.length > 0) {
+                return new Promise((resolve) => {
+                    fetch(`{% url 'vendorapp:validate_company_name' %}?company_name=${encodeURIComponent(value)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.is_taken) {
+                                field.classList.remove('is-valid');
+                                field.classList.add('is-invalid');
+                                if (feedbackElement) {
+                                    feedbackElement.textContent = 'This company name is already in use.';
+                                    feedbackElement.style.display = 'block';
+                                }
+                                resolve(false);
+                            } else {
+                                field.classList.add('is-valid');
+                                field.classList.remove('is-invalid');
+                                if (feedbackElement) {
+                                    feedbackElement.style.display = 'none';
+                                }
+                                resolve(true);
+                            }
+                        });
+                });
+            }
+            return Promise.resolve(false);
+        }
+
+        function validatePasswordMatch() {
+            const password1 = password1Field.value;
+            const password2 = password2Field.value;
+            const feedbackElement = password2Field.nextElementSibling;
+
+            if (password1 && password2) {
+                if (password1 !== password2) {
+                    password2Field.classList.remove('is-valid');
+                    password2Field.classList.add('is-invalid');
+                    if (feedbackElement) {
+                        feedbackElement.textContent = 'Passwords do not match.';
+                        feedbackElement.style.display = 'block';
+                    }
+                    return false;
+                } else {
+                    password2Field.classList.add('is-valid');
+                    password2Field.classList.remove('is-invalid');
+                    if (feedbackElement) {
+                        feedbackElement.style.display = 'none';
+                    }
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        companyNameField.addEventListener('input', function() {
+            validateField(this);
+            validateCompanyName(this);
+        });
+
+        password1Field.addEventListener('input', function() {
+            validateField(this);
+            validatePasswordMatch();
+        });
+
+        password2Field.addEventListener('input', function() {
+            validateField(this);
+            validatePasswordMatch();
+        });
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const isCompanyNameValid = await validateCompanyName(companyNameField);
+            const isPassword1Valid = validateField(password1Field);
+            const isPassword2Valid = validateField(password2Field);
+            const arePasswordsMatching = validatePasswordMatch();
+
+            if (isCompanyNameValid && isPassword1Valid && isPassword2Valid && arePasswordsMatching) {
+                this.submit();
+            }
+        });
+
+        // Initial validation
+        validateField(companyNameField);
+        validateCompanyName(companyNameField);
+        validateField(password1Field);
+        validateField(password2Field);
+        validatePasswordMatch();
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-control{
+        height: 50px;
+        border-radius: 5px;
+    }
+    .stepper {
+        position: relative;
+        display: flex;
+        justify-content: space-between;
+    }
+    .stepper::before {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 40px;
+        right: 40px;
+        height: 2px;
+        background-color: #e0e0e0;
+        z-index: 1;
+    }
+    .step {
+        text-align: center;
+        z-index: 2;
+        background-color: white;
+        padding: 0 10px;
+    }
+    .step-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #e0e0e0;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+    }
+    .step.active .step-icon {
+        background-color: #007bff;
+    }
+    .step-text {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    .step.active .step-text {
+        color: #007bff;
+    }
+</style>
+{% endblock %}

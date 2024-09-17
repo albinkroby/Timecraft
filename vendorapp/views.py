@@ -1,7 +1,7 @@
 from django.shortcuts import render,redirect
 from django.contrib.auth.decorators import login_required
 from mainapp.decorators import user_type_required
-from .forms import VendorRegistrationForm, BaseWatchForm, BrandSelectionForm, BrandApprovalRequestForm, WatchDetailsForm, WatchMaterialsForm, SmartWatchFeatureForm, PremiumWatchFeatureForm, WatchImageFormSet
+from .forms import VendorProfileForm, VendorRegistrationFormStep1, VendorRegistrationFormStep2, BaseWatchForm, BrandSelectionForm, BrandApprovalRequestForm, WatchDetailsForm, WatchMaterialsForm, SmartWatchFeatureForm, PremiumWatchFeatureForm, WatchImageFormSet, VendorOnboardingForm
 from django.contrib import messages
 from .models import VendorProfile
 from mainapp.utils import hash_url
@@ -17,110 +17,178 @@ from django.utils import timezone
 from datetime import timedelta, datetime
 from django.core.paginator import Paginator
 import pandas as pd
-import io,json
+import io,json 
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
 
+User = get_user_model()
 @never_cache
 def home(request):
     return render(request,'vendorapp/home.html')
 
 @never_cache
-def vendor_register(request):
-    if not request.user.is_authenticated:
-        messages.info(request, "Please log in to register as a vendor.")
-        hashed_next = hash_url('vendorapp:register')
-        login_url = reverse('mainapp:login')
-        return redirect(f'{login_url}?next={hashed_next}')  
+def vendor_register_step1(request):
+    if request.method == 'POST':
+        user_form = VendorRegistrationFormStep1(request.POST)
+        if user_form.is_valid():
+            # Store form data in session
+            request.session['vendor_user_data'] = user_form.cleaned_data
+            return redirect('vendorapp:vendor_register_step2')
+    else:
+        user_form = VendorRegistrationFormStep1()
+    
+    # Always pass the form to the template, whether it's a new form or one with errors
+    return render(request, 'vendorapp/register_step1.html', {'user_form': user_form})
 
-    if VendorProfile.objects.filter(user=request.user).exists():
-        messages.info(request, "You are already registered as a vendor.")
-        return redirect('vendorapp:index')
+@never_cache
+def vendor_register_step2(request):
+    if 'vendor_user_data' not in request.session:
+        return redirect('vendorapp:vendor_register_step1')
 
     if request.method == 'POST':
-        form = VendorRegistrationForm(request.POST)
-        if form.is_valid():
-            vendor = form.save(commit=False)
-            vendor.user = request.user
-            vendor.save()
-            request.user.role = 'vendor'
-            request.user.save()
+        profile_form = VendorProfileForm(request.POST)
+        password_form = VendorRegistrationFormStep2(request.POST)
+        if profile_form.is_valid() and password_form.is_valid():
+            user_data = request.session['vendor_user_data']
+            user = User.objects.create_user(
+                fullname=user_data['fullname'],
+                email=user_data['email'],
+                username=user_data['email'],
+                role='vendor',
+                password=password_form.cleaned_data['password1']
+            )
+            user.set_password(password_form.cleaned_data['password1'])
+            user.save()
+
+            vendor_profile = profile_form.save(commit=False)
+            vendor_profile.user = user
+            vendor_profile.contact_email = user_data['contact_email']
+            vendor_profile.gst_number = user_data['gst_number']
+            vendor_profile.contact_phone = user_data['contact_phone']
+            vendor_profile.save()
+
+            # Clear session data
+            del request.session['vendor_user_data']
+
             messages.success(request, "You have successfully registered as a vendor.")
+            return redirect('vendorapp:vendor_onboarding')
+        else:
+            print(profile_form.errors)  # Debug: Print form errors if the form is not valid
+            print(password_form.errors)  # Debug: Print form errors if the form is not valid
+    else:
+        profile_form = VendorProfileForm()
+        password_form = VendorRegistrationFormStep2()
+    return render(request, 'vendorapp/register_step2.html', {'profile_form': profile_form, 'password_form': password_form})
+
+@never_cache
+@login_required
+@user_type_required('vendor')
+def vendor_onboarding(request):
+    vendor_profile = request.user.vendorprofile
+    
+    if request.method == 'POST':
+        form = VendorOnboardingForm(request.POST, instance=vendor_profile)
+        if form.is_valid():
+            form.save()
+            vendor_profile.is_onboarding_completed = True
+            vendor_profile.save()
+            messages.success(request, "Your profile has been updated successfully.")
             return redirect('vendorapp:index')
     else:
-        form = VendorRegistrationForm()
-    return render(request, 'vendorapp/register.html', {'form': form})
+        form = VendorOnboardingForm(instance=vendor_profile)
+    
+    context = {
+        'form': form,
+        'vendor_profile': vendor_profile,
+    }
+    return render(request, 'vendorapp/vendor_onboarding.html', context)
+
+def validate_company_name(request):
+    company_name = request.GET.get('company_name', None)
+    if company_name:
+        company_name = company_name.lower()
+        data = {
+            'is_taken': VendorProfile.objects.filter(company_name__iexact=company_name.lower()).exists()
+        }
+    else:
+        data = {'is_taken': False}
+    return JsonResponse(data)
 
 @never_cache
 @login_required
 @user_type_required('vendor')
 def index(request):
     vendor_profile = VendorProfile.objects.get(user=request.user)
-    if vendor_profile.approval_status == 'Approved':
-        # Get total products
-        total_products = BaseWatch.objects.filter(vendor=vendor_profile).count()
-        
-        # Get new products added in the last week
-        one_week_ago = timezone.now() - timedelta(days=7)
-        # new_products_this_week = BaseWatch.objects.filter(vendor=vendor_profile, created_at__gte=one_week_ago).count()
-        new_products_this_week = BaseWatch.objects.filter(vendor=vendor_profile).count()
-        product_growth_percentage = (new_products_this_week / total_products * 100) if total_products > 0 else 0
-        
-        # Get total sales for the last 30 days
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        total_sales = BaseWatch.objects.filter(
-            vendor=vendor_profile,
-            orderitem__order__created_at__gte=thirty_days_ago
-        ).aggregate(
-            total_sales=Sum('orderitem__quantity')
-        )['total_sales'] or 0
-        
-        # Get sales growth percentage
-        previous_thirty_days = timezone.now() - timedelta(days=60)
-        previous_sales = BaseWatch.objects.filter(
-            vendor=vendor_profile,
-            orderitem__order__created_at__gte=previous_thirty_days,
-            orderitem__order__created_at__lt=thirty_days_ago
-        ).aggregate(
-            total_sales=Sum('orderitem__quantity')
-        )['total_sales'] or 0
-        
-        sales_growth_percentage = ((total_sales - previous_sales) / previous_sales * 100) if previous_sales > 0 else 0
-        
-        # Get total orders
-        total_orders = BaseWatch.objects.filter(
-            vendor=vendor_profile,
-            orderitem__isnull=False
-        ).aggregate(
-            total_orders=Count('orderitem__order', distinct=True)
-        )['total_orders'] or 0
-        
-        # Get order growth percentage
-        new_orders_this_week = BaseWatch.objects.filter(
-            vendor=vendor_profile,
-            orderitem__order__created_at__gte=one_week_ago
-        ).aggregate(
-            new_orders=Count('orderitem__order', distinct=True)
-        )['new_orders'] or 0
-        
-        order_growth_percentage = (new_orders_this_week / total_orders * 100) if total_orders > 0 else 0
-        
-        # Get 4 most recent orders
-        recent_orders = Order.objects.filter(
-            items__watch__vendor=vendor_profile
-        ).distinct().order_by('-created_at')[:4]
+    if vendor_profile.is_onboarding_completed:
+        if vendor_profile.approval_status == 'Approved':
+            # Get total products
+            total_products = BaseWatch.objects.filter(vendor=vendor_profile).count()
+            
+            # Get new products added in the last week
+            one_week_ago = timezone.now() - timedelta(days=7)
+            # new_products_this_week = BaseWatch.objects.filter(vendor=vendor_profile, created_at__gte=one_week_ago).count()
+            new_products_this_week = BaseWatch.objects.filter(vendor=vendor_profile).count()
+            product_growth_percentage = (new_products_this_week / total_products * 100) if total_products > 0 else 0
+            
+            # Get total sales for the last 30 days
+            thirty_days_ago = timezone.now() - timedelta(days=30)
+            total_sales = BaseWatch.objects.filter(
+                vendor=vendor_profile,
+                orderitem__order__created_at__gte=thirty_days_ago
+            ).aggregate(
+                total_sales=Sum('orderitem__quantity')
+            )['total_sales'] or 0
+            
+            # Get sales growth percentage
+            previous_thirty_days = timezone.now() - timedelta(days=60)
+            previous_sales = BaseWatch.objects.filter(
+                vendor=vendor_profile,
+                orderitem__order__created_at__gte=previous_thirty_days,
+                orderitem__order__created_at__lt=thirty_days_ago
+            ).aggregate(
+                total_sales=Sum('orderitem__quantity')
+            )['total_sales'] or 0
+            
+            sales_growth_percentage = ((total_sales - previous_sales) / previous_sales * 100) if previous_sales > 0 else 0
+            
+            # Get total orders
+            total_orders = BaseWatch.objects.filter(
+                vendor=vendor_profile,
+                orderitem__isnull=False
+            ).aggregate(
+                total_orders=Count('orderitem__order', distinct=True)
+            )['total_orders'] or 0
+            
+            # Get order growth percentage
+            new_orders_this_week = BaseWatch.objects.filter(
+                vendor=vendor_profile,
+                orderitem__order__created_at__gte=one_week_ago
+            ).aggregate(
+                new_orders=Count('orderitem__order', distinct=True)
+            )['new_orders'] or 0
+            
+            order_growth_percentage = (new_orders_this_week / total_orders * 100) if total_orders > 0 else 0
+            
+            # Get 4 most recent orders
+            recent_orders = Order.objects.filter(
+                items__watch__vendor=vendor_profile
+            ).distinct().order_by('-created_at')[:4]
 
-        context = {
-            'total_sales': total_sales,
-            'sales_growth_percentage': round(sales_growth_percentage, 1),
-            'total_products': total_products,
-            'product_growth_percentage': round(product_growth_percentage, 1),
-            'total_orders': total_orders,
-            'order_growth_percentage': round(order_growth_percentage, 1),
-            'recent_orders': recent_orders,
-        }
-        
-        return render(request, 'vendorapp/index.html', context)
+            context = {
+                'total_sales': total_sales,
+                'sales_growth_percentage': round(sales_growth_percentage, 1),
+                'total_products': total_products,
+                'product_growth_percentage': round(product_growth_percentage, 1),
+                'total_orders': total_orders,
+                'order_growth_percentage': round(order_growth_percentage, 1),
+                'recent_orders': recent_orders,
+            }
+            
+            return render(request, 'vendorapp/index.html', context)
+        else:
+            return render(request, 'vendorapp/vendor_application_pending.html')
     else:
-        return render(request, 'vendorapp/vendor_application_pending.html')
+        return redirect('vendorapp:vendor_onboarding')
     
 @never_cache
 @login_required

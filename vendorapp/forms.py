@@ -1,18 +1,116 @@
 from django import forms
 from .models import VendorProfile
+from django.contrib.auth import get_user_model
 from adminapp.models import BaseWatch, BrandApproval, Brand, WatchDetails, WatchMaterials, SmartWatchFeature, PremiumWatchFeature, WatchImage
+from django.core.exceptions import ValidationError
+import re
+from django.core.validators import RegexValidator
 
-class VendorRegistrationForm(forms.ModelForm):
+User = get_user_model()
+
+def validate_fullname(value):
+    if not re.match(r'^[a-zA-Z\s]+$', value):
+        raise ValidationError('Full name must contain only alphabets and spaces.')
+
+def validate_gst_number(value):
+    if not re.match(r'^[A-Z0-9]{14}$', value):
+        raise ValidationError('GST number must be 14 characters long and contain only uppercase alphabets and numbers.')
+
+def validate_contact_phone(value):
+    if not re.match(r'^[6-9]\d{9}$', value):
+        raise ValidationError('Contact phone must be a 10-digit number starting with 6, 7, 8, or 9.')
+
+class VendorProfileForm(forms.ModelForm):
     class Meta:
         model = VendorProfile
-        fields = ['contact_phone', 'company_name', 'gst_number', 'contact_email']
+        fields = ['company_name']
         widgets = {
-            'contact_phone': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Mobile Number'}),
             'company_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Company Name'}),
-            'gst_number': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter GSTIN'}),
-            'contact_email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Enter Email ID'}),
+        }
+    def clean_company_name(self):
+        company_name = self.cleaned_data.get('company_name')
+        if VendorProfile.objects.filter(company_name=company_name).exists():
+            raise ValidationError('This company name is already in use.')
+        return company_name
+
+class VendorRegistrationFormStep1(forms.ModelForm):
+    contact_email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Enter Contact Email ID'}))
+    gst_number = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter GSTIN'}), validators=[validate_gst_number])
+    contact_phone = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Mobile Number'}), validators=[validate_contact_phone])
+    use_same_email = forms.BooleanField(required=False, label="Use same email as registration email")
+
+    class Meta:
+        model = User
+        fields = ['fullname', 'email']
+        widgets = {
+            'fullname': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter Full Name'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Enter Email'}),
+        }
+        validators = {
+            'fullname': [validate_fullname],
         }
 
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise ValidationError('Email is already in use.')
+        return email
+
+    def clean(self):
+        cleaned_data = super().clean()
+        use_same_email = cleaned_data.get("use_same_email")
+        if use_same_email:
+            cleaned_data['contact_email'] = cleaned_data.get('email')
+        return cleaned_data
+
+class VendorRegistrationFormStep2(forms.ModelForm):
+    password1 = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Enter Password'}))
+    password2 = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Confirm Password'}))
+
+    class Meta:
+        model = User
+        fields = []
+
+    def clean_password2(self):
+        password1 = self.cleaned_data.get('password1')
+        password2 = self.cleaned_data.get('password2')
+        if password1 and password2 and password1 != password2:
+            raise forms.ValidationError("Passwords don't match")
+        return password2
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password1"])
+        if commit:
+            user.save()
+        return user
+
+class VendorOnboardingForm(forms.ModelForm):
+    postal_code = forms.CharField(
+        max_length=6, 
+        validators=[
+            RegexValidator(
+                regex='^[0-9]{6}$',
+                message='Postal code must be 6 digits',
+                code='invalid_postal_code'
+            )
+        ]
+    )
+    address_line1 = forms.CharField(max_length=255, required=True)
+    address_line2 = forms.CharField(max_length=255, required=False)
+    city = forms.CharField(max_length=100, required=True)
+    state = forms.CharField(max_length=100, required=True)
+
+    class Meta:
+        model = VendorProfile
+        fields = ['postal_code', 'address_line1', 'address_line2', 'city', 'state']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields:
+            self.fields[field].widget.attrs.update({'class': 'form-control'})
+
+# ... rest of the existing code ...
 class BrandSelectionForm(forms.Form):
     brand = forms.ModelChoiceField(
         queryset=Brand.objects.all(),
@@ -119,3 +217,4 @@ WatchImageFormSet = inlineformset_factory(
     extra=1,
     can_delete=True
 )
+

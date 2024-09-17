@@ -6,7 +6,11 @@ app_name="vendorapp"
 urlpatterns = [
     path('',views.index,name='index'),
     path('home/',views.home,name='home'),
-    path('register/', views.vendor_register, name='register'),
+    path('register/step1/', views.vendor_register_step1, name='vendor_register_step1'),
+    path('register/step2/', views.vendor_register_step2, name='vendor_register_step2'),
+    path('onboarding/', views.vendor_onboarding, name='vendor_onboarding'),
+    
+    path('validate_company_name/', views.validate_company_name, name='validate_company_name'),
     
     path('add-product/', views.add_product, name='add_product'),
     path('products/', views.product_list, name='product_list'),

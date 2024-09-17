@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="home__container container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="stepper d-flex justify-content-between mb-5">
+                <div class="step active">
+                    <div class="step-icon">1</div>
+                    <div class="step-text">EMAIL ID & GST</div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">2</div>
+                    <div class="step-text">PASSWORD CREATION</div>
+                </div>
+                <div class="step">
+                    <div class="step-icon">3</div>
+                    <div class="step-text">ONBOARDING DASHBOARD</div>
+                </div>
+            </div>
+
+            <h2 class="mb-4">Vendor Registration - Step 1</h2>
+            <form method="post" action="{% url 'vendorapp:vendor_register_step1' %}" novalidate>
+                {% csrf_token %}
+                {% for field in user_form %}
+                    {% if field.name != 'use_same_email' %}
+                        <div class="mb-3">
+                            {{ field.label_tag }}
+                            {{ field }}
+                            {% if field.errors %}
+                            <div class="invalid-feedback" style="display: block;">
+                                {{ field.errors }}
+                            </div>
+                            <script>
+                                document.getElementById('{{ field.id_for_label }}').classList.add('is-invalid');
+                            </script>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="mb-3 form-check">
+                            {{ field }}
+                            <label class="form-check-label" for="{{ field.id_for_label }}">
+                                {{ field.label }}
+                            </label>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+                <button type="submit" class="btn btn-primary">Next</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const fields = [
+            {% for field in user_form %}
+                {% if field.name != 'use_same_email' %}
+                    document.getElementById('{{ field.id_for_label }}'),
+                {% endif %}
+            {% endfor %}
+        ];
+        const useSameEmailCheckbox = document.getElementById('{{ user_form.use_same_email.id_for_label }}');
+        const contactEmailField = document.getElementById('id_contact_email').parentNode;
+        const contactEmailInput = document.getElementById('id_contact_email');
+
+        console.log(fields);  // Debug: Log the selected fields
+
+        function validateField(field) {
+            const value = field.value.trim();
+            const feedbackElement = field.nextElementSibling;
+            console.log(feedbackElement);
+            if (value.length > 0) {
+                field.classList.add('is-valid');
+                field.classList.remove('is-invalid');
+                if (feedbackElement && feedbackElement.classList.contains('invalid-feedback')) {
+                    feedbackElement.style.display = 'none';
+                }
+            } else {
+                field.classList.remove('is-valid');
+                field.classList.add('is-invalid');
+                if (feedbackElement && feedbackElement.classList.contains('invalid-feedback')) {
+                    feedbackElement.style.display = 'block';
+                }
+            }
+
+            // Additional validation for specific fields
+            switch(field.name) {
+                case 'fullname':
+                    const fullnameRegex = /^[a-zA-Z\s]+$/;
+                    if (!fullnameRegex.test(value)) {
+                        field.classList.remove('is-valid');
+                        field.classList.add('is-invalid');
+                    }
+                    break;
+                case 'email':
+                case 'contact_email':
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    if (!emailRegex.test(value)) {
+                        field.classList.remove('is-valid');
+                        field.classList.add('is-invalid');
+                    }
+                    break;
+                case 'gst_number':
+                    const gstRegex = /^[A-Z0-9]{14}$/;
+                    if (!gstRegex.test(value)) {
+                        field.classList.remove('is-valid');
+                        field.classList.add('is-invalid');
+                    }
+                    break;
+                case 'contact_phone':
+                    const phoneRegex = /^[6-9]\d{9}$/;
+                    if (!phoneRegex.test(value)) {
+                        field.classList.remove('is-valid');
+                        field.classList.add('is-invalid');
+                    }
+                    break;
+            }
+        }
+
+        function toggleContactEmailField() {
+            if (useSameEmailCheckbox.checked) {
+                contactEmailField.style.display = 'none';
+                contactEmailInput.value = document.getElementById('id_email').value;
+            } else {
+                contactEmailField.style.display = 'block';
+                contactEmailInput.value = '';
+            }
+            validateField(contactEmailInput);
+        }
+
+        // Add event listeners and initial validation
+        fields.forEach(field => {
+            if (field) {  // Check if the field exists
+                field.addEventListener('input', function() {
+                    validateField(this);
+                });
+                // Initial validation for each field
+                //validateField(field);
+            }
+        });
+
+        useSameEmailCheckbox.addEventListener('change', toggleContactEmailField);
+        //toggleContactEmailField();  // Initial call to set the correct state
+    });
+</script>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-control{
+        height: 50px;
+        border-radius: 5px;
+    }
+    .stepper {
+        position: relative;
+        display: flex;
+        justify-content: space-between;
+    }
+    .stepper::before {
+        content: '';
+        position: absolute;
+        top: 20px;
+        left: 40px;
+        right: 40px;
+        height: 2px;
+        background-color: #e0e0e0;
+        z-index: 1;
+    }
+    .step {
+        text-align: center;
+        z-index: 2;
+        background-color: white;
+        padding: 0 10px;
+    }
+    .step-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #e0e0e0;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 10px;
+    }
+    .step.active .step-icon {
+        background-color: #007bff;
+    }
+    .step-text {
+        font-size: 12px;
+        color: #6c757d;
+    }
+    .step.active .step-text {
+        color: #007bff;
+    }
+</style>
+{% endblock %}
