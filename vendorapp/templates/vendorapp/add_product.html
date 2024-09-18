@@ -91,22 +91,6 @@
             {% endfor %}
         </div>
 
-        <div id="step3" style="display: none;">
-            <h3>Additional Features</h3>
-            {% for field in smart_feature_form %}
-                <div class="form-check">
-                    {{ field }}
-                    <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                </div>
-            {% endfor %}
-            {% for field in premium_feature_form %}
-                <div class="form-check">
-                    {{ field }}
-                    <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                </div>
-            {% endfor %}
-        </div>
-
         <div class="mt-4">
             <button type="button" id="prev-btn" class="btn btn-secondary" style="display: none;">Previous</button>
             <button type="button" id="next-btn" class="btn btn-primary">Next</button>
@@ -133,8 +117,17 @@
         }, false);
     })();
 
+    checkbox = document.getElementById('id_features');
+    // Apply 'form-check-input' class to all input fields under the 'id_features' checkbox
+    if (checkbox) {
+        const inputFields = checkbox.querySelectorAll('input');
+        inputFields.forEach(input => {
+            input.classList.add('form-check-input');
+        });
+    }
+
     // Step navigation
-    const steps = ['step1', 'step2', 'step3'];
+    const steps = ['step1', 'step2'];
     let currentStep = 1;
 
     function updateStep(step) {
@@ -145,19 +138,19 @@
 
         document.getElementById('current-step').textContent = step;
         document.getElementById('step-input').value = step;
-        document.querySelector('.progress-bar').style.width = `${(step / 3) * 100}%`;
+        document.querySelector('.progress-bar').style.width = `${(step / 2) * 100}%`;
 
         const prevBtn = document.getElementById('prev-btn');
         const nextBtn = document.getElementById('next-btn');
         const submitBtn = document.getElementById('submit-btn');
 
         prevBtn.style.display = step > 1 ? 'inline-block' : 'none';
-        nextBtn.style.display = step < 3 ? 'inline-block' : 'none';
-        submitBtn.style.display = step === 3 ? 'inline-block' : 'none';
+        nextBtn.style.display = step < 2 ? 'inline-block' : 'none';
+        submitBtn.style.display = step === 2 ? 'inline-block' : 'none';
     }
 
     document.getElementById('next-btn').addEventListener('click', () => {
-        if (currentStep < 3) {
+        if (currentStep < 2) {
             if (validateCurrentStep()) {
                 currentStep++;
                 updateStep(currentStep);
@@ -245,7 +238,7 @@
 
     // Modify the next button click event to handle async validation
     document.getElementById('next-btn').addEventListener('click', async () => {
-        if (currentStep < 3) {
+        if (currentStep < 2) {
             const isValid = await validateCurrentStep();
             if (isValid) {
                 currentStep++;

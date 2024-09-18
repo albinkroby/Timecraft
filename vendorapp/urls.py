@@ -12,11 +12,14 @@ urlpatterns = [
     
     path('validate_company_name/', views.validate_company_name, name='validate_company_name'),
     
-    path('add-product/', views.add_product, name='add_product'),
     path('products/', views.product_list, name='product_list'),
+    path('add-product/', views.add_product_step1, name='add_product_step1'),
+    path('add-product/<int:brand_id>/', views.add_product_step2, name='add_product_step2'),
     path('delete-product/<int:product_id>/', views.delete_product, name='delete_product'),
     path('edit-product/<int:product_id>/', views.edit_product, name='edit_product'),
     path('delete-product-image/<int:image_id>/', views.delete_product_image, name='delete_product_image'),
+    
+    path('request-brand-approval/<int:brand_id>/', views.request_brand_approval, name='request_brand_approval'),
     
     path('manage-stock/', views.manage_stock, name='manage_stock'),
     path('update-stock/<int:product_id>/', views.update_stock, name='update_stock'),
@@ -24,9 +27,5 @@ urlpatterns = [
     path('orders/', views.order_list, name='order_list'),
     path('check-unique-model-name/', views.check_unique_model_name, name='check_unique_model_name'),
     path('orders/download/', views.download_orders, name='download_orders'),
-    
-    path('add-product2/', views.add_product_step1, name='add_product_step1'),
-    path('request-brand-approval/<int:brand_id>/', views.request_brand_approval, name='request_brand_approval'),
-    path('add-product2/<int:brand_id>/', views.add_product_step2, name='add_product_step2'),
 
 ]

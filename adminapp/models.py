@@ -252,22 +252,3 @@ class WatchMaterials(models.Model):
     strap_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='strap_watches')
     glass_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='glass_watches')
     case_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='case_watches')
-
-class SmartWatchFeature(models.Model):
-    base_watch = models.OneToOneField(BaseWatch, on_delete=models.CASCADE, related_name='smartwatch_features')
-    heart_rate_monitor = models.BooleanField(default=False)
-    gps = models.BooleanField(default=False)
-    step_counter = models.BooleanField(default=False)
-    sleep_tracker = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"Smartwatch features for {self.base_watch.model_name}"
-
-class PremiumWatchFeature(models.Model):
-    base_watch = models.OneToOneField(BaseWatch, on_delete=models.CASCADE, related_name='premium_features')
-    sapphire_glass = models.BooleanField(default=False)
-    automatic_movement = models.BooleanField(default=False)
-    chronograph = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"Premium features for {self.base_watch.model_name}"

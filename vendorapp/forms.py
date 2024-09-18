@@ -1,7 +1,7 @@
 from django import forms
 from .models import VendorProfile
 from django.contrib.auth import get_user_model
-from adminapp.models import BaseWatch, BrandApproval, Brand, WatchDetails, WatchMaterials, SmartWatchFeature, PremiumWatchFeature, WatchImage
+from adminapp.models import BaseWatch, BrandApproval, Brand, WatchDetails, WatchMaterials, WatchImage
 from django.core.exceptions import ValidationError
 import re
 from django.core.validators import RegexValidator
@@ -151,7 +151,7 @@ class BaseWatchForm(forms.ModelForm):
                 'id': 'primaryImageInput',
                 'required': True,
             }),
-            'features': forms.SelectMultiple(attrs={'class': 'form-control'}),
+            'features': forms.CheckboxSelectMultiple(),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input', 'required': True}),
         }
 
@@ -191,18 +191,6 @@ class WatchMaterialsForm(forms.ModelForm):
         model = WatchMaterials
         fields = ['strap_material', 'glass_material', 'case_material']
         widgets = {field: forms.Select(attrs={'class': 'form-control'}) for field in fields}
-
-class SmartWatchFeatureForm(forms.ModelForm):
-    class Meta:
-        model = SmartWatchFeature
-        fields = ['heart_rate_monitor', 'gps', 'step_counter', 'sleep_tracker']
-        widgets = {field: forms.CheckboxInput(attrs={'class': 'form-check-input'}) for field in fields}
-
-class PremiumWatchFeatureForm(forms.ModelForm):
-    class Meta:
-        model = PremiumWatchFeature
-        fields = ['sapphire_glass', 'automatic_movement', 'chronograph']
-        widgets = {field: forms.CheckboxInput(attrs={'class': 'form-check-input'}) for field in fields}
 
 class WatchImageForm(forms.ModelForm):
     class Meta:
