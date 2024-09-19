@@ -30,8 +30,12 @@
                     {% endif %}
                 </td>
                 <td>
-                    <input type="number" class="form-control d-inline-block w-auto" id="new-stock-{{ product.id }}" min="0">
-                    <button class="btn btn-primary update-stock" data-product-id="{{ product.id }}">Update</button>
+                    <div class="input-group">
+                        <button class="btn btn-outline-secondary decrease-stock" type="button" data-product-id="{{ product.id }}">-</button>
+                        <input type="number" class="form-control stock-input" id="stock-change-{{ product.id }}" value="0" min="-{{ product.available_stock }}" style="width: 40px; text-align: center;">
+                        <button class="btn btn-outline-secondary increase-stock" type="button" data-product-id="{{ product.id }}">+</button>
+                        <button class="btn btn-primary update-stock" data-product-id="{{ product.id }}">Update</button>
+                    </div>
                 </td>
             </tr>
             {% endfor %}
@@ -43,23 +47,33 @@
 {% block extra_js %}
 <script>
 $(document).ready(function() {
+    $('.decrease-stock').click(function() {
+        var productId = $(this).data('product-id');
+        var input = $('#stock-change-' + productId);
+        input.val(parseInt(input.val()) - 1);
+    });
+
+    $('.increase-stock').click(function() {
+        var productId = $(this).data('product-id');
+        var input = $('#stock-change-' + productId);
+        input.val(parseInt(input.val()) + 1);
+    });
+
     $('.update-stock').click(function() {
         var productId = $(this).data('product-id');
-        var stockToAdd = $('#new-stock-' + productId).val();
+        var stockChange = $('#stock-change-' + productId).val();
         $.ajax({
             url: "{% url 'vendorapp:update_stock' 0 %}".replace('0', productId),
             type: 'POST',
             data: {
-                'stock_quantity': stockToAdd,
+                'stock_change': stockChange,
                 'csrfmiddlewaretoken': '{{ csrf_token }}'
             },
             success: function(data) {
                 if (data.success) {
-                    var availableStockElement = $('#available-stock-' + productId);
-                    var totalStockElement = $('#total-stock-' + productId);
-                    
-                    availableStockElement.text(data.available_stock);
-                    totalStockElement.text(data.total_stock);
+                    $('#available-stock-' + productId).text(data.available_stock);
+                    $('#total-stock-' + productId).text(data.total_stock);
+                    $('#sold-stock-' + productId).text(data.sold_stock);
                     
                     var inStockElement = $('#in-stock-' + productId);
                     if (data.is_in_stock) {
@@ -68,7 +82,7 @@ $(document).ready(function() {
                         inStockElement.html('<span class="badge bg-danger">Out of Stock</span>');
                     }
                     showCustomAlert('Stock updated successfully', 'success');
-                    $('#new-stock-' + productId).val(''); // Clear the input field
+                    $('#stock-change-' + productId).val('0'); // Reset the input field
                 } else {
                     showCustomAlert('Error: ' + data.error, 'error');
                 }

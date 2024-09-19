@@ -158,7 +158,7 @@ class BaseWatch(models.Model):
     def generate_image_feature(self):
         model = ResNet50(weights='imagenet', include_top=False, pooling='avg')
         img = Image.open(self.primary_image.path)
-        img = img.convert('RGB')
+        img = img.convert('RGBA').convert('RGB')  # Convert to RGBA then to RGB
         img = img.resize((224, 224))
         x = image.img_to_array(img)
         x = np.expand_dims(x, axis=0)

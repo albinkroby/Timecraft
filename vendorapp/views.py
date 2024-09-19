@@ -324,23 +324,32 @@ def manage_stock(request):
 def update_stock(request, product_id):
     if request.method == 'POST':
         product = get_object_or_404(BaseWatch, id=product_id, vendor=request.user.vendorprofile)
-        stock_to_add = request.POST.get('stock_quantity')
+        stock_change = request.POST.get('stock_change')
         try:
-            stock_to_add = int(stock_to_add)
-            if stock_to_add >= 0:
-                product.total_stock += stock_to_add
-                product.available_stock += stock_to_add
+            stock_change = int(stock_change)
+            new_available_stock = product.available_stock + stock_change
+            if new_available_stock >= 0:
+                product.available_stock = new_available_stock
+                if stock_change > 0:
+                    # Increasing stock
+                    product.total_stock += stock_change
+                else:
+                    # Decreasing stock
+                    product.total_stock = max(product.total_stock + stock_change, product.available_stock)
+                
+                product.is_in_stock = product.available_stock > 0
                 product.save()
                 return JsonResponse({
                     'success': True, 
                     'available_stock': product.available_stock,
                     'total_stock': product.total_stock,
+                    'sold_stock': product.total_stock - product.available_stock,
                     'is_in_stock': product.is_in_stock
                 })
             else:
-                return JsonResponse({'success': False, 'error': 'Stock quantity must be non-negative'})
+                return JsonResponse({'success': False, 'error': 'Available stock cannot be negative'})
         except ValueError:
-            return JsonResponse({'success': False, 'error': 'Invalid stock quantity'})
+            return JsonResponse({'success': False, 'error': 'Invalid stock change value'})
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 @never_cache
