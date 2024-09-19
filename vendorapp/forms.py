@@ -206,3 +206,33 @@ WatchImageFormSet = inlineformset_factory(
     can_delete=True
 )
 
+
+class BaseWatchUpdateForm(BaseWatchForm):
+    class Meta(BaseWatchForm.Meta):
+        exclude = ['vendor', 'slug', 'total_stock', 'sold_stock', 'is_in_stock', 'image_hash', 'is_featured']
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.initial_model_name = self.instance.model_name
+
+    def clean_model_name(self):
+        model_name = self.cleaned_data.get('model_name')
+        if model_name != self.initial_model_name:
+            if BaseWatch.objects.filter(model_name=model_name).exists():
+                raise forms.ValidationError("This model name is already in use. Please choose a different name.")
+        return model_name
+
+class WatchDetailsUpdateForm(WatchDetailsForm):
+    class Meta(WatchDetailsForm.Meta):
+        pass
+
+class WatchMaterialsUpdateForm(WatchMaterialsForm):
+    class Meta(WatchMaterialsForm.Meta):
+        pass
+
+WatchImageUpdateFormSet = inlineformset_factory(
+    BaseWatch, WatchImage,
+    form=WatchImageForm,
+    extra=1,
+    can_delete=True
+)

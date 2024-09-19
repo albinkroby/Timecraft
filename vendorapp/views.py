@@ -1,7 +1,9 @@
 from django.shortcuts import render,redirect
+from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from mainapp.decorators import user_type_required
 from .forms import VendorProfileForm, VendorRegistrationFormStep1, VendorRegistrationFormStep2, BaseWatchForm, BrandSelectionForm, BrandApprovalRequestForm, WatchDetailsForm, WatchMaterialsForm, WatchImageFormSet, VendorOnboardingForm
+from .forms import BaseWatchUpdateForm, WatchDetailsUpdateForm, WatchMaterialsUpdateForm, WatchImageUpdateFormSet
 from django.contrib import messages
 from .models import VendorProfile
 from mainapp.utils import hash_url
@@ -20,6 +22,7 @@ import pandas as pd
 import io,json 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.forms import modelformset_factory
 
 User = get_user_model()
 @never_cache
@@ -214,6 +217,30 @@ def product_list(request):
         'watch_types': watch_types
     })
 
+
+@require_POST
+@login_required
+@user_type_required('vendor')
+def toggle_product_status(request):
+    product_id = request.POST.get('product_id')
+    status = request.POST.get('status')
+    
+    try:
+        product = BaseWatch.objects.get(id=product_id, vendor=request.user.vendorprofile)
+        
+        # Convert status to boolean
+        new_status = status.lower() == 'true'
+        
+        # Toggle the status
+        product.is_active = new_status
+        product.save()
+        
+        return JsonResponse({'success': True, 'new_status': product.is_active})
+    except BaseWatch.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
 @never_cache
 @login_required
 @user_type_required('vendor')
@@ -228,35 +255,50 @@ def delete_product(request, product_id):
 @user_type_required('vendor')
 def edit_product(request, product_id):
     product = get_object_or_404(BaseWatch, id=product_id, vendor=request.user.vendorprofile)
+    
     if request.method == 'POST':
-        form = BaseWatchForm(request.POST, request.FILES, instance=product)
-        if form.is_valid():
-            watch = form.save(commit=False)
-
-            # Handle primary image
-            if 'primary_image' in request.FILES:
-                watch.primary_image = request.FILES['primary_image']
-            elif not watch.primary_image:
-                watch.primary_image = None
-
-            watch.save()
-            form.save_m2m()  # Save many-to-many relationships
-
-            # Handle additional images
-            if 'product_images' in request.FILES:
-                images = request.FILES.getlist('product_images')
-                for image in images:
-                    WatchImage.objects.create(base_watch=watch, image=image)
-
-
-            messages.success(request, f'Product "{watch.model_name}" has been updated successfully!')
-            return redirect('vendorapp:product_list')
+        base_watch_form = BaseWatchUpdateForm(request.POST, request.FILES, instance=product)
+        details_form = WatchDetailsUpdateForm(request.POST, instance=product.details)
+        materials_form = WatchMaterialsUpdateForm(request.POST, instance=product.materials)
+        
+        if all([base_watch_form.is_valid(), details_form.is_valid(), materials_form.is_valid()]):
+            try:
+                base_watch = base_watch_form.save()
+                details_form.save()
+                materials_form.save()
+                
+                # Handle primary image
+                if 'primary_image' in request.FILES:
+                    base_watch.primary_image = request.FILES['primary_image']
+                    base_watch.save()
+                
+                # Handle deletion of existing images
+                images_to_delete = request.POST.getlist('delete_images')
+                WatchImage.objects.filter(id__in=images_to_delete).delete()
+                
+                # Handle new additional images
+                new_images = request.FILES.getlist('additional_images')
+                for image in new_images:
+                    WatchImage.objects.create(base_watch=base_watch, image=image)
+                
+                messages.success(request, f"Product {base_watch.model_name} has been updated successfully.")
+                return redirect('vendorapp:product_list')
+            except Exception as e:
+                messages.error(request, f"An error occurred while saving the product: {str(e)}")
         else:
-            print(form.errors)  # Print form errors for debugging
+            messages.error(request, "There were errors in the form. Please check below for details.")
     else:
-        form = BaseWatchForm(instance=product)
-
-    return render(request, 'vendorapp/edit_product.html', {'form': form, 'product': product})
+        base_watch_form = BaseWatchUpdateForm(instance=product)
+        details_form = WatchDetailsUpdateForm(instance=product.details)
+        materials_form = WatchMaterialsUpdateForm(instance=product.materials)
+    
+    context = {
+        'base_watch_form': base_watch_form,
+        'details_form': details_form,
+        'materials_form': materials_form,
+        'product': product,
+    }
+    return render(request, 'vendorapp/edit_product.html', context)
 
 @never_cache
 @login_required
