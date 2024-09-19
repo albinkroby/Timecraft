@@ -38,9 +38,10 @@
             <span class="visually-hidden">Loading...</span>
           </div>
     </div>
-
+    
     <div class="d-flex flex-column" id="wrapper">
         <!-- Navbar -->
+        <header id="header">
         <nav class="navbar sticky-top navbar-expand-lg">
             <div class="container-fluid">
                 <div class="navbar-heading">
@@ -93,7 +94,8 @@
                     </li>
                 </ul>
             </div>
-        </nav>
+            </nav>
+        </header>
         <div class="d-flex flex-row mt-3" id="content-wrapper">
         <!-- Sidebar -->
             <div id="sidebar-wrapper">
@@ -161,7 +163,13 @@
         </div>
     </div>
     <!-- /#wrapper -->
-
+    <!--==================== FOOTER ====================-->
+<footer class="footer my-1 ">
+    <div class="footer__container container grid">
+        
+    </div>
+    <span class="footer__copy">&#169; Time Crafter. All rigths reserved</span>
+</footer>
     <!--=============== SCROLL UP ===============-->
 
     <a href="#" class="scrollup" id="scroll-up"> 
@@ -171,11 +179,12 @@
     <!--=============== SWIPER JS ===============-->
     <script src="{% static 'js/swiper-bundle.min.js'%}"></script>
 
+    <!--=============== MAIN JS ===============-->
+    <script src="{% static 'js/main.js'%}"></script>
+
     <!--=============== Extra JS ===============-->
     {% block extra_js %}
     {% endblock %}
-    <!--=============== MAIN JS ===============-->
-    <script src="{% static 'js/main.js'%}"></script>
     <script>
         $("#menu-toggle").click(function(e) {
             // Toggle menu icon

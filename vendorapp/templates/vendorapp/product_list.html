@@ -20,6 +20,7 @@
                     <th>Base Price</th>
                     <th>Stock Quantity</th>
                     <th>Actions</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
@@ -37,7 +38,10 @@
                     <td>{{ product.available_stock }}</td>
                     <td>
                         <a href="{% url 'vendorapp:edit_product' product.id %}" class="btn btn-sm btn-primary">Edit</a>
-                        <a href="{% url 'vendorapp:delete_product' product.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this product?')">Delete</a>
+                        {% comment %} <a href="{% url 'vendorapp:delete_product' product.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this product?')">Delete</a> {% endcomment %}
+                    </td>
+                    <td>
+                        <button class="btn {% if product.is_active %} btn-success {% else %} btn-danger {% endif %} toggle-status" data-product-id="{{ product.id }}" data-status="{% if product.is_active %}false{% else %}true{% endif %}">{% if product.is_active %}Active{% else %}Inactive{% endif %}</button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -53,6 +57,24 @@
 <script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
 <script>
     $(document).ready(function() {
+        // Function to get CSRF token from cookies
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        const csrftoken = getCookie('csrftoken');
+
         $('#productTable').DataTable({
             "pageLength": 10,
             "lengthChange": false,
@@ -72,7 +94,43 @@
 
         // Move search bar to the left
         $('.dataTables_filter').css('text-align', 'left');
+
+        $(document).on('click', '.toggle-status', function() {
+            var productId = $(this).data('product-id');
+            var status = $(this).data('status');      
+            $.ajax({
+                url: '{% url "vendorapp:toggle_product_status" %}',
+                type: 'POST',
+                data: { 
+                    'product_id': productId,
+                    'status': status
+                },
+                headers: {
+                    'X-CSRFToken': csrftoken
+                },
+                success: function(response) {
+                    if (response.success) {
+                        showCustomAlert('Product status updated successfully');
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        showCustomAlert('Error updating product status');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    showCustomAlert('Error updating product status');
+                }
+            });
+        });
+
+        {% if messages %}
+            {% for message in messages %}
+                showCustomAlert('{{ message }}');
+            {% endfor %}
+        {% endif %}
     });
+
 </script>
 
 {% endblock %}
