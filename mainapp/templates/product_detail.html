@@ -160,44 +160,7 @@
                 </table>
                 <button id="toggleDetails" class="btn btn-outline-primary btn-sm">Show More</button>
             </div>
-
-            {% if watch.smartwatch_features %}
-            <div class="mt-4" id="smartwatchFeatures" style="display: none;">
-                <h5>Smart Watch Features:</h5>
-                <ul>
-                    {% if watch.smartwatch_features.heart_rate_monitor %}
-                    <li>Heart Rate Monitor</li>
-                    {% endif %}
-                    {% if watch.smartwatch_features.gps %}
-                    <li>GPS</li>
-                    {% endif %}
-                    {% if watch.smartwatch_features.step_counter %}
-                    <li>Step Counter</li>
-                    {% endif %}
-                    {% if watch.smartwatch_features.sleep_tracker %}
-                    <li>Sleep Tracker</li>
-                    {% endif %}
-                </ul>
-            </div>
-            {% endif %}
-
-            {% if watch.premium_features %}
-            <div class="mt-4" id="premiumFeatures" style="display: none;">
-                <h5>Premium Watch Features:</h5>
-                <ul>
-                    {% if watch.premium_features.sapphire_glass %}
-                    <li>Sapphire Glass</li>
-                    {% endif %}
-                    {% if watch.premium_features.automatic_movement %}
-                    <li>Automatic Movement</li>
-                    {% endif %}
-                    {% if watch.premium_features.chronograph %}
-                    <li>Chronograph</li>
-                    {% endif %}
-                </ul>
-            </div>
-            {% endif %}
-
+            
             <div class="mt-3">
                 <h5>Description:</h5>
                 <p>{{ watch.description }}</p>

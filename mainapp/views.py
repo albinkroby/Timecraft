@@ -200,8 +200,7 @@ def check_email(request):
 def product_detail(request, slug):
     watch = get_object_or_404(
         BaseWatch.objects.select_related(
-            'brand', 'collection', 'watch_type', 'details', 'materials', 
-            'smartwatch_features', 'premium_features'
+            'brand', 'collection', 'watch_type', 'details', 'materials',
         ).prefetch_related('additional_images', 'reviews__images', 'reviews__user__profile')
         .annotate(
             rating_5=Count('reviews', filter=Q(reviews__rating=5)),
