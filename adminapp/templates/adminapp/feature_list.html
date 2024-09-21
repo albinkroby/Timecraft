@@ -1,0 +1,202 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}Features{% endblock %}
+
+{% block admin_content %}
+<div class="card border-0">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center"> 
+            <h5 class="card-title mb-4">Features</h5>
+            <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addFeatureModal">
+                Add New Feature
+            </button>
+        </div>
+        <table id="featureTable" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Image</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for feature in features %}
+                <tr>
+                    <td>
+                        {% if feature.image %}
+                            <img src="{{ feature.image.url }}" class="" style="width:50px"/>
+                        {% endif %}
+                    </td>
+                    <td>{{ feature.name }}</td>
+                    <td>
+                        <span class="badge {% if feature.is_active %} text-bg-success {% else %} text-bg-danger {% endif %}">
+                            {% if feature.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary edit-feature" data-bs-toggle="modal" data-bs-target="#editFeatureModal" data-feature-id="{{ feature.id }}">Edit</button>
+                        <button class="btn btn-sm {% if feature.is_active %}btn-danger{% else %}btn-success{% endif %} toggle-feature" data-feature-id="{{ feature.id }}">
+                            {% if feature.is_active %}Deactivate{% else %}Activate{% endif %}
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Feature Modal -->
+<div class="modal fade" id="addFeatureModal" tabindex="-1" aria-labelledby="addFeatureModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addFeatureModalLabel">Add New Feature</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addFeatureForm" method="post" enctype="multipart/form-data" novalidate>
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <div id="addFeatureError" class="alert alert-danger " style="display: none;"></div>
+                    <button type="submit" class="btn btn-primary">Add Feature</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Feature Modal -->
+<div class="modal fade" id="editFeatureModal" tabindex="-1" aria-labelledby="editFeatureModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editFeatureModalLabel">Edit Feature</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Form will be loaded here dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('#featureTable').DataTable({
+        "pageLength": 10,
+        "lengthChange": false,
+        "searching": true,
+        "ordering": true,
+        "info": true,
+        "autoWidth": false,
+        "responsive": true,
+        "dom": '<"row"<"col-sm-12 col-md-6"f><"col-sm-12 col-md-6"l>>' +
+                '<"row"<"col-sm-12"tr>>' +
+                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+        "language": {
+            "search": "_INPUT_",
+            "searchPlaceholder": "Search features..."
+        }
+    });
+    $('.dataTables_filter').css('text-align', 'left');
+    // Add Feature Form Submission
+    $('#addFeatureForm').on('submit', function(e) {
+        e.preventDefault();
+        var form = $(this);
+        var formData = new FormData(form[0]);
+        console.log(formData);
+
+        $.ajax({
+            url: "{% url 'adminapp:add_feature' %}",
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    displayErrors(form, response.errors);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error(error);
+            }
+        });
+    });
+
+    // Edit Feature
+    $('.edit-feature').on('click', function() {
+        var featureId = $(this).data('feature-id');
+        $.get("{% url 'adminapp:edit_feature' 0 %}".replace('0', featureId), function(response) {
+            if (response.success) {
+                $('#editFeatureModal .modal-body').html(response.html);
+                $('#editFeatureModal').modal('show');
+                
+                // Edit Feature Form Submission
+                $(document).on('submit', '#editFeatureForm', function(e) {
+                    e.preventDefault();
+                    var form = $(this);
+                    var formData = new FormData(form[0]);
+
+                    $.ajax({
+                        url: "{% url 'adminapp:edit_feature' 0 %}".replace('0', featureId),
+                        type: 'POST',
+                        data: formData,
+                        processData: false,
+                        contentType: false,
+                        success: function(response) {
+                            if (response.success) {
+                                $('#editFeatureModal').modal('hide');
+                                location.reload();
+                            } else {
+                                displayErrors(form, response.errors);
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error('Error:', error);
+                        }
+                    });
+                });
+            } else {
+                console.log('Error loading edit form');
+            }
+        });
+    });
+
+    
+
+    function displayErrors(form, errors) {
+        form.find('.is-invalid').removeClass('is-invalid');
+        form.find('.invalid-feedback').remove();
+        $.each(errors, function(field, messages) {
+            console.log("field", field);
+            console.log("messages", messages);
+            var inputField = form.find('[name="' + field + '"]');
+            inputField.addClass('is-invalid');
+            $.each(messages, function(index, message) {
+                inputField.after('<div class="invalid-feedback">' + message + '</div>');
+            });
+        });
+    }
+
+    // Toggle Feature
+    $('.toggle-feature').on('click', function() {
+        var featureId = $(this).data('feature-id');
+        $.post("{% url 'adminapp:toggle_feature' 0 %}".replace('0', featureId), {
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        }, function(data) {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

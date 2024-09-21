@@ -1,0 +1,200 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}Materials{% endblock %}
+
+{% block admin_content %}
+<div class="card border-0">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center"> 
+            <h5 class="card-title mb-4">Materials</h5>
+            <button type="button" class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addMaterialModal">
+                Add New Material
+            </button>
+        </div>
+        <table id="materialTable" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for material in materials %}
+                <tr>
+                    <td>{{ material.name }}</td>
+                    <td>
+                        <span class="badge {% if material.is_active %} text-bg-success {% else %} text-bg-danger {% endif %}">
+                            {% if material.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-primary edit-material" data-material-id="{{ material.id }}">Edit</button>
+                        <button class="btn btn-sm {% if material.is_active %}btn-danger{% else %}btn-success{% endif %} toggle-material" data-material-id="{{ material.id }}">
+                            {% if material.is_active %}Deactivate{% else %}Activate{% endif %}
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Material Modal -->
+<div class="modal fade" id="addMaterialModal" tabindex="-1" aria-labelledby="addMaterialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addMaterialModalLabel">Add New Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addMaterialForm" method="post" novalidate>
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    <input type="hidden" name="action" value="add">
+                    <button type="submit" class="btn btn-primary">Add Material</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Material Modal -->
+<div class="modal fade" id="editMaterialModal" tabindex="-1" aria-labelledby="editMaterialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editMaterialModalLabel">Edit Material</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <!-- Form will be loaded here dynamically -->
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('#materialTable').DataTable({
+            "pageLength": 10,
+            "lengthChange": false,
+            "searching": true,
+            "ordering": true,
+            "info": true,
+            "autoWidth": false,
+            "responsive": true,
+            "dom": '<"row"<"col-sm-12 col-md-6"f><"col-sm-12 col-md-6"l>>' +
+                   '<"row"<"col-sm-12"tr>>' +
+                   '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            "language": {
+                "search": "_INPUT_",
+                "searchPlaceholder": "Search materials..."
+            }
+        });
+        $('.dataTables_filter').css('text-align', 'left');
+
+        // Add Material Form Submission
+
+        $('#addMaterialForm').on('submit', function(e) {
+            e.preventDefault();
+            var form = $(this);
+            var formData = new FormData(form[0]);
+            console.log(formData);
+    
+            $.ajax({
+                url: "{% url 'adminapp:add_material' %}",
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    if (response.success) {
+                        location.reload();
+                    } else {
+                        console.log(response.errors);
+                        displayErrors(form, response.errors);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error(error);
+                }
+            });
+        });
+
+        // Edit Material
+        $('.edit-material').on('click', function() {
+            var materialId = $(this).data('material-id');
+            $.get("{% url 'adminapp:edit_material' 0 %}".replace('0', materialId), function(response) {
+                if (response.success) {
+                    $('#editMaterialModal .modal-body').html(response.html);
+                    $('#editMaterialModal').modal('show');
+                    
+                    // Edit Material Form Submission
+                    $(document).on('submit', '#editMaterialForm', function(e) {
+                        e.preventDefault();
+                        var form = $(this);
+                        var formData = new FormData(form[0]);
+    
+                        $.ajax({
+                            url: "{% url 'adminapp:edit_material' 0 %}".replace('0', materialId),
+                            type: 'POST',
+                            data: formData,
+                            processData: false,
+                            contentType: false,
+                            success: function(response) {
+                                if (response.success) {
+                                    $('#editMaterialModal').modal('hide');
+                                    location.reload();
+                                } else {
+                                    console.log(response.errors);
+                                    displayErrors(form, response.errors);
+                                }
+                            },
+                            error: function(xhr, status, error) {
+                                console.error('Error:', error);
+                            }
+                        });
+                    });
+                } else {
+                    console.log('Error loading edit form');
+                }
+            });
+        });
+
+        function displayErrors(form, errors) {
+            console.log("errors", errors);
+            form.find('.is-invalid').removeClass('is-invalid');
+            form.find('.invalid-feedback').remove();
+            $.each(errors, function(field, messages) {
+                console.log("field", field);
+                console.log("messages", messages);
+                var inputField = form.find('[name="' + field + '"]');
+                inputField.addClass('is-invalid');
+                $.each(messages, function(index, message) {
+                    inputField.after('<div class="invalid-feedback">' + message + '</div>');
+                });
+            });
+        }
+
+        // Toggle Material
+        $('.toggle-material').on('click', function() {
+            var materialId = $(this).data('material-id');
+            $.post("{% url 'adminapp:toggle_material' 0 %}".replace('0', materialId), {
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            }, function(data) {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

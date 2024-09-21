@@ -11,6 +11,8 @@ from PIL import Image
 from django.conf import settings
 from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
 from tensorflow.keras.preprocessing import image
+from django.db.models import UniqueConstraint
+from django.db.models.functions import Lower
 import numpy as np
 
 
@@ -56,13 +58,46 @@ class Collection(models.Model):
         ordering = ['name']
 
 class Material(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(Lower('name'), name='unique_material_name_case_insensitive', violation_error_message="Material with this name already exists.")
+        ]
+        
+    def clean(self):
+        super().clean()
+        if Material.objects.filter(name__iexact=self.name).exclude(pk=self.pk).exists():
+            raise ValidationError({'name': 'A material with this name already exists.'})
 
     def __str__(self):
         return self.name
 
 class Feature(models.Model):
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+    image = models.ImageField(upload_to='features/', null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        constraints = [
+            UniqueConstraint(Lower('name'), name='unique_feature_name_case_insensitive', violation_error_message="Feature with this name already exists.")
+        ]
+
+    def clean(self):
+        super().clean()
+        if Feature.objects.filter(name__iexact=self.name).exclude(pk=self.pk).exists():
+            raise ValidationError({'name': 'A feature with this name already exists.'})
+
+    def rename_image(instance, filename):
+        ext = filename.split('.')[-1]
+        slugified_name = slugify(instance.name)
+        return f'{slugified_name}.{ext}'
+
+    def save(self, *args, **kwargs):
+        if self.image:
+            self.image.name = self.rename_image(self.image.name)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

@@ -2,16 +2,22 @@ from django.shortcuts import render,redirect,get_object_or_404
 from django.contrib.auth.decorators import login_required
 from mainapp.decorators import user_type_required
 from vendorapp.models import VendorProfile
-from .models import Brand, Category, BaseWatch, WatchImage
-from .forms import BrandForm, CategoryForm, BaseWatchForm
+from .models import Brand, Category, BaseWatch, WatchImage, Feature, Material
+from .forms import BrandForm, CategoryForm, BaseWatchForm, FeatureForm, MaterialForm
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model,update_session_auth_hash
 from django.utils import timezone
 from datetime import timedelta
 from django.views.decorators.cache import never_cache
 from mainapp.models import Order
+import re
+from django.db import IntegrityError
+from django.db.models import Q
+from django.views.decorators.http import require_POST
+
 # Create your views here.
 User=get_user_model()
 
@@ -20,8 +26,8 @@ User=get_user_model()
 @user_type_required('admin')
 def index(request):
     # Get total users
-    total_users = User.objects.count()
-    
+    total_users = User.objects.exclude(is_superuser=True).count()
+    recent_orders = Order.objects.all().order_by('-created_at')[:5]
     # Get new users this week
     one_week_ago = timezone.now() - timedelta(days=7)
     new_users_this_week = User.objects.filter(date_joined__gte=one_week_ago).count()
@@ -47,6 +53,7 @@ def index(request):
         'product_growth_percentage': round(product_growth_percentage, 1),
         'total_orders': total_orders,
         'order_growth_percentage': order_growth_percentage,
+        'recent_orders': recent_orders,
     }
     
     return render(request, 'adminapp/index.html', context)
@@ -202,6 +209,139 @@ def toggle_user_active(request, user_id):
         user = get_object_or_404(User, id=user_id)
         user.is_active = not user.is_active
         user.save()
-        status = 'activated' if user.is_active else 'deactivated'
+        status = 'activated' if user.is_active else 'deactivated' 
         return JsonResponse({'success': True, 'is_active': user.is_active , 'message': f"User {user.username} has been {status}."})
     return JsonResponse({'success': False}, status=400)
+
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
+def feature_list(request):
+    features = Feature.objects.all()
+    form = FeatureForm()
+    return render(request, 'adminapp/feature_list.html', {'features': features, 'form': form})
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def add_feature(request):
+    form = FeatureForm(request.POST, request.FILES)
+    if form.is_valid():
+        feature = form.save()
+        return JsonResponse({'success': True})
+    return JsonResponse({'success': False, 'errors': form.errors})
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
+def edit_feature(request, feature_id):
+    feature = get_object_or_404(Feature, id=feature_id)
+    if request.method == 'POST':
+        form = FeatureForm(request.POST, request.FILES, instance=feature)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True})
+        return JsonResponse({'success': False, 'errors': form.errors})
+    else:
+        form = FeatureForm(instance=feature)
+    
+    form_html = render(request, 'adminapp/form/feature_form.html', {'form': form, 'feature': feature}).content.decode('utf-8')
+    return JsonResponse({'success': True, 'html': form_html})
+
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
+def toggle_feature(request, feature_id):
+    feature = get_object_or_404(Feature, id=feature_id)
+    feature.is_active = not feature.is_active
+    feature.save()
+    status = 'activated' if feature.is_active else 'deactivated'
+    messages.success(request, f"Feature {feature.name} has been {status}.")
+    return JsonResponse({'success': True, 'is_active': feature.is_active, 'message': f"Feature {feature.name} has been {status}."})
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
+def material_list(request):
+    materials = Material.objects.all()
+    form = MaterialForm()
+    return render(request, 'adminapp/material_list.html', {'materials': materials, 'form': form})
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def add_material(request):
+    form = MaterialForm(request.POST)
+    if form.is_valid():
+        material = form.save()
+        return JsonResponse({'success': True})
+    return JsonResponse({'success': False, 'errors': form.errors})
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
+def edit_material(request, material_id):
+    material = get_object_or_404(Material, id=material_id)
+    if request.method == 'POST':
+        form = MaterialForm(request.POST, instance=material)
+        if form.is_valid():
+            form.save()
+            return JsonResponse({'success': True})
+        return JsonResponse({'success': False, 'errors': form.errors})
+    else:
+        form = MaterialForm(instance=material)
+    
+    form_html = render(request, 'adminapp/form/material_form.html', {'form': form, 'material': material}).content.decode('utf-8')
+    return JsonResponse({'success': True, 'html': form_html})
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
+def toggle_material(request, material_id):
+    material = get_object_or_404(Material, id=material_id)
+    material.is_active = not material.is_active
+    material.save()
+    status = 'activated' if material.is_active else 'deactivated'
+    messages.success(request, f"Material {material.name} has been {status}.")
+    return JsonResponse({'success': True, 'is_active': material.is_active, 'message': f"Material {material.name} has been {status}."})
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def admin_profile(request):
+    admin = request.user
+    context = {
+        'admin': admin,
+        # Add any additional context data you want to display
+    }
+    return render(request, 'adminapp/admin_profile.html', context)
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def change_password(request):
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            # Additional custom validation
+            new_password = form.cleaned_data.get('new_password1')
+            if len(new_password) < 8:
+                form.add_error('new_password1', 'Password must be at least 8 characters long.')
+            elif not re.search(r'[A-Z]', new_password):
+                form.add_error('new_password1', 'Password must contain at least one uppercase letter.')
+            elif not re.search(r'[a-z]', new_password):
+                form.add_error('new_password1', 'Password must contain at least one lowercase letter.')
+            elif not re.search(r'\d', new_password):
+                form.add_error('new_password1', 'Password must contain at least one number.')
+            
+            if not form.errors:
+                user = form.save()
+                update_session_auth_hash(request, user)  # Important!
+                messages.success(request, 'Your password was successfully updated!')
+                return JsonResponse({'success': True, 'message': 'Your password was successfully updated!'})
+        
+        # If form is not valid or custom validation failed
+        errors = {field: form.errors[field] for field in form.errors}
+        return JsonResponse({'success': False, 'errors': errors})
+    
+    else:
+        form = PasswordChangeForm(request.user)
+    
+    return render(request, 'adminapp/admin_profile.html', {'form': form})
+

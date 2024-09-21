@@ -1,0 +1,6 @@
+<form id="editFeatureForm" method="post" enctype="multipart/form-data" action="{% url 'adminapp:edit_feature' feature.id %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <div id="editFeatureError" class="alert alert-danger " style="display: none;"></div>
+    <button type="submit" class="btn btn-primary w-100">Update Feature</button>
+</form>

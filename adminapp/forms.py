@@ -1,5 +1,5 @@
 from django import forms
-from .models import Brand, Category, BaseWatch
+from .models import Brand, Category, BaseWatch, Feature, Material
 
 class BrandForm(forms.ModelForm):
     class Meta:
@@ -30,3 +30,22 @@ class BaseWatchForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for field in self.fields:
             self.fields[field].widget.attrs.update({'class': 'form-control'})
+
+class FeatureForm(forms.ModelForm):
+    class Meta:
+        model = Feature
+        fields = ['name', 'image', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'image': forms.FileInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+class MaterialForm(forms.ModelForm):
+    class Meta:
+        model = Material
+        fields = ['name', 'is_active']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }

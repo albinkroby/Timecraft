@@ -3,7 +3,7 @@
 {% block title %}Seller Approval{% endblock %}
 
 {% block admin_content %}
-<div class="card">
+<div class="card border-0">
     <div class="card-body">
         <h5 class="card-title mb-4">Pending Seller Applications</h5>
         <table id="sellerApprovalTable" class="table table-hover">
@@ -56,17 +56,15 @@
             "info": true,
             "autoWidth": false,
             "responsive": true,
-            "columnDefs": [
-                { "orderable": false, "targets": 4 }
-            ],
-            "dom": '<"row"<"col-sm-12 col-md-12"f><"col-sm-12 col-md-12"l>>' +
-                   '<"row"<"col-sm-12"tr>>' +
-                   '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+            "dom": '<"row"<"col-sm-12 col-md-6"f><"col-sm-12 col-md-6"l>>' +
+                '<"row"<"col-sm-12"tr>>' +
+                '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
             "language": {
                 "search": "_INPUT_",
                 "searchPlaceholder": "Search sellers..."
             }
         });
+        $('.dataTables_filter').css('text-align', 'left');
     });
 </script>
 {% endblock %}

@@ -56,7 +56,19 @@
                     </tr>
                 </thead>
                 <tbody>
-                    
+                    {% for order in recent_orders %}
+                        <tr>
+                            <td>{{ order.order_id }}</td>
+                            <td>{{ order.user.email }}</td>
+                            <td>₹{{ order.total_amount }}</td>
+                            <td>{{ order.get_status_display }}</td>
+                            <td>{{ order.created_at|date:"M d, Y" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">No recent orders found.</td>
+                        </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
@@ -67,20 +79,14 @@
 <script>
     $(document).ready(function() {
         $('#productTable').DataTable({
-            "pageLength": 10,
+            "pageLength": 4,
             "lengthChange": false,
-            "searching": true,
-            "ordering": true,
-            "info": true,
+            "searching": false,
+            "ordering": false,
+            "info": false,
             "autoWidth": false,
             "responsive": true,
-            "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>>' +
-                   '<"row"<"col-sm-12"tr>>' +
-                   '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
-            "language": {
-                "search": "_INPUT_",
-                "searchPlaceholder": "Search products..."
-            }
+            "paging": false,
         });
     });
 </script>

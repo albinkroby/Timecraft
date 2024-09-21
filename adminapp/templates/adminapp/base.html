@@ -33,6 +33,12 @@
     <title>Time Craft</title>
 </head>
 <body>
+    <div id="page-transition-overlay" class="page-transition-overlay"></div>
+    <div id="loading-spinner" class="loading-spinner">
+        <div class="spinner-grow text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+    </div>
     <div class="d-flex flex-column" id="wrapper">
         <!-- Navbar -->
         <nav class="navbar sticky-top navbar-expand-lg" id="header">
@@ -110,12 +116,14 @@
                     <a href="#" class="list-group-item list-group-item-action {% if 'product' in request.resolver_match.url_name or 'brand' in request.resolver_match.url_name or 'category' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#productsCollapse" aria-expanded="false" aria-controls="productsCollapse">
                         <i class='bx bxs-package'></i> Products <i class='bx bx-chevron-down float-end'></i>
                     </a>
-                    <div class="collapse {% if 'product' in request.resolver_match.url_name or 'brand' in request.resolver_match.url_name or 'category' in request.resolver_match.url_name %}show{% endif %}" id="productsCollapse">
+                    <div class="collapse {% if 'product' in request.resolver_match.url_name or 'brand' in request.resolver_match.url_name or 'category' in request.resolver_match.url_name or 'feature' in request.resolver_match.url_name or 'material' in request.resolver_match.url_name %}show{% endif %}" id="productsCollapse">
                         <div class="list-group">
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'add_product' %}active{% endif %}" href="{% url 'adminapp:add_product' %}"><i class='bx bx-plus-circle'></i> Add Product</a>
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}" href="{% url 'adminapp:product_list' %}"><i class='bx bx-show'></i> View Products</a>
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'brand_list' %}active{% endif %}" href="{% url 'adminapp:brand_list' %}"><i class='bx bx-store-alt'></i> Brands</a>
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'category_list' %}active{% endif %}" href="{% url 'adminapp:category_list' %}"><i class='bx bx-category-alt' ></i> Category</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'feature_list' %}active{% endif %}" href="{% url 'adminapp:feature_list' %}"><i class='bx bxs-bowling-ball'></i> Features</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'material_list' %}active{% endif %}" href="{% url 'adminapp:material_list' %}"><i class='bx bx-globe'></i>Materials</a>
                         </div>
                     </div>
                 </div>
@@ -123,7 +131,7 @@
                     PAGES
                 </div>
                 <div class="list-group list-group-flush">
-                    <a href="#" class="list-group-item list-group-item-action">
+                    <a href="{% url 'adminapp:admin_profile' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'admin_profile' %}active{% endif %}">
                         <i class="fas fa-user mr-2"></i> Profile
                     </a>
                     {% comment %} <a href="#" class="list-group-item list-group-item-action">
@@ -181,10 +189,36 @@
     <!--=============== MAIN JS ===============-->
     <script src="{% static 'js/main.js'%}"></script>
     <script>
+        {% if messages %}
+            {% for message in messages %}
+                showCustomAlert('{{ message }}');
+            {% endfor %}
+        {% endif %}
+
         $("#menu-toggle").click(function(e) {
             // Toggle menu icon
             e.preventDefault();
             $("#wrapper").toggleClass("toggled");
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const pageTransitionOverlay = document.getElementById('page-transition-overlay');
+            
+            window.addEventListener('load', function() {
+                setTimeout(() => {
+                    pageTransitionOverlay.style.opacity = '0';
+                    pageTransitionOverlay.style.visibility = 'hidden';
+                    loadingSpinner.style.display = 'none';
+                }, 500);
+            });
+        });
+    
+        // Add this if you're using Turbolinks or similar libraries
+        document.addEventListener('turbolinks:load', function() {
+            const pageTransitionOverlay = document.getElementById('page-transition-overlay');
+            pageTransitionOverlay.classList.remove('active');
         });
     </script>
 </body>

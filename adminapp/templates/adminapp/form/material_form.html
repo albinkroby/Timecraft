@@ -1,0 +1,5 @@
+<form id="editMaterialForm" method="post" action="{% url 'adminapp:edit_material' material.id %}">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary w-100">Update Material</button>
+</form>

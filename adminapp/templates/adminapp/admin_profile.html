@@ -1,0 +1,201 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}Admin Profile{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-10">
+            <div class="card border-0">
+                <div class="card-body">
+                    <ul class="nav nav-tabs" id="myTab" role="tablist">
+
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab" aria-controls="overview" aria-selected="true">Overview</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="edit-profile-tab" data-bs-toggle="tab" data-bs-target="#edit-profile" type="button" role="tab" aria-controls="edit-profile" aria-selected="false">Edit Profile</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="settings-tab" data-bs-toggle="tab" data-bs-target="#settings" type="button" role="tab" aria-controls="settings" aria-selected="false">Settings</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="change-password-tab" data-bs-toggle="tab" data-bs-target="#change-password" type="button" role="tab" aria-controls="change-password" aria-selected="false">Change Password</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content mt-3" id="myTabContent">
+                        <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
+                            <h3>About</h3>
+                            <p>{{ admin.about|default:"No information provided." }}</p>
+                            
+                            <h3 class="mt-4">Profile Details</h3>
+                            <div class="row">
+                                <div class="col-sm-3">
+                                    <h6 class="mb-0">Full Name</h6>
+                                </div>
+                                <div class="col-sm-9 text-secondary">
+                                    {{ admin.get_full_name }}
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row">
+                                <div class="col-sm-3">
+                                    <h6 class="mb-0">Email</h6>
+                                </div>
+                                <div class="col-sm-9 text-secondary">
+                                    {{ admin.email }}
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row">
+                                <div class="col-sm-3">
+                                    <h6 class="mb-0">Phone</h6>
+                                </div>
+                                <div class="col-sm-9 text-secondary">
+                                    {{ admin.phone|default:"Not provided" }}
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row">
+                                <div class="col-sm-3">
+                                    <h6 class="mb-0">Address</h6>
+                                </div>
+                                <div class="col-sm-9 text-secondary">
+                                    {{ admin.address|default:"Not provided" }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="edit-profile" role="tabpanel" aria-labelledby="edit-profile-tab">
+                            <!-- Add edit profile form here -->
+                            <h3>Edit Profile</h3>
+                            <p>Form to edit profile details will go here.</p>
+                        </div>
+                        <div class="tab-pane fade" id="settings" role="tabpanel" aria-labelledby="settings-tab">
+                            <h3>Settings</h3>
+                            <p>Admin settings options will go here.</p>
+                        </div>
+                        <div class="tab-pane fade" id="change-password" role="tabpanel" aria-labelledby="change-password-tab">
+                            <h3>Change Password</h3>
+                            <form id="changePasswordForm" method="post" action="{% url 'adminapp:change_password' %}">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    <label for="old_password" class="form-label">Current Password</label>
+                                    <input type="password" class="form-control" id="old_password" name="old_password" required>
+                                    <div class="invalid-feedback" id="old_password_feedback"></div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="new_password1" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="new_password1" name="new_password1" required>
+                                    <div class="invalid-feedback" id="new_password1_feedback"></div>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="new_password2" class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control" id="new_password2" name="new_password2" required>
+                                    <div class="invalid-feedback" id="new_password2_feedback"></div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Change Password</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+   .nav-link{
+    color: #000;
+   }
+   .nav-link.active{
+    color: #fff !important;
+    background-color: var(--first-color) !important;
+    border-radius: 0.2rem;
+   }
+
+
+   .nav-link:hover{
+
+    color: #fff;
+    background-color: var(--first-color);
+   }
+</style>
+
+<script>
+document.getElementById('changePasswordForm').addEventListener('submit', function(event) {
+    event.preventDefault();
+    let isValid = true;
+    const oldPassword = document.getElementById('old_password');
+    const newPassword1 = document.getElementById('new_password1');
+    const newPassword2 = document.getElementById('new_password2');
+
+    // Client-side validation
+    if (oldPassword.value.trim() === '') {
+        showError(oldPassword, 'Current password is required');
+        isValid = false;
+    } else {
+        clearError(oldPassword);
+    }
+
+    if (newPassword1.value.length < 8) {
+        showError(newPassword1, 'Password must be at least 8 characters long');
+        isValid = false;
+    } else if (!/[A-Z]/.test(newPassword1.value) || !/[a-z]/.test(newPassword1.value) || !/[0-9]/.test(newPassword1.value)) {
+        showError(newPassword1, 'Password must contain at least one uppercase letter, one lowercase letter, and one number');
+        isValid = false;
+    } else {
+        clearError(newPassword1);
+    }
+
+    if (newPassword1.value !== newPassword2.value) {
+        showError(newPassword2, 'Passwords do not match');
+        isValid = false;
+    } else {
+        clearError(newPassword2);
+    }
+
+    if (isValid) {
+        // If client-side validation passes, submit form via AJAX
+        const formData = new FormData(this);
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Password changed successfully
+                showCustomAlert(data.message, 'success');
+                this.reset();
+            } else {
+                // Server-side validation failed
+                Object.keys(data.errors).forEach(field => {
+                    const input = document.getElementById(field);
+                    showError(input, data.errors[field][0]);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showCustomAlert('An error occurred. Please try again.', 'error');
+        });
+    }
+});
+
+function showError(input, message) {
+    input.classList.add('is-invalid');
+    const feedback = input.nextElementSibling;
+    feedback.textContent = message;
+    feedback.style.display = 'block';
+}
+
+function clearError(input) {
+    input.classList.remove('is-invalid');
+    const feedback = input.nextElementSibling;
+    feedback.textContent = '';
+    feedback.style.display = 'none';
+}
+</script>
+{% endblock %}
