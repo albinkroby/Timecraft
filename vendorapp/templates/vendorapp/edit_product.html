@@ -16,7 +16,7 @@
                 <h5 class="text-primary">Base Watch Information</h5>
                 <div class="row">
                     {% for field in base_watch_form %}
-                    {% if field.name != 'primary_image' and field.name != 'available_stock' and field.name != 'is_active' %}
+                    {% if field.name != 'primary_image' %}
                         <div class="col-6 mb-3">
                             <div class="form-group">
                                 {{ field.label_tag }}
