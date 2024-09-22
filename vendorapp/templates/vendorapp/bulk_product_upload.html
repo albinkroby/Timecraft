@@ -1,0 +1,93 @@
+{% extends 'vendorapp/base.html' %}
+
+{% block admin_content %}
+<h2 class="mb-4">Bulk Product Upload</h2>
+<div class="row">
+    <!-- Download Template Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body d-flex flex-column justify-content-between p-5">
+                <div>
+                    <h5 class="card-title">Download Template</h5>
+                    <p class="card-text">Download our Excel template to ensure your product data is formatted correctly.</p>
+                </div>
+                <a href="{% url 'vendorapp:download_template' %}" class="btn btn-primary mt-3">
+                    <i class="fas fa-download mr-2"></i> Download Template
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload File Card -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-body d-flex flex-column justify-content-between p-5">
+                <div>
+                    <h5 class="card-title">Upload Products</h5>
+                    <p class="card-text">Upload your completed Excel file to add multiple products at once.</p>
+                </div>
+                <form method="post" enctype="multipart/form-data" id="uploadForm">
+                    {% csrf_token %}
+                    <div class="custom-file-upload">
+                        <input type="file" id="excel_file" name="excel_file" accept=".xlsx, .xls" hidden>
+                        <label for="excel_file" class="btn btn-outline-primary">
+                            <i class="fas fa-cloud-upload-alt mr-2"></i> Choose File
+                        </label>
+                        <span id="file-chosen">No file chosen</span>
+                    </div>
+                    <button type="submit" class="btn btn-success mt-3" id="uploadBtn" disabled>
+                        <i class="fas fa-upload mr-2"></i> Upload Products
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('excel_file');
+    const fileChosen = document.getElementById('file-chosen');
+    const uploadBtn = document.getElementById('uploadBtn');
+
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            fileChosen.textContent = this.files[0].name;
+            uploadBtn.disabled = false;
+        } else {
+            fileChosen.textContent = 'No file chosen';
+            uploadBtn.disabled = true;
+        }
+    });
+    {% if messages %}
+        {% for message in messages %}
+            showCustomAlert('{{ message }}');
+        {% endfor %}
+    {% endif %}
+</script>
+
+<style>
+    .card {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transition: 0.3s;
+    }
+    .card:hover {
+        box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+    }
+    .custom-file-upload {
+        display: inline-block;
+        margin-top: 10px;
+    }
+    .custom-file-upload label {
+        cursor: pointer;
+    }
+    #file-chosen {
+        margin-left: 10px;
+        font-style: italic;
+    }
+    .btn-outline-primary:hover {
+        color: #fff;
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+</style>
+{% endblock %}

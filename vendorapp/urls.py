@@ -15,7 +15,12 @@ urlpatterns = [
     path('products/', views.product_list, name='product_list'),
     path('toggle-product-status/', views.toggle_product_status, name='toggle_product_status'),
     path('add-product/', views.add_product_step1, name='add_product_step1'),
-    path('add-product/<int:brand_id>/', views.add_product_step2, name='add_product_step2'),
+    path('add-product/step2/', views.add_product_step2, name='add_product_step2'),
+    
+    path('bulk-product-upload/', views.bulk_product_upload, name='bulk_product_upload'),
+    path('download-template/', views.download_template, name='download_template'),
+    path('upload-product-images/', views.upload_product_images, name='upload_product_images'),
+    
     path('delete-product/<int:product_id>/', views.delete_product, name='delete_product'),
     path('edit-product/<int:product_id>/', views.edit_product, name='edit_product'),
     path('delete-product-image/<int:image_id>/', views.delete_product_image, name='delete_product_image'),

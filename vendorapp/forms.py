@@ -130,10 +130,9 @@ class BaseWatchForm(forms.ModelForm):
     class Meta:
         model = BaseWatch
         fields = '__all__'
-        exclude = ['vendor', 'slug', 'total_stock', 'sold_stock', 'is_in_stock', 'image_hash','is_featured']
+        exclude = ['vendor', 'brand', 'slug', 'total_stock', 'sold_stock', 'is_in_stock','dominant_color', 'image_hash','is_featured','qa_status']
         widgets = {
             'category': forms.Select(attrs={'class': 'form-control'}),
-            'brand': forms.Select(attrs={'class': 'form-control'}),
             'collection': forms.Select(attrs={'class': 'form-control', 'required': True}),
             'watch_type': forms.Select(attrs={'class': 'form-control', 'required': True}),
             'model_name': forms.TextInput(attrs={'class': 'form-control', 'required': True}),
@@ -209,7 +208,7 @@ WatchImageFormSet = inlineformset_factory(
 
 class BaseWatchUpdateForm(BaseWatchForm):
     class Meta(BaseWatchForm.Meta):
-        exclude = ['vendor', 'slug', 'total_stock', 'sold_stock', 'is_in_stock', 'image_hash', 'is_featured']
+        exclude = ['vendor','brand','slug', 'total_stock', 'sold_stock', 'is_in_stock', 'dominant_color', 'image_hash', 'is_featured', 'available_stock','is_active','qa_status']
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

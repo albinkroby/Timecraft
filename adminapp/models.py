@@ -140,12 +140,14 @@ class BaseWatch(models.Model):
     gender = models.CharField(max_length=20, choices=GENDER_CHOICES, default='Unisex')
     slug = models.SlugField(unique=True, blank=True, null=True)
     base_price = models.DecimalField(max_digits=10, decimal_places=2)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2,null=True, blank=True)
     description = models.TextField()
     total_stock = models.IntegerField(default=0)
     available_stock = models.IntegerField(default=0)
     sold_stock = models.IntegerField(default=0)
     is_in_stock = models.BooleanField(default=False)
     color = models.CharField(max_length=50)
+    dominant_color = models.CharField(max_length=50, blank=True, null=True)
     style_code = models.CharField(max_length=100, blank=True, null=True)
     
     net_quantity = models.IntegerField(default=1)
@@ -154,8 +156,9 @@ class BaseWatch(models.Model):
 
     primary_image = models.ImageField(upload_to='Watch/primary/', null=True, blank=True)
     features = models.ManyToManyField(Feature, related_name='watches')
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)  # Changed default to False
     is_featured = models.BooleanField(default=False)
+    qa_status = models.BooleanField(default=False)
     
     @property
     def total_reviews(self):

@@ -1,7 +1,7 @@
 {% extends 'vendorapp/base.html' %}
 
 {% block admin_content %}
-<h2>Add Product - Step 1: Select Brand</h2>
+<h2>Add Product - Step 1: Select Brand and Listing Type</h2>
 <div class="row">
     <div class="col-md-6">
         <h3>Select a Brand</h3>
@@ -20,6 +20,24 @@
         <div id="brandStatus">
             <p>Please select a brand to see its status.</p>
         </div>
+        
+        <div id="listingTypeContainer" style="display: none;">
+            <h3 class="mt-4">Select Listing Type</h3>
+            <div class="radio-group">
+                <label class="radio-button">
+                    <input type="radio" name="listing_type" value="single" checked>
+                    <span class="radio-icon"></span>
+                    <span class="radio-label">Single Listing</span>
+                </label>
+                <label class="radio-button">
+                    <input type="radio" name="listing_type" value="bulk">
+                    <span class="radio-icon"></span>
+                    <span class="radio-label">Bulk Listing</span>
+                </label>
+            </div>
+        </div>
+        
+        <button id="continueBtn" class="btn btn-dark px-5 py-3 mt-3" style="display: none;">Continue</button>
     </div>
 </div>
 
@@ -32,11 +50,14 @@ $(document).ready(function() {
         console.log(status);
         try {
             brandStatus = JSON.parse(status);
+            console.log(brandStatus);
         } catch (error) {
             console.error("Error parsing brand_status:", error);
             brandStatus = {};
         }
         var $statusDiv = $('#brandStatus');
+        var $listingTypeContainer = $('#listingTypeContainer');
+        var $continueBtn = $('#continueBtn');
         
         if (brandId && brandStatus[brandId]) {
             var currentStatus = brandStatus[brandId];
@@ -44,16 +65,106 @@ $(document).ready(function() {
             
             if (currentStatus === 'Approved') {
                 $statusDiv.html('<p>You are approved for this brand.</p>');
-                $statusDiv.append('<button type="submit" form="brandForm" class="btn btn-primary">Add Product</button>');
+                $listingTypeContainer.show();
+                $continueBtn.show();
             } else if (currentStatus === 'Not Requested' || currentStatus === 'Request Again') {
                 $statusDiv.append('<button type="submit" form="brandForm" class="btn btn-warning">Request Approval</button>');
+                $listingTypeContainer.hide();
+                $continueBtn.hide();
             } else if (currentStatus === 'Waiting') {
                 $statusDiv.append('<p>Please wait 30 days before requesting approval again.</p>');
+                $listingTypeContainer.hide();
+                $continueBtn.hide();
             }
         } else {
             $statusDiv.html('<p>Please select a brand to see its status.</p>');
+            $listingTypeContainer.hide();
+            $continueBtn.hide();
+        }
+    });
+
+    $('#continueBtn').click(function() {
+        var brandId = $('#brandSelect').val();
+        var listingType = $('input[name="listing_type"]:checked').val();
+        
+        if (brandId && listingType) {
+            $('#brandForm').append('<input type="hidden" name="listing_type" value="' + listingType + '">');
+            $('#brandForm').submit();
+        } else {
+            alert('Please select both a brand and a listing type.');
         }
     });
 });
 </script>
+
+<style>
+.radio-group {
+    display: flex;
+    gap: 10px;
+}
+
+.radio-button {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 10px 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #fff;
+    transition: all 0.3s ease;
+}
+
+.radio-button:hover {
+    background-color: #f0f0f0;
+}
+
+.radio-button input[type="radio"] {
+    display: none;
+}
+
+.radio-icon {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #007bff;
+    border-radius: 50%;
+    margin-right: 10px;
+    position: relative;
+}
+
+.radio-icon:before {
+    content: '';
+    width: 12px;
+    height: 12px;
+    background-color: #007bff;
+    border-radius: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    transition: transform 0.2s ease;
+}
+
+.radio-button input[type="radio"]:checked + .radio-icon:before {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.radio-button input[type="radio"]:checked + .radio-icon + .radio-label {
+    font-weight: bold;
+}
+
+.radio-label {
+    font-size: 14px;
+}
+
+.radio-button input[type="radio"]:checked ~ .radio-button {
+    background-color: #e6f2ff;
+    border-color: #0d6efd;
+}
+.radio-button input[type="radio"]:checked + .radio-button {
+    background-color: #e6f2ff;
+    border: 1px solid #0d6efd;
+}
+
+</style>
+
 {% endblock %}

@@ -1,0 +1,161 @@
+{% extends 'vendorapp/base.html' %}
+{% load static %}
+
+{% block admin_content %}
+<h2 class="mb-4">Upload Product Images</h2>
+
+<form method="post" enctype="multipart/form-data" id="uploadForm">
+    {% csrf_token %}
+    
+    {% for product in products %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">{{ product.model_name }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <h6>Primary Image</h6>
+                    <div class="image-upload-container mb-3">
+                        <label for="primary_image_{{ product.id }}" class="btn btn-outline-primary">
+                            <i class="fas fa-upload"></i> Choose Primary Image
+                        </label>
+                        <input type="file" id="primary_image_{{ product.id }}" name="primary_image_{{ product.id }}" accept="image/*" class="image-upload" data-preview="primary_preview_{{ product.id }}">
+                    </div>
+                    <div id="primary_preview_{{ product.id }}" class="image-preview"></div>
+                </div>
+                <div class="col-md-8">
+                    <h6>Additional Images</h6>
+                    <div class="image-upload-container mb-3">
+                        <label for="additional_images_{{ product.id }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-images"></i> Choose Additional Images
+                        </label>
+                        <input type="file" id="additional_images_{{ product.id }}" name="additional_images_{{ product.id }}" accept="image/*" multiple class="image-upload" data-preview="additional_preview_{{ product.id }}">
+                    </div>
+                    <div id="additional_preview_{{ product.id }}" class="image-preview-row"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <button type="submit" class="btn btn-primary" id="submitBtn">
+        <i class="fas fa-save"></i> Save Images
+    </button>
+</form>
+
+<div id="overlay" class="overlay">
+    <div class="spinner"></div>
+    <div class="upload-text">Uploading images...</div>
+</div>
+
+<style>
+    .image-upload-container {
+        margin-bottom: 10px;
+    }
+    .image-upload {
+        display: none;
+    }
+    .image-preview {
+        width: 150px;
+        height: 150px;
+        border: 1px solid #ddd;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-size: cover;
+        background-position: center;
+    }
+    .image-preview-row {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 10px;
+    }
+    .image-preview-row .image-preview {
+        flex: 0 0 auto;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+    }
+    .spinner {
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #3498db;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        animation: spin 1s linear infinite;
+    }
+    .upload-text {
+        color: white;
+        margin-top: 20px;
+        font-size: 18px;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const imageUploads = document.querySelectorAll('.image-upload');
+    const form = document.getElementById('uploadForm');
+    const overlay = document.getElementById('overlay');
+    
+    imageUploads.forEach(upload => {
+        upload.addEventListener('change', function() {
+            const previewId = this.dataset.preview;
+            const previewElement = document.getElementById(previewId);
+            
+            if (this.files && this.files[0]) {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    if (previewElement.classList.contains('image-preview-row')) {
+                        // For additional images
+                        previewElement.innerHTML = ''; // Clear existing previews
+                        Array.from(this.files).forEach(file => {
+                            const imgPreview = document.createElement('div');
+                            imgPreview.className = 'image-preview';
+                            imgPreview.style.backgroundImage = `url(${e.target.result})`;
+                            previewElement.appendChild(imgPreview);
+                        });
+                    } else {
+                        // For primary image
+                        previewElement.style.backgroundImage = `url(${e.target.result})`;
+                    }
+                }.bind(this);
+                
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    });
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        overlay.style.display = 'flex';
+        setTimeout(() => {
+            this.submit();
+        }, 100);
+    });
+
+    if ({{ messages }}) {
+        {% for message in messages %}
+            showCustomAlert('{{ message }}');
+        {% endfor %}
+    }
+});
+</script>
+
+{% endblock %}

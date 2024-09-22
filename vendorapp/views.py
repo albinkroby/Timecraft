@@ -6,23 +6,28 @@ from .forms import VendorProfileForm, VendorRegistrationFormStep1, VendorRegistr
 from .forms import BaseWatchUpdateForm, WatchDetailsUpdateForm, WatchMaterialsUpdateForm, WatchImageUpdateFormSet
 from django.contrib import messages
 from .models import VendorProfile
+from adminapp.models import Brand, Category, WatchType, Collection, Material, Feature,BaseWatch, WatchDetails, WatchMaterials, WatchImage
 from mainapp.utils import hash_url
 from django.urls import reverse
 from adminapp.models import Category, BaseWatch, WatchImage, WatchType, BrandApproval, Brand
 from mainapp.models import Order, OrderItem
 from django.shortcuts import get_object_or_404
-import os
+import os,webcolors,traceback
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.cache import never_cache
 from django.db.models import Sum, Count
 from django.utils import timezone
 from datetime import timedelta, datetime
 from django.core.paginator import Paginator
-import pandas as pd
-import io,json 
+import pandas as pd ,io,xlsxwriter
+import io,json ,cv2,numpy as np
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
+from sklearn.cluster import KMeans
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.conf import settings
 
 User = get_user_model()
 @never_cache
@@ -270,6 +275,10 @@ def edit_product(request, product_id):
                 # Handle primary image
                 if 'primary_image' in request.FILES:
                     base_watch.primary_image = request.FILES['primary_image']
+                    # base_watch.save()
+                    # Extract dominant color
+                    dominant_color = get_dominant_color(base_watch.primary_image.path)
+                    base_watch.dominant_color = dominant_color
                     base_watch.save()
                 
                 # Handle deletion of existing images
@@ -286,6 +295,9 @@ def edit_product(request, product_id):
             except Exception as e:
                 messages.error(request, f"An error occurred while saving the product: {str(e)}")
         else:
+            print(base_watch_form.errors)
+            print(details_form.errors)
+            print(materials_form.errors)
             messages.error(request, "There were errors in the form. Please check below for details.")
     else:
         base_watch_form = BaseWatchUpdateForm(instance=product)
@@ -434,13 +446,20 @@ def add_product_step1(request):
 
     if request.method == 'POST':
         selected_brand_id = request.POST.get('brand')
-        if selected_brand_id:
+        listing_type = request.POST.get('listing_type')
+        if selected_brand_id and listing_type:
             brand = get_object_or_404(Brand, id=selected_brand_id)
             approval = brand_approvals.filter(brand=brand).first()
             
-            return redirect('vendorapp:add_product_step2', brand_id=brand.id)
+            # Store brand_id and listing_type in session
+            request.session['selected_brand_id'] = selected_brand_id
+            request.session['listing_type'] = listing_type
+            
             if approval and approval.is_approved:
-                return redirect('vendorapp:add_product_step2', brand_id=brand.id)
+                if listing_type == 'single':
+                    return redirect('vendorapp:add_product_step2')
+                elif listing_type == 'bulk':
+                    return redirect('vendorapp:bulk_product_upload')
             elif approval and not approval.is_approved:
                 if approval.requested_at + timedelta(days=30) > timezone.now():
                     messages.warning(request, f"Please wait 30 days before requesting approval for {brand.brand_name} again.")
@@ -463,8 +482,8 @@ def add_product_step1(request):
             status = "Not Requested"
         brand_status[str(brand.id)] = status  # Convert brand.id to string
 
-    # brand_status_json = json.dumps(brand_status)
-    brand_status_json = json.dumps({"1": "Approved"})
+    brand_status_json = json.dumps(brand_status)
+    # brand_status_json = json.dumps({"1": "Approved"})
 
     context = {
         'brands': brands,
@@ -494,8 +513,9 @@ def request_brand_approval(request, brand_id):
 
 @login_required
 @user_type_required('vendor')
-def add_product_step2(request, brand_id):
-    brand = get_object_or_404(Brand, id=brand_id)
+def add_product_step2(request):
+    selected_brand_id = request.session.get('selected_brand_id')
+    brand = get_object_or_404(Brand, id=selected_brand_id)
     vendor = request.user.vendorprofile
 
     if request.method == 'POST':
@@ -504,14 +524,25 @@ def add_product_step2(request, brand_id):
         materials_form = WatchMaterialsForm(request.POST)
 
         if all([base_watch_form.is_valid(), details_form.is_valid(), materials_form.is_valid()]):
-            
             base_watch = base_watch_form.save(commit=False)
             base_watch.vendor = vendor
             base_watch.brand = brand
 
-            # Handle primary image upload
+            # Handle primary image upload and color extraction
             if 'primary_image' in request.FILES:
-                base_watch.primary_image = request.FILES['primary_image']
+                primary_image = request.FILES['primary_image']
+                base_watch.primary_image = primary_image
+                
+                # Save the image temporarily
+                temp_path = default_storage.save('temp_image.jpg', ContentFile(primary_image.read()))
+                full_temp_path = os.path.join(settings.MEDIA_ROOT, temp_path)
+                
+                # Extract dominant color
+                dominant_color = get_dominant_color(full_temp_path)
+                base_watch.dominant_color = dominant_color
+                
+                # Remove the temporary file
+                os.remove(full_temp_path)
 
             base_watch.save()
             base_watch_form.save_m2m()
@@ -523,7 +554,6 @@ def add_product_step2(request, brand_id):
             materials = materials_form.save(commit=False)
             materials.base_watch = base_watch
             materials.save()
-
 
             # Handle multiple image uploads
             images = request.FILES.getlist('images')
@@ -553,3 +583,289 @@ def add_product_step2(request, brand_id):
         'brand': brand,
     }
     return render(request, 'vendorapp/add_product.html', context)
+    
+def get_dominant_color(image_path, k=4):
+    img = cv2.imread(image_path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = img.reshape((img.shape[0] * img.shape[1], 3))
+    
+    kmeans = KMeans(n_clusters=k)
+    kmeans.fit(img)
+    
+    colors = kmeans.cluster_centers_
+    labels = kmeans.labels_
+    label_counts = np.bincount(labels)
+    
+    dominant_color = colors[label_counts.argmax()]
+    hex_color = '#{:02x}{:02x}{:02x}'.format(int(dominant_color[0]), int(dominant_color[1]), int(dominant_color[2]))
+    
+    return hex_color
+
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+
+@login_required
+@user_type_required('vendor')
+def bulk_product_upload(request):
+    if request.method == 'POST' and request.FILES.get('excel_file'):
+        excel_file = request.FILES['excel_file']
+        try:
+            selected_brand_id = request.session.get('selected_brand_id')
+            if not selected_brand_id:
+                messages.error(request, "No brand selected. Please select a brand before uploading products.")
+                return redirect('vendorapp:add_product_step1')
+            
+            brand = Brand.objects.get(id=selected_brand_id)
+            
+            df = pd.read_excel(excel_file, sheet_name='Product Listing')
+            
+            # Check if required columns are present
+            required_columns = ['Model Name', 'MRP', 'Selling Price', 'Available Stock']
+            missing_columns = [col for col in required_columns if col not in df.columns]
+            if missing_columns:
+                raise ValueError(f"The following required columns are missing: {', '.join(missing_columns)}")
+            
+            uploaded_products = []
+            for index, row in df.iterrows():
+                base_watch_data = {
+                    'vendor': request.user.vendorprofile,
+                    'brand': brand,
+                    'is_active': False,
+                    'qa_status': False
+                }
+
+                # Required fields
+                required_fields = [
+                    ('model_name', 'Model Name'),
+                    ('base_price', 'MRP'),
+                    ('selling_price', 'Selling Price'),
+                    ('available_stock', 'Available Stock')
+                ]
+                for field, column in required_fields:
+                    if pd.notna(row[column]):
+                        base_watch_data[field] = row[column]
+                    else:
+                        raise ValueError(f"Required field '{column}' is missing for product at row {index + 2}.")
+
+                # Optional fields
+                optional_fields = [
+                    ('category', 'Category', Category, 'name'),
+                    ('collection', 'Collection', Collection, 'name'),
+                    ('watch_type', 'Watch Type', WatchType, 'type_name'),
+                    ('gender', 'Gender', None, None),
+                    ('description', 'Description', None, None),
+                    ('color', 'Color', None, None),
+                    ('style_code', 'Style Code', None, None),
+                    ('net_quantity', 'Net Quantity', None, None),
+                    ('function_display', 'Function Display', None, None)
+                ]
+                for field, column, model, lookup_field in optional_fields:
+                    if column in df.columns and pd.notna(row[column]):
+                        try:
+                            if model:
+                                lookup_kwargs = {lookup_field: row[column]}
+                                base_watch_data[field] = model.objects.get(**lookup_kwargs)
+                            else:
+                                base_watch_data[field] = row[column]
+                        except (ObjectDoesNotExist, ValidationError):
+                            # If the field is invalid or doesn't exist, skip it
+                            continue
+
+                base_watch = BaseWatch(**base_watch_data)
+                base_watch.total_stock = base_watch.available_stock
+                base_watch.save()
+
+                # Create WatchDetails instance
+                watch_details_data = {}
+                detail_fields = [
+                    'case_size', 'water_resistance', 'water_resistance_depth', 'series',
+                    'occasion', 'strap_color', 'strap_type', 'dial_color', 'warranty_period'
+                ]
+                for field in detail_fields:
+                    if field in df.columns and pd.notna(row[field]):
+                        try:
+                            watch_details_data[field] = row[field]
+                        except ValidationError:
+                            # If the field is invalid, skip it
+                            continue
+
+                WatchDetails.objects.create(base_watch=base_watch, **watch_details_data)
+
+                # Create WatchMaterials instance
+                watch_materials_data = {}
+                material_fields = ['strap_material', 'glass_material', 'case_material']
+                for field in material_fields:
+                    if field in df.columns and pd.notna(row[field]):
+                        try:
+                            watch_materials_data[field] = Material.objects.get(name=row[field])
+                        except ObjectDoesNotExist:
+                            # If the material doesn't exist, skip it
+                            continue
+
+                WatchMaterials.objects.create(base_watch=base_watch, **watch_materials_data)
+
+                # Add features
+                if 'Features' in df.columns and pd.notna(row['Features']):
+                    features = row['Features'].split(',')
+                    for feature_name in features:
+                        feature_name = feature_name.strip()
+                        if feature_name:
+                            try:
+                                feature = Feature.objects.get(name=feature_name)
+                                base_watch.features.add(feature)
+                            except ObjectDoesNotExist:
+                                # If the feature doesn't exist, skip it
+                                continue
+
+                uploaded_products.append(base_watch.id)
+
+            request.session['uploaded_products'] = uploaded_products
+            messages.success(request, f'{len(uploaded_products)} products uploaded successfully!')
+            return redirect('vendorapp:upload_product_images')
+        except Exception as e:
+            messages.error(request, f'Error uploading products: {str(e)}')
+    
+    return render(request, 'vendorapp/bulk_product_upload.html')
+
+@login_required
+@user_type_required('vendor')
+def upload_product_images(request):
+    uploaded_products = request.session.get('uploaded_products', [])
+    products = BaseWatch.objects.filter(id__in=uploaded_products)
+    
+    if request.method == 'POST':
+        for product in products:
+            primary_image = request.FILES.get(f'primary_image_{product.id}')
+            if primary_image:
+                product.primary_image = primary_image
+                product.save()
+            
+            additional_images = request.FILES.getlist(f'additional_images_{product.id}')
+            for image in additional_images:
+                WatchImage.objects.create(base_watch=product, image=image)
+        
+        messages.success(request, 'Images uploaded successfully!')
+        return redirect('vendorapp:product_list')
+    
+    context = {
+        'products': products
+    }
+    return render(request, 'vendorapp/upload_product_images.html', context)
+
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.worksheet.datavalidation import DataValidation
+from django.http import HttpResponse
+from io import BytesIO
+
+@login_required
+@user_type_required('vendor')
+def download_template(request):
+    wb = Workbook()
+    
+    # Guidelines sheet
+    guidelines = wb.active
+    guidelines.title = "Guidelines"
+    guidelines.column_dimensions['A'].width = 100
+    
+    guidelines.merge_cells('A1:C1')
+    cell = guidelines['A1']
+    cell.value = "Guidelines for Bulk Product Upload"
+    cell.font = Font(size=16, bold=True)
+    cell.alignment = Alignment(horizontal='center', vertical='center')
+    cell.fill = PatternFill(start_color="E6E6E6", end_color="E6E6E6", fill_type="solid")
+    
+    guidelines.append([])
+    guidelines.append(["1. Fill out the 'Product Listing' sheet with your product information."])
+    guidelines.append(["2. Ensure all required fields (marked in RED) are filled."])
+    guidelines.append(["3. Optional fields (marked in GREEN) can be left blank or filled as needed."])
+    guidelines.append(["4. Use dropdown menus where available to ensure accurate data entry."])
+    guidelines.append(["5. For multiple features, separate them with commas."])
+    guidelines.append(["6. Dates should be in YYYY-MM-DD format."])
+    guidelines.append(["7. Ensure numeric fields contain only numbers."])
+    guidelines.append(["8. Case Size should be in the format: 23 X 34 X 45 (length X width X height in mm)"])
+    guidelines.append(["9. MRP (Market Retail Price) should be greater than or equal to the Selling Price."])
+    
+    for row in range(2, 11):
+        guidelines[f'A{row}'].font = Font(size=12)
+    
+    guidelines.append([])
+    guidelines.merge_cells('A12:C12')
+    cell = guidelines['A12']
+    cell.value = "Color Code:"
+    cell.font = Font(size=14, bold=True)
+    cell.alignment = Alignment(horizontal='center', vertical='center')
+    cell.fill = PatternFill(start_color="E6E6E6", end_color="E6E6E6", fill_type="solid")
+    
+    guidelines.append(["RED - Required fields"])
+    guidelines['A13'].font = Font(size=12, color="FF0000")
+    guidelines['A13'].fill = PatternFill(start_color="FFE6E6", end_color="FFE6E6", fill_type="solid")
+    
+    guidelines.append(["GREEN - Optional fields"])
+    guidelines['A14'].font = Font(size=12, color="008000")
+    guidelines['A14'].fill = PatternFill(start_color="E6FFE6", end_color="E6FFE6", fill_type="solid")
+    
+    # Product Listing sheet
+    product_listing = wb.create_sheet("Product Listing")
+    headers = [
+        ('Model Name', True), ('Category', True), ('Collection', True), ('Watch Type', False),
+        ('Gender', True), ('MRP', True), ('Selling Price', True), ('Description', True),
+        ('Available Stock', True), ('Color', True), ('Style Code', True),
+        ('Net Quantity', True), ('Function Display', False), ('Case Size', True),
+        ('Water Resistance', False), ('Water Resistance Depth', False), ('Series', False),
+        ('Occasion', False), ('Strap Color', True), ('Strap Type', True), ('Dial Color', True),
+        ('Warranty Period', True), ('Strap Material', True), ('Glass Material', True),
+        ('Case Material', True), ('Features', False)
+    ]
+    
+    for col, (header, required) in enumerate(headers, start=1):
+        cell = product_listing.cell(row=1, column=col, value=header)
+        cell.font = Font(size=14, bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="FF0000" if required else "008000", end_color="FF0000" if required else "008000", fill_type="solid")
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        product_listing.column_dimensions[cell.column_letter].width = 20
+    
+    # Add dropdowns
+    collections = [col.name for col in Collection.objects.all()]
+    categories = [cat.name for cat in Category.objects.all()]
+    watch_types = [wt.type_name for wt in WatchType.objects.all()]
+    genders = ['Men', 'Women', 'Unisex']
+    colors = ['Black', 'White', 'Silver', 'Gold', 'Blue', 'Red', 'Green', 'Yellow', 'Brown', 'Other']
+    function_displays = ['Analog', 'Digital', 'Analog-Digital']
+    strap_types = ['Bracelet', 'Leather', 'Rubber', 'Fabric', 'Other']
+    materials = [mat.name for mat in Material.objects.all()]
+    
+    dv_collection = DataValidation(type="list", formula1=f'"{",".join(collections)}"', allow_blank=True)
+    dv_category = DataValidation(type="list", formula1=f'"{",".join(categories)}"', allow_blank=True)
+    dv_watch_type = DataValidation(type="list", formula1=f'"{",".join(watch_types)}"', allow_blank=True)
+    dv_gender = DataValidation(type="list", formula1=f'"{",".join(genders)}"', allow_blank=True)
+    dv_color = DataValidation(type="list", formula1=f'"{",".join(colors)}"', allow_blank=True)
+    dv_function_display = DataValidation(type="list", formula1=f'"{",".join(function_displays)}"', allow_blank=True)
+    dv_strap_type = DataValidation(type="list", formula1=f'"{",".join(strap_types)}"', allow_blank=True)
+    dv_material = DataValidation(type="list", formula1=f'"{",".join(materials)}"', allow_blank=True)
+    
+    product_listing.add_data_validation(dv_category)
+    product_listing.add_data_validation(dv_watch_type)
+    product_listing.add_data_validation(dv_gender)
+    product_listing.add_data_validation(dv_color)
+    product_listing.add_data_validation(dv_function_display)
+    product_listing.add_data_validation(dv_strap_type)
+    product_listing.add_data_validation(dv_material)
+    
+    # Add data validations to the Product Listing sheet
+    dv_category.add(f'B2:B1048576')
+    dv_collection.add(f'C2:C1048576')
+    dv_watch_type.add(f'D2:D1048576')
+    dv_gender.add(f'E2:E1048576')
+    dv_color.add(f'J2:J1048576')
+    dv_function_display.add(f'M2:M1048576')
+    dv_strap_type.add(f'T2:T1048576')
+    dv_material.add(f'W2:Y1048576')  # For Strap, Glass, and Case materials
+    
+    # Save the workbook
+    buffer = BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    
+    response = HttpResponse(buffer.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=product_upload_template.xlsx'
+    return response
