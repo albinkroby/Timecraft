@@ -44,7 +44,7 @@
             </div>
         </div>
 
-        <!-- Product Details -->
+        
         <div class="col-md-7 ps-5">
             <p class="text-muted mb-1">{{ watch.brand.brand_name }}</p>
             <h1>{{ watch.model_name }}</h1>
@@ -63,6 +63,20 @@
             <p class="text-danger">Out of Stock</p>
             {% endif %}
 
+            <!---Product Features-->
+            {% if watch.features.all %}
+            <div class="mt-4">
+                <h5>Key Features</h5>
+                <ul class="feature-list">
+                    {% for feature in watch.features.all %}
+                    <li class="feature-item"> {{ feature.name }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            
+            <!-- Product Details -->
             <div class="mt-4">
                 <h5>Product Details:</h5>
                 <table class="table table-borderless">
@@ -237,8 +251,32 @@
         </div>
     </div>
 </div>
+<style>
+    .feature-list {
+        display: flex;
+        align-items: center;
+        gap: 1.2em;
+    }
+    .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .feature-item::before {
+        content: "\2022";
+        color: #007bff;
+        font-weight: bold;
+        display: inline-block;
+        width: 0.5em;
+        font-size: 2em;
+    }
+
+
+</style>
+
 
 {% endblock %}
+
 
 {% block extra_js %}
 <script>
