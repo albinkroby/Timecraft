@@ -38,8 +38,9 @@ from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
 from tensorflow.keras.preprocessing import image
 from scipy.spatial.distance import cosine
 from rembg import remove
-import io
+import io,cv2
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from sklearn.cluster import KMeans
 
 User = get_user_model()
 # Create your views here.
@@ -296,6 +297,44 @@ def update_cart(request):
         return JsonResponse({'message': 'Cart updated successfully', 'new_quantity': item.quantity ,'total' : total ,'final_total' : final_total}, status=200)
     else:
         return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
+def get_dominant_color(image, k=4):
+    try:
+        # Convert InMemoryUploadedFile to PIL Image
+        pil_image = Image.open(image)
+        
+        # Convert PIL Image to numpy array
+        img_array = np.array(pil_image)
+        
+        # Check if the image is grayscale and convert to RGB if necessary
+        if len(img_array.shape) == 2:
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
+        elif img_array.shape[2] == 4:
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
+        
+        # Reshape the array for K-means
+        pixels = img_array.reshape((-1, 3))
+        
+        # Perform K-means clustering
+        kmeans = KMeans(n_clusters=k)
+        kmeans.fit(pixels)
+        
+        # Find the most dominant color
+        colors = kmeans.cluster_centers_
+        labels = kmeans.labels_
+        label_counts = np.bincount(labels)
+        dominant_color = colors[label_counts.argmax()]
+        
+        # Convert to hexadecimal color code
+        hex_color = '#{:02x}{:02x}{:02x}'.format(int(dominant_color[0]), int(dominant_color[1]), int(dominant_color[2]))
+        
+        return hex_color
+    except Exception as e:
+        print(f"Error in get_dominant_color: {str(e)}")
+        return "#000000"  # Return a default color in case of error
+
+
 
 @never_cache
 @require_http_methods(["GET", "POST"])
