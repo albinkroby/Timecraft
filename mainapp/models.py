@@ -21,6 +21,7 @@ class User(AbstractUser):
     # Use email as the unique identifier instead of username
     email = models.EmailField(unique=True)
     is_verified = models.BooleanField(default=False)
+    email_verification_token = models.UUIDField(default=uuid.uuid4, editable=False, blank=True,null=True)
 
     # If you want to use email for login instead of username
     USERNAME_FIELD = 'email'

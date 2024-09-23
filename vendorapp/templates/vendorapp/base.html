@@ -63,7 +63,7 @@
                             <i class='bx bx-moon change-theme' id="theme-button"></i>
                         </a>
                     </li>
-                    <li class="nav-item dropdown">
+                    {% comment %} <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class='bx bxs-bell'></i>
                             <span class="badge bg-primary badge-number">4</span>
@@ -82,17 +82,16 @@
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                             <!-- Add message items here -->
                         </ul>
-                    </li>
+                    </li> {% endcomment %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             {% comment %} <img src="{% static 'images/profile-img.jpg' %}" alt="Profile" class="rounded-circle" width="30"> {% endcomment %}
                             <span>{{user.username}}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                            <li><a class="dropdown-item" href="{% url 'userapp:profile' %}"><i class="fas fa-user me-2"></i> My Profile</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i> Account Settings</a></li>
+                            <li><a class="dropdown-item" href="{% url 'vendorapp:vendor_profile' %}"><i class="fas fa-user me-2"></i> My Profile</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
+                            <li><a class="dropdown-item" href="{% url 'mainapp:logout' %}"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -124,12 +123,12 @@
                     PAGES
                 </div>
                 <div class="list-group list-group-flush">
-                    <a href="{% url 'userapp:profile' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
-                        <i class="fas fa-user mr-2"></i> Profile
+                    <a href="{% url 'vendorapp:vendor_profile' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'vendor_profile' %}active{% endif %}">
+                        <i class='bx bxs-user-circle'></i>Profile
                     </a>
-                    <a href="#" class="list-group-item list-group-item-action">
-                        <i class="fas fa-question-circle mr-2"></i> F.A.Q
-                    </a>
+                    <a href="{% url 'vendorapp:change_password' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'change_password' %}active{% endif %}">
+                        <i class='bx bxs-key'></i> Change Password
+                    </a>    
                 </div>
                 <div class="list-group list-group-flush">
                     <a href="{% url 'mainapp:logout' %}" class="list-group-item list-group-item-action">

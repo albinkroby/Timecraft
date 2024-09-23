@@ -108,26 +108,21 @@
                         <div class="col-md-8">
                             <div class="card mb-4">
                                 <div class="card-body">
-                                    <h5 class="card-title">Mobile & Email Verification</h5>
+                                    <h5 class="card-title">Email Verification</h5>
                                     <p><i class="bx bx-phone"></i> {{ vendor_profile.contact_phone }} 
-                                        {% if vendor_profile.is_phone_verified %}
-                                            <span class="badge bg-success">Verified</span>
-                                        {% else %}
-                                            <span class="badge bg-warning">Not Verified</span>
-                                        {% endif %}
                                     </p>
                                     <p><i class="bx bx-envelope"></i> {{ vendor_profile.user.email }} 
-                                        {% if vendor_profile.user.is_email_verified %}
+                                        {% if vendor_profile.user.is_verified %}
                                             <span class="badge bg-success">Verified</span>
                                         {% else %}
                                             <span class="badge bg-warning">Not Verified</span>
-                                            <a href="#" class="text-primary">Resend Email</a>
+                                            <button id="send-verification-email" class="btn btn-primary" >Verify Email</button>
                                         {% endif %}
                                     </p>
                                 </div>
                             </div>
 
-                            <div class="card mb-4">
+                            {% comment %} <div class="card mb-4">
                                 <div class="card-body">
                                     <h5 class="card-title">ID & Signature Verification</h5>
                                     <div class="mb-3">
@@ -148,7 +143,7 @@
                                         <button class="btn btn-outline-secondary">Choose your signature</button>
                                     </div>
                                 </div>
-                            </div>
+                            </div> {% endcomment %}
 
                             <form method="post" action="{% url 'vendorapp:vendor_onboarding' %}">
                                 {% csrf_token %}
@@ -240,6 +235,9 @@
             </div>
         </div>
     </div>
+</div>
+<div id="custom-alert" class="custom-alert">
+    <span id="alert-message"></span>
 </div>
 <a href="#" class="scrollup" id="scroll-up"> 
     <i class='bx bx-up-arrow-alt scrollup__icon' ></i>
@@ -351,25 +349,64 @@
         const pageTransitionOverlay = document.getElementById('page-transition-overlay');
 
         // Form submission animation
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            loadingSpinner.style.display = 'block';
-            setTimeout(() => {
-                form.submit();
-            }, 1000); // Delay form submission by 1 second to show the spinner
-        });
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                if (loadingSpinner) {
+                    loadingSpinner.style.display = 'block';
+                }
+                setTimeout(() => {
+                    form.submit();
+                }, 1000); // Delay form submission by 1 second to show the spinner
+            });
+        }
 
         // Page transition animation
         document.addEventListener('click', function(e) {
             const target = e.target.closest('a');
-            if (target && target.getAttribute('href').startsWith('/')) {
+            if (target && target.getAttribute('href') && target.getAttribute('href').startsWith('/')) {
                 e.preventDefault();
-                pageTransitionOverlay.classList.add('active');
+                if (pageTransitionOverlay) {
+                    pageTransitionOverlay.classList.add('active');
+                }
                 setTimeout(() => {
                     window.location.href = target.getAttribute('href');
                 }, 300); // Delay navigation by 300ms to show the transition effect
             }
         });
+
+        const sendVerificationEmailBtn = document.getElementById('send-verification-email');
+        const checkEmailStatusBtn = document.getElementById('check-email-status');
+
+        if (sendVerificationEmailBtn) {
+            sendVerificationEmailBtn.addEventListener('click', function() {
+                sendVerificationEmailBtn.disabled = true;
+                sendVerificationEmailBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>Sending...';
+                $.get("{% url 'vendorapp:vendor_send_verification_email' %}", function(data) {
+                    if (data.success) {
+                        sendVerificationEmailBtn.disabled = false;
+                        sendVerificationEmailBtn.innerHTML = 'Verify Email';
+                        showCustomAlert(data.message);
+                    } else {
+                        showCustomAlert("Failed to send verification email. Please try again later.");
+                    }
+                });
+            });
+        }
+
+        if (checkEmailStatusBtn) {
+            checkEmailStatusBtn.addEventListener('click', function() {
+                $.get("{% url 'vendorapp:vendor_check_email_status' %}", function(data) {
+                    if (data.is_verified) {
+                        $("#email-status").text("Your email is verified.").removeClass("text-warning").addClass("text-success");
+                        $("#send-verification-email").hide();
+                    } else {
+                        $("#email-status").text("Your email is not verified.").removeClass("text-success").addClass("text-warning");
+                        $("#send-verification-email").show();
+                    }
+                });
+            });
+        }
     });
 
     // Add this if you're using Turbolinks or similar libraries

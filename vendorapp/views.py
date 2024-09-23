@@ -1,11 +1,12 @@
+import uuid
 from django.shortcuts import render,redirect
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from mainapp.decorators import user_type_required
-from .forms import VendorProfileForm, VendorRegistrationFormStep1, VendorRegistrationFormStep2, BaseWatchForm, BrandSelectionForm, BrandApprovalRequestForm, WatchDetailsForm, WatchMaterialsForm, WatchImageFormSet, VendorOnboardingForm
+from .forms import VendorAddressForm, VendorProfileEditForm, VendorProfileForm, VendorRegistrationFormStep1, VendorRegistrationFormStep2, BaseWatchForm, BrandSelectionForm, BrandApprovalRequestForm, WatchDetailsForm, WatchMaterialsForm, WatchImageFormSet, VendorOnboardingForm
 from .forms import BaseWatchUpdateForm, WatchDetailsUpdateForm, WatchMaterialsUpdateForm, WatchImageUpdateFormSet
 from django.contrib import messages
-from .models import VendorProfile
+from .models import VendorAddress, VendorProfile
 from adminapp.models import Brand, Category, WatchType, Collection, Material, Feature,BaseWatch, WatchDetails, WatchMaterials, WatchImage
 from mainapp.utils import hash_url
 from django.urls import reverse
@@ -21,13 +22,16 @@ from datetime import timedelta, datetime
 from django.core.paginator import Paginator
 import pandas as pd ,io,xlsxwriter
 import io,json ,cv2,numpy as np
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model,update_session_auth_hash,authenticate,login
 from django.core.exceptions import ValidationError
 from django.forms import modelformset_factory
 from sklearn.cluster import KMeans
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.conf import settings
+from django.contrib.auth.forms import PasswordChangeForm
+import re
+from django.core.mail import send_mail
 
 User = get_user_model()
 @never_cache
@@ -78,6 +82,10 @@ def vendor_register_step2(request):
             # Clear session data
             del request.session['vendor_user_data']
 
+            # Authenticate and login the user
+            user = authenticate(request, username=user_data['email'], email=user_data['email'], password=password_form.cleaned_data['password1'])
+            login(request, user)
+
             messages.success(request, "You have successfully registered as a vendor.")
             return redirect('vendorapp:vendor_onboarding')
         else:
@@ -93,23 +101,74 @@ def vendor_register_step2(request):
 @user_type_required('vendor')
 def vendor_onboarding(request):
     vendor_profile = request.user.vendorprofile
+    form = VendorOnboardingForm(instance=vendor_profile)
     
-    if request.method == 'POST':
-        form = VendorOnboardingForm(request.POST, instance=vendor_profile)
-        if form.is_valid():
-            form.save()
-            vendor_profile.is_onboarding_completed = True
-            vendor_profile.save()
-            messages.success(request, "Your profile has been updated successfully.")
-            return redirect('vendorapp:index')
+    if vendor_profile.user.is_verified:
+        if request.method == 'POST':
+            form = VendorOnboardingForm(request.POST, instance=vendor_profile)
+            if form.is_valid():
+                form.save()
+                vendor_profile.is_onboarding_completed = True
+                vendor_profile.save()
+                messages.success(request, "Your profile has been updated successfully.")
+                return redirect('vendorapp:index')
+        else:
+            form = VendorOnboardingForm(instance=vendor_profile)
     else:
-        form = VendorOnboardingForm(instance=vendor_profile)
+        messages.error(request, "Please verify your email address before proceeding.")
     
     context = {
         'form': form,
         'vendor_profile': vendor_profile,
     }
     return render(request, 'vendorapp/vendor_onboarding.html', context)
+
+@never_cache
+@login_required
+@user_type_required('vendor')
+def vendor_send_verification_email(request):
+    user = request.user
+    if user.is_verified:
+        return JsonResponse({"success": False, "message": "Your email is already verified."})
+
+    # Generate a new verification token
+    user.email_verification_token = uuid.uuid4()
+    user.save()
+
+    verification_url = request.build_absolute_uri(
+        reverse('vendorapp:vendor_verify_email', kwargs={'token': user.email_verification_token})
+    )
+
+    subject = 'Verify your email address'
+    message = f'Please click on the link below to verify your email address:\n\n{verification_url}'
+    from_email = settings.DEFAULT_FROM_EMAIL
+    recipient_list = [user.email]
+
+    try:
+        send_mail(subject, message, from_email, recipient_list)
+        return JsonResponse({"success": True, "message": "Verification email sent. Please check your inbox."})
+    except Exception as e:
+        return JsonResponse({"success": False, "message": f"Failed to send email: {str(e)}"})
+    
+@never_cache
+def vendor_verify_email(request, token):
+    try:
+        user = User.objects.get(email_verification_token=token, role='vendor')
+        user.is_verified = True
+        user.email_verification_token = None
+        user.save()
+        messages.success(request, "Your email has been successfully verified.")
+    except User.DoesNotExist:
+        messages.error(request, "Invalid verification link.")
+
+    return redirect('vendorapp:vendor_login')
+
+@never_cache
+@login_required
+@user_type_required('vendor')
+def vendor_check_email_status(request):
+    user = request.user
+    return JsonResponse({"is_verified": user.is_verified})
 
 def validate_company_name(request):
     company_name = request.GET.get('company_name', None)
@@ -122,6 +181,24 @@ def validate_company_name(request):
         data = {'is_taken': False}
     return JsonResponse(data)
 
+@never_cache
+def vendor_login(request):
+    if request.user.is_authenticated and request.user.role == 'vendor':
+        return redirect('vendorapp:index')
+    
+    if request.method == 'POST':
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        user = authenticate(request, username=email, email=email, password=password)
+        
+        if user is not None and user.role == 'vendor':
+            login(request, user)
+            messages.success(request, 'You have successfully logged in.')
+            return redirect('vendorapp:index')
+        else:
+            messages.error(request, 'Invalid email or password.')
+    
+    return render(request, 'vendorapp/vendor_login.html')
 @never_cache
 @login_required
 @user_type_required('vendor')
@@ -197,6 +274,67 @@ def index(request):
             return render(request, 'vendorapp/vendor_application_pending.html')
     else:
         return redirect('vendorapp:vendor_onboarding')
+    
+@never_cache
+@login_required
+@user_type_required('vendor')
+def vendor_profile(request):
+    vendor = request.user.vendorprofile
+    vendor_address = VendorAddress.objects.filter(vendor=vendor).first()
+    
+    if request.method == 'POST':
+        form = VendorProfileEditForm(request.POST, instance=vendor)
+        address_form = VendorAddressForm(request.POST, instance=vendor_address)
+        if form.is_valid() and address_form.is_valid():
+            form.save()
+            address_form.save()
+            messages.success(request, 'Profile updated successfully.')
+            return redirect('vendorapp:vendor_profile')
+    else:
+        form = VendorProfileEditForm(instance=vendor)
+        address_form = VendorAddressForm(instance=vendor_address)
+
+    context = {
+        'vendor': vendor,
+        'vendor_address': vendor_address,
+        'form': form,
+        'address_form': address_form,
+    }
+    return render(request, 'vendorapp/vendor_profile.html', context)
+
+@never_cache
+@login_required
+@user_type_required('vendor')
+def change_password(request):
+    if request.method == 'POST':
+        form = PasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            # Additional custom validation
+            new_password = form.cleaned_data.get('new_password1')
+            if len(new_password) < 8:
+                form.add_error('new_password1', 'Password must be at least 8 characters long.')
+            elif not re.search(r'[A-Z]', new_password):
+                form.add_error('new_password1', 'Password must contain at least one uppercase letter.')
+            elif not re.search(r'[a-z]', new_password):
+                form.add_error('new_password1', 'Password must contain at least one lowercase letter.')
+            elif not re.search(r'\d', new_password):
+                form.add_error('new_password1', 'Password must contain at least one number.')
+            
+            if not form.errors:
+                user = form.save()
+                update_session_auth_hash(request, user)  # Important!
+                messages.success(request, 'Your password was successfully updated!')
+                return JsonResponse({'success': True, 'message': 'Your password was successfully updated!'})
+        
+        # If form is not valid or custom validation failed
+        errors = {field: form.errors[field] for field in form.errors}
+        return JsonResponse({'success': False, 'errors': errors})
+    
+    else:
+        form = PasswordChangeForm(request.user)
+    
+    return render(request, 'vendorapp/change_password.html', {'form': form})
+
 
 @never_cache
 @login_required

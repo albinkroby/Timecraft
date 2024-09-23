@@ -47,7 +47,7 @@ User = get_user_model()
 
 @never_cache
 def index(request):
-    basewatch = BaseWatch.objects.filter(is_active=True)
+    basewatch = BaseWatch.objects.filter(is_active=True,available_stock__gt=0).order_by('-id')[:15]
     featured_watch = BaseWatch.objects.filter(is_featured=True, is_active=True).first()
     if not featured_watch:
         featured_watch = basewatch.first()
@@ -213,6 +213,11 @@ def product_detail(request, slug):
         slug=slug
     )
     context = {'watch': watch}
+    
+    if request.user.is_authenticated:
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        context['cart_items'] = cart.items.all()
+    
     return render(request, 'product_detail.html', context)
 
 @never_cache
@@ -225,19 +230,19 @@ def add_to_cart(request, watch_id):
                 cart, _ = Cart.objects.get_or_create(user=request.user)
                 
                 # Check if the item already exists in the cart
-                cart_items = CartItem.objects.filter(cart=cart, watch=watch)
+                cart_item = CartItem.objects.filter(cart=cart, watch=watch).first()
                 
-                if cart_items.exists():
-                    # If the item exists, update the quantity of the first item
-                    cart_item = cart_items.first()
-                    cart_item.quantity += 1
-                    cart_item.save()
-                    
-                    # Delete any duplicate items if they exist
-                    cart_items.exclude(id=cart_item.id).delete()
+                if cart_item:
+                    if cart_item.quantity < min(6, watch.available_stock):
+                        cart_item.quantity += 1
+                        cart_item.save()
+                    else:
+                        return JsonResponse({'success': False, 'message': 'Maximum quantity reached or insufficient stock'}, status=400)
                 else:
-                    # If the item doesn't exist, create a new CartItem
-                    cart_item = CartItem.objects.create(cart=cart, watch=watch, quantity=1)
+                    if watch.available_stock > 0:
+                        CartItem.objects.create(cart=cart, watch=watch, quantity=1)
+                    else:
+                        return JsonResponse({'success': False, 'message': 'This product is out of stock'}, status=400)
                 
                 return JsonResponse({'success': True, 'message': f"{watch.model_name} added to your cart."})
             except Exception as e:
@@ -245,7 +250,7 @@ def add_to_cart(request, watch_id):
         else:
             return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=400)
     else:
-        return redirect('mainapp:login')    
+        return redirect('mainapp:login')
 
 @login_required
 @never_cache
@@ -278,25 +283,47 @@ def remove_from_cart(request, item_id):
 @never_cache
 def update_cart(request):
     if request.method == 'POST':
-        item_id = request.POST.get('item_id')
-        action = request.POST.get('action')
-        
-        item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
-        if action == 'increase':
-            item.quantity += 1
-        elif action == 'decrease' and item.quantity > 1:
-            item.quantity -= 1
-        item.save()
-        cart, created = Cart.objects.get_or_create(user=request.user)
-        items = cart.items.all()
-        total = sum(item.watch.base_price * item.quantity for item in items)
-        # discount = sum((item.watch.original_price - item.watch.base_price) * item.quantity for item in items)
-        # final_total = total - discount
-        final_total = total
+        try:
+            item_id = request.POST.get('item_id')
+            action = request.POST.get('action')
+            
+            if not item_id or not action:
+                return JsonResponse({'error': 'Missing item_id or action'}, status=400)
+            
+            item = get_object_or_404(CartItem, id=item_id, cart__user=request.user)
+            watch = item.watch
+            
+            if action == 'increase':
+                if item.quantity < min(6, watch.available_stock):
+                    item.quantity += 1
+                else:
+                    return JsonResponse({'error': 'Maximum quantity reached or insufficient stock'}, status=400)
+            elif action == 'decrease':
+                if item.quantity > 1:
+                    item.quantity -= 1
+                else:
+                    return JsonResponse({'error': 'Quantity cannot be less than 1'}, status=400)
+            else:
+                return JsonResponse({'error': 'Invalid action'}, status=400)
+            
+            item.save()
+            cart = Cart.objects.get(user=request.user)
+            items = cart.items.all()
+            total = sum(item.watch.base_price * item.quantity for item in items)
+            final_total = total
 
-        return JsonResponse({'message': 'Cart updated successfully', 'new_quantity': item.quantity ,'total' : total ,'final_total' : final_total}, status=200)
+            return JsonResponse({
+                'message': 'Cart updated successfully', 
+                'new_quantity': item.quantity,
+                'total': total,
+                'final_total': final_total
+            })
+        except CartItem.DoesNotExist:
+            return JsonResponse({'error': 'Cart item not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'error': f'An unexpected error occurred: {str(e)}'}, status=500)
     else:
-        return JsonResponse({'error': 'Invalid request'}, status=400)
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 def get_dominant_color(image, k=4):
@@ -344,11 +371,11 @@ def search_results(request):
     
     brands = request.GET.getlist('brand')
     categories = request.GET.getlist('category')
-    min_price = request.GET.get('min_price')
+    min_price = request.GET.get('min_price', 0)
     max_price = request.GET.get('max_price')
     colors = request.GET.getlist('color')
-    strap_materials = request.GET.getlist('strap_material')
-    movement_types = request.GET.getlist('function_display')
+    strap_colors = request.GET.getlist('strap_color')
+    function_displays = request.GET.getlist('function_display')
     sort_by = request.GET.get('sort_by', 'relevance')
 
     watches = BaseWatch.objects.filter(is_active=True)
@@ -370,10 +397,10 @@ def search_results(request):
         watches = watches.filter(base_price__lte=max_price)
     if colors:
         watches = watches.filter(color__in=colors)
-    if strap_materials:
-        watches = watches.filter(materials__strap_material__name__in=strap_materials)
-    if movement_types:
-        watches = watches.filter(function_display__in=movement_types)
+    if strap_colors:
+        watches = watches.filter(details__strap_color__in=strap_colors)
+    if function_displays:
+        watches = watches.filter(function_display__in=function_displays)
 
     if sort_by == 'price_low_to_high':
         watches = watches.order_by('base_price')
@@ -424,15 +451,15 @@ def search_results(request):
         'categories': Category.objects.all(),
         'price_range': BaseWatch.get_price_range(),
         'colors': BaseWatch.get_unique_values('color'),
-        'strap_materials': Material.objects.filter(strap_watches__isnull=False).distinct(),
-        'movement_types': BaseWatch.get_unique_values('function_display'),
+        'strap_colors': BaseWatch.objects.values_list('details__strap_color', flat=True).distinct(),
+        'function_displays': BaseWatch.get_unique_values('function_display'),
         'selected_brands': brands,
         'selected_categories': categories,
         'selected_min_price': min_price,
         'selected_max_price': max_price,
         'selected_colors': colors,
-        'selected_strap_materials': strap_materials,
-        'selected_movement_types': movement_types,
+        'selected_strap_colors': strap_colors,
+        'selected_function_displays': function_displays,
         'sort_by': sort_by,
     }
     return render(request, 'search_results.html', context)

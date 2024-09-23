@@ -150,11 +150,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
     });
 
-    if ({{ messages }}) {
+    {% if messages %}
         {% for message in messages %}
             showCustomAlert('{{ message }}');
         {% endfor %}
-    }
+    {% endif %}
 });
 </script>
 

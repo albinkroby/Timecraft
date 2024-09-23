@@ -1,4 +1,5 @@
 from django.db import models
+from django.core.files.storage import default_storage
 from vendorapp.models import VendorProfile
 import os
 from django.utils.text import slugify
@@ -189,8 +190,10 @@ class BaseWatch(models.Model):
             new_filename = f"{slugify(self.model_name)}_primary{extension}"
             self.primary_image.name = new_filename
         self.is_in_stock = self.available_stock > 0 
+        is_new = not self.pk
+        primary_image_changed = self.primary_image_changed()
         super().save(*args, **kwargs)
-        if self.primary_image:
+        if (is_new or primary_image_changed) and self.primary_image:
             self.generate_image_feature()
 
     def generate_image_feature(self):
@@ -235,6 +238,23 @@ class BaseWatch(models.Model):
             self.save()
         else:
             raise ValueError(f"Not enough stock for {self.model_name}")
+
+    def primary_image_changed(self):
+        if not self.pk:  # New instance
+            return True
+        
+        try:
+            old_instance = BaseWatch.objects.get(pk=self.pk)
+            if old_instance.primary_image != self.primary_image:
+                # Delete old image file if it exists and is different
+                if old_instance.primary_image and old_instance.primary_image != self.primary_image:
+                    if default_storage.exists(old_instance.primary_image.path):
+                        default_storage.delete(old_instance.primary_image.path)
+                return True
+        except BaseWatch.DoesNotExist:
+            return True
+        
+        return False
 
 class ImageFeature(models.Model):
     base_watch = models.OneToOneField(BaseWatch, on_delete=models.CASCADE, related_name='image_feature')

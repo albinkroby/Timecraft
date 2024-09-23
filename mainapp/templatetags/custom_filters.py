@@ -1,4 +1,5 @@
 from django import template
+from mainapp.models import CartItem
 
 register = template.Library()
 
@@ -20,3 +21,7 @@ def multiplyfloat(value, arg):
         return float(value) * float(arg)
     except (ValueError, TypeError):
         return ''
+
+@register.filter
+def map_watch(cart_items):
+    return [item.watch for item in cart_items]

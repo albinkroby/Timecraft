@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
+{% load custom_filters %}
 
 {% block content %}
 <div class="home__container container mt-5">  
@@ -22,7 +23,13 @@
             <div class="mt-3 row text-center">
                 {% if user.is_authenticated %}
                     <div class="col-md-6">
-                        <button type="submit" class="w-100 button button--gray rounded" id="add-to-cart" data-watch-id="{{ watch.id }}">Add to Cart</button>
+                        <button type="button" class="w-100 button button--gray rounded" id="cart-button" data-watch-id="{{ watch.id }}">
+                            {% if watch in user.cart.items.all|map_watch %}
+                                Go to Cart
+                            {% else %}
+                                Add to Cart
+                            {% endif %}
+                        </button>
                     </div>
                     {% if watch.is_active and watch.available_stock > 0 %}
                     <div class="col-md-6">
@@ -318,28 +325,31 @@
     }
 
     $(document).ready(function() {
-        $('#add-to-cart').click(function() {
+        $('#cart-button').click(function() {
             var watchId = $(this).data('watch-id');
-            $.ajax({
-                url: "{% url 'mainapp:add_to_cart' 0 %}".replace('0', watchId),
-                type: 'POST',
-                headers: {'X-CSRFToken': '{{ csrf_token }}'},
-                success: function(data) {
-                    if (data.success) {
-                        showCustomAlert(data.message, 'success');
-                    } else {
-                        showCustomAlert(data.message, 'error');
+            var button = $(this);
+
+            if (button.text().trim() === 'Add to Cart') {
+                $.ajax({
+                    url: '{% url "mainapp:add_to_cart" watch_id=0 %}'.replace('0', watchId),
+                    type: 'POST',
+                    data: {
+                        'csrfmiddlewaretoken': '{{ csrf_token }}'
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            button.text('Go to Cart');
+                            showCustomAlert(response.message, 'success');
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        console.error(error);
+                        showCustomAlert('An error occurred. Please try again.', 'error');
                     }
-                },
-                error: function(xhr, status, error) {
-                    var errorMessage = 'An error occurred while adding to cart.';
-                    if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMessage = xhr.responseJSON.message;
-                    }
-                    showCustomAlert(errorMessage, 'error');
-                    console.error('Error:', error);
-                }
-            });
+                });
+            } else {
+                window.location.href = '{% url "mainapp:cart" %}';
+            }
         });
 
         $('#notify-me').click(function() {

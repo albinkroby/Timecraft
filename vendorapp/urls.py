@@ -9,6 +9,14 @@ urlpatterns = [
     path('register/step1/', views.vendor_register_step1, name='vendor_register_step1'),
     path('register/step2/', views.vendor_register_step2, name='vendor_register_step2'),
     path('onboarding/', views.vendor_onboarding, name='vendor_onboarding'),
+    path('login/', views.vendor_login, name='vendor_login'),
+    
+    path('send-verification-email/', views.vendor_send_verification_email, name='vendor_send_verification_email'),
+    path('verify-email/<uuid:token>/', views.vendor_verify_email, name='vendor_verify_email'),
+    path('check-email-status/', views.vendor_check_email_status, name='vendor_check_email_status'),
+    
+    path('profile/', views.vendor_profile, name='vendor_profile'),
+    path('change-password/', views.change_password, name='change_password'),
     
     path('validate_company_name/', views.validate_company_name, name='validate_company_name'),
     

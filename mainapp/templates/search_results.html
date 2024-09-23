@@ -36,7 +36,7 @@
                     {% endfor %}
                 </div>
                 <div class="filter-section">
-                    <h5>Price</h5>
+                    <h5>Price Range</h5>
                     <div class="range-slider">
                         <input type="range" min="{{ price_range.min_price }}" max="{{ price_range.max_price }}" value="{{ selected_max_price|default:price_range.max_price }}" class="slider" id="priceRange">
                         <p>Min: ₹<span id="minPrice">{{ selected_min_price|default:price_range.min_price }}</span> - Max: ₹<span id="maxPrice">{{ selected_max_price|default:price_range.max_price }}</span></p>
@@ -67,23 +67,23 @@
                     {% endfor %}
                 </div>
                 <div class="filter-section">
-                    <h5>Strap Material</h5>
-                    {% for material in strap_materials %}
+                    <h5>Strap Color</h5>
+                    {% for color in strap_colors %}
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="strap_material" value="{{ material }}" id="strap{{ material }}" {% if material in selected_strap_materials %}checked{% endif %}>
-                        <label class="form-check-label" for="strap{{ material }}">
-                            {{ material }}
+                        <input class="form-check-input" type="checkbox" name="strap_color" value="{{ color }}" id="strap_color{{ forloop.counter }}" {% if color in selected_strap_colors %}checked{% endif %}>
+                        <label class="form-check-label" for="strap_color{{ forloop.counter }}">
+                            {{ color }}
                         </label>
                     </div>
                     {% endfor %}
                 </div>
                 <div class="filter-section">
-                    <h5>Movement Type</h5>
-                    {% for movement in movement_types %}
+                    <h5>Function Display</h5>
+                    {% for display in function_displays %}
                     <div class="form-check">
-                        <input class="form-check-input" type="checkbox" name="movement_type" value="{{ movement }}" id="movement{{ movement }}" {% if movement in selected_movement_types %}checked{% endif %}>
-                        <label class="form-check-label" for="movement{{ movement }}">
-                            {{ movement }}
+                        <input class="form-check-input" type="checkbox" name="function_display" value="{{ display }}" id="function{{ forloop.counter }}" {% if display in selected_function_displays %}checked{% endif %}>
+                        <label class="form-check-label" for="function{{ forloop.counter }}">
+                            {{ display }}
                         </label>
                     </div>
                     {% endfor %}
@@ -183,6 +183,7 @@
     slider.oninput = function() {
         maxPrice.innerHTML = this.value;
         maxPriceInput.value = this.value;
+        document.getElementById("filter-form").submit(); // Automatically submit form
     }
 
     document.getElementById("sort_by").addEventListener("change", function() {
@@ -198,6 +199,13 @@
         form.action = `${currentUrl.pathname}?${searchParams.toString()}`;
         
         form.submit();
+    });
+
+    // Automatically submit form when a checkbox is changed
+    document.querySelectorAll('.form-check-input').forEach(input => {
+        input.addEventListener('change', function() {
+            document.getElementById("filter-form").submit();
+        });
     });
 
     // Preserve query parameters when navigating pagination

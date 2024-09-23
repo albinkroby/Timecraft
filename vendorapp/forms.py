@@ -1,5 +1,5 @@
 from django import forms
-from .models import VendorProfile
+from .models import VendorAddress, VendorProfile
 from django.contrib.auth import get_user_model
 from adminapp.models import BaseWatch, BrandApproval, Brand, WatchDetails, WatchMaterials, WatchImage
 from django.core.exceptions import ValidationError
@@ -109,6 +109,22 @@ class VendorOnboardingForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for field in self.fields:
             self.fields[field].widget.attrs.update({'class': 'form-control'})
+            
+
+class VendorProfileEditForm(forms.ModelForm):
+    class Meta:
+        model = VendorProfile
+        fields = ['contact_phone', 'description']
+        widgets = {
+            'contact_phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+
+class VendorAddressForm(forms.ModelForm):
+    class Meta:
+        model = VendorAddress
+        fields = ['address_line1', 'address_line2', 'landmark', 'city', 'state', 'postal_code']
+        widgets = {field: forms.TextInput(attrs={'class': 'form-control'}) for field in fields}
 
 # ... rest of the existing code ...
 class BrandSelectionForm(forms.Form):
@@ -138,6 +154,7 @@ class BaseWatchForm(forms.ModelForm):
             'model_name': forms.TextInput(attrs={'class': 'form-control', 'required': True}),
             'gender': forms.Select(attrs={'class': 'form-control', 'required': True}),
             'base_price': forms.NumberInput(attrs={'class': 'form-control', 'required': True}),
+            'selling_price': forms.NumberInput(attrs={'class': 'form-control', 'required': True}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'required': True}),
             'available_stock': forms.NumberInput(attrs={'class': 'form-control', 'required': True}),
             'color': forms.TextInput(attrs={'class': 'form-control', 'required': True}),

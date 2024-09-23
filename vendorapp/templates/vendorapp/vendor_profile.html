@@ -1,0 +1,63 @@
+{% extends 'vendorapp/base.html' %}
+
+{% block title %}Vendor Profile{% endblock %}
+{% block admin_content %}
+<div class="container my-5">
+    <div class="row">
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <i class='bx bx-store' style="font-size: 10rem;"></i>
+                    <h3 class="card-title">{{ vendor.company_name }}</h3>
+                    <p class="text-muted">{{ vendor.get_approval_status_display }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-8">
+            <form method="post">
+                {% csrf_token %}
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-4">Company Details</h4>
+                        <div class="row">
+                            <div class="col-sm-6 mb-3">
+                                <h6 class="text-muted">GST Number</h6>
+                                <p>{{ vendor.gst_number }}</p>
+                            </div>
+                            <div class="col-sm-6 mb-3">
+                                <h6 class="text-muted">Contact Email</h6>
+                                <p>{{ vendor.contact_email|default:"Not provided" }}</p>
+                            </div>
+                            <div class="col-sm-6 mb-3">
+                                <h6 class="text-muted">Contact Phone</h6>
+                                {{ form.contact_phone }}
+                            </div>
+                            <div class="col-sm-6 mb-3">
+                                <h6 class="text-muted">Onboarding Status</h6>
+                                <p>{% if vendor.is_onboarding_completed %}<span class="badge bg-success">Completed</span>{% else %}<span class="badge bg-warning text-dark">Pending</span>{% endif %}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-4">Company Description</h4>
+                        {{ form.description }}
+                    </div>
+                </div>
+
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-4">Company Address</h4>
+                        {{ address_form.as_p }}
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
