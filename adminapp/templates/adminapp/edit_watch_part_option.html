@@ -1,0 +1,14 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container mt-5">
+    <h2>Edit Watch Part Option: {{ option.name }}</h2>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Update Option</button>
+    </form>
+    <a href="{% url 'adminapp:edit_customizable_watch' watch.id %}" class="btn btn-secondary mt-3">Back to Edit Watch</a>
+</div>
+{% endblock %}

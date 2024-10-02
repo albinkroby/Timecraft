@@ -1,3 +1,4 @@
+from django.forms import formset_factory, inlineformset_factory
 from django.shortcuts import render,redirect,get_object_or_404
 from django.contrib.auth.decorators import login_required
 from mainapp.decorators import user_type_required
@@ -17,7 +18,10 @@ import re
 from django.db import IntegrityError
 from django.db.models import Q
 from django.views.decorators.http import require_POST
-
+from watch_customizer.models import CustomizableWatch, CustomizableWatchPart, CustomWatchOrder, CustomWatchOrderPart, WatchPart, WatchPartOption
+from watch_customizer.forms import CustomizableWatchForm, WatchPartForm, WatchPartOptionForm
+from django.forms.models import modelformset_factory
+from django.views.decorators.csrf import csrf_protect
 # Create your views here.
 User=get_user_model()
 
@@ -339,9 +343,272 @@ def change_password(request):
         # If form is not valid or custom validation failed
         errors = {field: form.errors[field] for field in form.errors}
         return JsonResponse({'success': False, 'errors': errors})
-    
     else:
         form = PasswordChangeForm(request.user)
-    
     return render(request, 'adminapp/admin_profile.html', {'form': form})
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def add_customizable_watch(request):
+    if request.method == 'POST':
+        form = CustomizableWatchForm(request.POST, request.FILES)
+        if form.is_valid():
+            watch = form.save()
+            return redirect('adminapp:add_watch_parts', watch_id=watch.id)
+    else:
+        form = CustomizableWatchForm()
+    return render(request, 'adminapp/add_customizable_watch.html', {'form': form})
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def check_watch_name(request):
+    name = request.GET.get('name', '').strip()
+    is_unique = not CustomizableWatch.objects.filter(name__iexact=name).exists()
+    return JsonResponse({'is_unique': is_unique})
+
+from django.forms import formset_factory, BaseFormSet
+from django.core.exceptions import ValidationError
+
+class BaseWatchPartFormSet(BaseFormSet):
+    def clean(self):
+        if any(self.errors):
+            return
+        part_names = []
+        for form in self.forms:
+            if form.cleaned_data:
+                part_name = form.cleaned_data.get('part_name')
+                if part_name in part_names:
+                    raise ValidationError("Each part must be unique.")
+                part_names.append(part_name)
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def add_watch_parts(request, watch_id):
+    watch = get_object_or_404(CustomizableWatch, id=watch_id)
+    WatchPartFormSet = formset_factory(WatchPartForm, formset=BaseWatchPartFormSet, extra=1, can_delete=True)
+    
+    if request.method == 'POST':
+        formset = WatchPartFormSet(request.POST, prefix='watchpart')
+        if formset.is_valid():
+            for form in formset:
+                if form.cleaned_data and not form.cleaned_data.get('DELETE', False):
+                    part = form.save(commit=False)
+                    part.save()
+                    CustomizableWatchPart.objects.create(customizable_watch=watch, part=part)
+            messages.success(request, 'Watch parts added successfully.')
+            return redirect('adminapp:add_part_options', watch_id=watch.id)
+    else:
+        formset = WatchPartFormSet(prefix='watchpart')
+    
+    return render(request, 'adminapp/add_watch_parts.html', {'formset': formset, 'watch': watch})
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def add_part_options(request, watch_id):
+    watch = get_object_or_404(CustomizableWatch, id=watch_id)
+    customizable_parts = CustomizableWatchPart.objects.filter(customizable_watch=watch)
+    
+    if request.method == 'POST':
+        all_valid = True
+        for part in customizable_parts:
+            OptionFormSet = modelformset_factory(WatchPartOption, form=WatchPartOptionForm, extra=0)
+            formset = OptionFormSet(request.POST, request.FILES, prefix=f'options_{part.id}')
+            
+            if formset.is_valid():
+                instances = formset.save(commit=False)
+                for instance in instances:
+                    instance.part = part.part
+                    instance.save()
+                part.options.add(*instances)
+            else:
+                all_valid = False
+                break
+        
+        if all_valid:
+            messages.success(request, 'Customizable watch options added successfully.')
+            return redirect('adminapp:customizable_watch_list')
+        else:
+            messages.error(request, 'There was an error adding the options. Please check the form and try again.')
+    else:
+        formsets = []
+        for part in customizable_parts:
+            OptionFormSet = modelformset_factory(WatchPartOption, form=WatchPartOptionForm, extra=1)
+            formset = OptionFormSet(queryset=WatchPartOption.objects.none(), prefix=f'options_{part.id}')
+            formsets.append((part, formset))
+    
+    return render(request, 'adminapp/add_part_options.html', {'watch': watch, 'formsets': formsets})
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def customizable_watch_list(request):
+    watches = CustomizableWatch.objects.all()
+    return render(request, 'adminapp/customizable_watch_list.html', {'watches': watches})
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def view_customizable_watch(request, watch_id):
+    watch = get_object_or_404(CustomizableWatch, id=watch_id)
+    customizable_parts = CustomizableWatchPart.objects.filter(customizable_watch=watch).prefetch_related('part', 'part__part_name', 'options')
+    
+    parts_data = []
+    for customizable_part in customizable_parts:
+        part_data = {
+            'name': customizable_part.part.part_name.name,
+            'description': customizable_part.part.description,
+            'model_path': customizable_part.part.model_path,
+            'options': []
+        }
+        for option in customizable_part.options.all():
+            option_data = {
+                'name': option.name,
+                'price': option.price,
+                'stock': option.stock,
+                'roughness': option.roughness,
+                'metalness': option.metalness,
+                'texture_url': option.texture.url if option.texture else None,
+                'thumbnail_url': option.thumbnail.url if option.thumbnail else None,
+            }
+            part_data['options'].append(option_data)
+        parts_data.append(part_data)
+
+    context = {
+        'watch': watch,
+        'parts_data': parts_data,
+    }
+    return render(request, 'adminapp/view_customizable_watch.html', context)
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def delete_customizable_watch(request, watch_id):
+    try:
+        watch = get_object_or_404(CustomizableWatch, id=watch_id)
+        watch.delete()
+        return JsonResponse({'success': True, 'message': 'Customizable watch deleted successfully.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_POST
+@csrf_protect
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def delete_watch_part(request, part_id):
+    try:
+        customizable_part = get_object_or_404(CustomizableWatchPart, id=part_id)
+        customizable_part.delete()
+        return JsonResponse({'success': True, 'message': 'Watch part deleted successfully.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@require_POST
+@csrf_protect
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def delete_watch_part_option(request, option_id):
+    try:
+        option = get_object_or_404(WatchPartOption, id=option_id)
+        option.delete()
+        return JsonResponse({'success': True, 'message': 'Watch part option deleted successfully.'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)})
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def delete_watch_part(request, part_id):
+    if request.method == 'POST':
+        customizable_part = get_object_or_404(CustomizableWatchPart, id=part_id)
+        customizable_part.delete()
+        return JsonResponse({'success': True, 'message': 'Watch part deleted successfully.'})
+    return JsonResponse({'success': False, 'message': 'Invalid request method.'})
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def delete_watch_part_option(request, option_id):
+    if request.method == 'POST':
+        option = get_object_or_404(WatchPartOption, id=option_id)
+        option.delete()
+        return JsonResponse({'success': True, 'message': 'Watch part option deleted successfully.'})
+    return JsonResponse({'success': False, 'message': 'Invalid request method.'})
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def edit_customizable_watch(request, watch_id):
+    watch = get_object_or_404(CustomizableWatch, id=watch_id)
+    customizable_parts = CustomizableWatchPart.objects.filter(customizable_watch=watch).prefetch_related('part', 'part__part_name', 'options')
+    
+    if request.method == 'POST':
+        form = CustomizableWatchForm(request.POST, request.FILES, instance=watch)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Customizable watch updated successfully.')
+            return redirect('adminapp:view_customizable_watch', watch_id=watch.id)
+    else:
+        form = CustomizableWatchForm(instance=watch)
+    
+    context = {
+        'form': form,
+        'watch': watch,
+        'customizable_parts': customizable_parts,
+    }
+    return render(request, 'adminapp/edit_customizable_watch.html', context)
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def edit_watch_part(request, part_id):
+    customizable_part = get_object_or_404(CustomizableWatchPart, id=part_id)
+    watch = customizable_part.customizable_watch
+    
+    if request.method == 'POST':
+        form = WatchPartForm(request.POST, instance=customizable_part.part)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Watch part updated successfully.')
+            return redirect('adminapp:edit_customizable_watch', watch_id=watch.id)
+    else:
+        form = WatchPartForm(instance=customizable_part.part)
+    
+    context = {
+        'form': form,
+        'customizable_part': customizable_part,
+        'watch': watch,
+    }
+    return render(request, 'adminapp/edit_watch_part.html', context)
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def edit_watch_part_option(request, option_id):
+    option = get_object_or_404(WatchPartOption, id=option_id)
+    customizable_part = CustomizableWatchPart.objects.get(options=option)
+    watch = customizable_part.customizable_watch
+    
+    if request.method == 'POST':
+        form = WatchPartOptionForm(request.POST, request.FILES, instance=option)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Watch part option updated successfully.')
+            return redirect('adminapp:edit_customizable_watch', watch_id=watch.id)
+    else:
+        form = WatchPartOptionForm(instance=option)
+    
+    context = {
+        'form': form,
+        'option': option,
+        'customizable_part': customizable_part,
+        'watch': watch,
+    }
+    return render(request, 'adminapp/edit_watch_part_option.html', context)
+
+
+
 

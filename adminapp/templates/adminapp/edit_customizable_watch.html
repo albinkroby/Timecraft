@@ -1,0 +1,235 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block admin_content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Edit Customizable Watch: {{ watch.name }}</h2>
+    <div class="row">
+        <div class="col-md-6 ">
+            <div class="card mb-4 ">
+                <div class="card-body ">
+                    <h3 class="card-title mb-4">Watch Details</h3>
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        {% for field in form %}
+                            <div class="form-group mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label fw-bold fs-4">{{ field.label }}</label>
+                                {{ field|add_class:"form-control" }}
+                                {% if field.help_text %}
+                                    <small class="form-text text-muted">{{ field.help_text }}</small>
+                                {% endif %}
+                                {% for error in field.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                        <button type="submit" class="btn btn-primary mt-3">
+                            <i class="fas fa-save mr-2"></i>Update Watch
+                        </button>
+                        <button onclick="confirmDelete('watch', {{ watch.id }})" class="btn btn-danger mt-3">Delete Watch</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div id="model-viewer" class="border-1" style="height: 400px; "></div>
+        </div>
+    </div>
+
+    <h3 class="mt-5 mb-4">Customizable Parts</h3>
+    <div class="accordion" id="partsAccordion">
+        {% for part in customizable_parts %}
+        <div class="card mb-3 border-0 shadow-sm">
+            <div class="card-header bg-white" id="heading{{ part.id }}">
+                <h5 class="mb-0 d-flex justify-content-between align-items-center">
+                    <button class="btn btn-link btn-block text-left" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ part.id }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ part.id }}">
+                        {{ part.part.part_name.name }}
+                    </button>
+                    <div>
+                        <a href="{% url 'adminapp:edit_watch_part' part.id %}" class="btn btn-sm btn-outline-secondary">Edit Part</a>
+                        <button onclick="confirmDelete('part', {{ part.id }})" class="btn btn-sm btn-outline-danger">Delete Part</button>
+                    </div>
+                </h5>
+            </div>
+            <div id="collapse{{ part.id }}" class="collapse" aria-labelledby="heading{{ part.id }}" data-parent="#partsAccordion">
+                <div class="card-body">
+                    <p><strong>Description:</strong> {{ part.part.description }}</p>
+                    <p><strong>Model Path:</strong> {{ part.part.model_path }}</p>
+                    <h5 class="mt-4">Options:</h5>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Price</th>
+                                    <th>Stock</th>
+                                    <th>Roughness</th>
+                                    <th>Metalness</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for option in part.options.all %}
+                                <tr>
+                                    <td>{{ option.name }}</td>
+                                    <td>${{ option.price }}</td>
+                                    <td>{{ option.stock }}</td>
+                                    <td>{{ option.roughness }}</td>
+                                    <td>{{ option.metalness }}</td>
+                                    <td>
+                                        <a href="{% url 'adminapp:edit_watch_part_option' option.id %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                                        <button onclick="confirmDelete('option', {{ option.id }})" class="btn btn-sm btn-outline-danger">Delete</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <a href="{% url 'adminapp:view_customizable_watch' watch.id %}" class="btn btn-secondary mt-3">Back to View</a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// 3D model viewer setup
+document.addEventListener('DOMContentLoaded', function() {
+    // Three.js setup
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);  // Set white background
+    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(600, 600);
+    document.getElementById('model-viewer').appendChild(renderer.domElement);
+
+    // Add lighting
+    function addDirectionalLights() {
+        const intensity = 3; // Adjust this value to change overall brightness
+        const positions = [
+            [0, 1, 0],   // Top
+            [-1, 1, 1],  // Top-left-front
+            [1, 1, 1],   // Top-right-front
+            [-1, 1, -1], // Top-left-back
+            [1, 1, -1],  // Top-right-back
+            [0, -1, 0],  // Bottom
+            [-1, -1, 1], // Bottom-left-front
+            [1, -1, 1],  // Bottom-right-front
+            [-1, -1, -1],// Bottom-left-back
+            [1, -1, -1]  // Bottom-right-back
+        ];
+
+        positions.forEach(pos => {
+            const light = new THREE.DirectionalLight(0xffffff, intensity);
+            light.position.set(...pos);
+            scene.add(light);
+        });
+
+        // Add an ambient light for overall illumination
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+        scene.add(ambientLight);
+    }
+
+    addDirectionalLights();
+
+    // Load the GLTF model
+    const loader = new THREE.GLTFLoader();
+    loader.load('{{ watch.model_file.url }}', function(gltf) {
+        scene.add(gltf.scene);
+        
+        // Center the model
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const center = box.getCenter(new THREE.Vector3());
+        gltf.scene.position.sub(center);
+
+        // Adjust camera position
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const fov = camera.fov * (Math.PI / 180);
+        let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+        camera.position.z = cameraZ * 1.5;
+
+        // Add OrbitControls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.25;
+        controls.enableZoom = true;
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+    }, undefined, function(error) {
+        console.error('An error occurred while loading the model:', error);
+    });
+
+    
+});
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function confirmDelete(type, id) {
+    if (confirm(`Are you sure you want to delete this ${type}?`)) {
+        let url;
+        if (type === 'watch') {
+            url = "{% url 'adminapp:delete_customizable_watch' watch.id %}";
+        } else if (type === 'part') {
+            url = `/adminapp/watch-part/${id}/delete/`;
+        } else if (type === 'option') {
+            url = `/adminapp/watch-part-option/${id}/delete/`;
+        }
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({}),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                if (type === 'watch') {
+                    window.location.href = "{% url 'adminapp:customizable_watch_list' %}";
+                } else {
+                    location.reload();
+                }
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while deleting.');
+        });
+    }
+}
+
+
+</script>
+{% endblock %}

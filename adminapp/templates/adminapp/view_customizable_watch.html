@@ -1,0 +1,165 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4 shadow-sm">
+                <div id="model-viewer" style="height: 600px; width: 600px;"></div>
+                <div class="card-body">
+                    <h2 class="card-title">{{ watch.name }}</h2>
+                    <p class="card-text">{{ watch.description }}</p>
+                    <p class="card-text"><strong>Base Price:</strong> ${{ watch.base_price }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <h3 class="mb-4">Customizable Parts</h3>
+            <div class="accordion" id="partsAccordion">
+                {% for part in parts_data %}
+                <div class="card mb-3 shadow-sm">
+                    <div class="card-header bg-transparent border-0" id="heading{{ forloop.counter }}">
+                        <h2 class="mb-0">
+                            <button class="btn btn-link btn-block text-left" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ forloop.counter }}">
+                                {{ part.name }}
+                            </button>
+                        </h2>
+                    </div>
+                    <div id="collapse{{ forloop.counter }}" class="collapse {% if forloop.first %}show{% endif %}" aria-labelledby="heading{{ forloop.counter }}" data-bs-parent="#partsAccordion">
+                        <div class="card-body">
+                            <p><strong>Description:</strong> {{ part.description }}</p>
+                            <p><strong>Model Path:</strong> <code>{{ part.model_path }}</code></p>
+                            <h5 class="mt-4">Options:</h5>
+                            <div class="row">
+                                {% for option in part.options %}
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 shadow-sm">
+                                        <div class="card-body">
+                                            <h6 class="card-title">{{ option.name }}</h6>
+                                            <p class="card-text">
+                                                Price: ${{ option.price }}<br>
+                                                Stock: {{ option.stock }}<br>
+                                                Roughness: {{ option.roughness }}<br>
+                                                Metalness: {{ option.metalness }}
+                                            </p>
+                                        </div>
+                                        {% if option.texture_url or option.thumbnail_url %}
+                                        <div class="card-footer bg-transparent border-0">
+                                            {% if option.texture_url %}
+                                            <img src="{{ option.texture_url }}" alt="Texture" class="img-thumbnail mr-2" style="width: 50px; height: 50px;">
+                                            {% endif %}
+                                            {% if option.thumbnail_url %}
+                                            <img src="{{ option.thumbnail_url }}" alt="Thumbnail" class="img-thumbnail" style="width: 50px; height: 50px;">
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="mt-4">
+        <a href="{% url 'adminapp:customizable_watch_list' %}" class="btn btn-secondary">Back to List</a>
+        <a href="{% url 'adminapp:edit_customizable_watch' watch.id %}" class="btn btn-primary">Edit Watch</a>
+        <a href="{% url 'adminapp:delete_customizable_watch' watch.id %}" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this watch?')">Delete Watch</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Three.js setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xffffff);  // Set white background
+        const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(600, 600);
+        document.getElementById('model-viewer').appendChild(renderer.domElement);
+
+        // Add lighting
+        function addDirectionalLights() {
+            const intensity = 3; // Adjust this value to change overall brightness
+            const positions = [
+                [0, 1, 0],   // Top
+                [-1, 1, 1],  // Top-left-front
+                [1, 1, 1],   // Top-right-front
+                [-1, 1, -1], // Top-left-back
+                [1, 1, -1],  // Top-right-back
+                [0, -1, 0],  // Bottom
+                [-1, -1, 1], // Bottom-left-front
+                [1, -1, 1],  // Bottom-right-front
+                [-1, -1, -1],// Bottom-left-back
+                [1, -1, -1]  // Bottom-right-back
+            ];
+
+            positions.forEach(pos => {
+                const light = new THREE.DirectionalLight(0xffffff, intensity);
+                light.position.set(...pos);
+                scene.add(light);
+            });
+
+            // Add an ambient light for overall illumination
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+        }
+
+        addDirectionalLights();
+
+        // Load the GLTF model
+        const loader = new THREE.GLTFLoader();
+        loader.load('{{ watch.model_file.url }}', function(gltf) {
+            scene.add(gltf.scene);
+            
+            // Center the model
+            const box = new THREE.Box3().setFromObject(gltf.scene);
+            const center = box.getCenter(new THREE.Vector3());
+            gltf.scene.position.sub(center);
+
+            // Adjust camera position
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const fov = camera.fov * (Math.PI / 180);
+            let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+            camera.position.z = cameraZ * 1.5;
+
+            // Add OrbitControls
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.25;
+            controls.enableZoom = true;
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+        }, undefined, function(error) {
+            console.error('An error occurred while loading the model:', error);
+        });
+
+        // Accordion functionality
+        var collapseElements = document.querySelectorAll('.collapse');
+        collapseElements.forEach(function(el) {
+            el.addEventListener('show.bs.collapse', function () {
+                this.closest('.card').querySelector('.btn-link').classList.add('text-primary');
+            });
+            el.addEventListener('hide.bs.collapse', function () {
+                this.closest('.card').querySelector('.btn-link').classList.remove('text-primary');
+            });
+        });
+    });
+</script>
+{% endblock %}

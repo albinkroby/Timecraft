@@ -1,0 +1,158 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block admin_content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Add Customizable Watch - Step 3: Part Options</h2>
+    <form method="post" enctype="multipart/form-data" id="partOptionsForm">
+        {% csrf_token %}
+        {% for part, formset in formsets %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Options for {{ part.part.part_name.name }}</h5>
+                </div>
+                <div class="card-body">
+                    {{ formset.management_form }}
+                    <div class="option-forms" data-part-id="{{ part.id }}">
+                        {% for form in formset %}
+                            <div class="option-form mb-3">
+                                {% for field in form.visible_fields %}
+                                    <div class="form-group">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+                                        {{ field|add_class:"form-control" }}
+                                        <div class="invalid-feedback"></div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <button type="button" class="btn btn-secondary add-option" data-part-id="{{ part.id }}">Add Another Option</button>
+                </div>
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Save Customizable Watch</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/additional-methods.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Custom method for unique option name within a part
+    $.validator.addMethod("uniqueOptionName", function(value, element) {
+        var isUnique = true;
+        var partId = $(element).closest('.option-forms').data('part-id');
+        $(`input[name^="options_${partId}-"][name$="-name"]`).not(element).each(function() {
+            if ($(this).val().toLowerCase() === value.toLowerCase()) {
+                isUnique = false;
+                return false;  // break the loop
+            }
+        });
+        return isUnique;
+    }, "This option name already exists for this part. Please choose a different name.");
+
+    // Form validation
+    $("#partOptionsForm").validate({
+        ignore: [],
+        errorElement: 'div',
+        errorPlacement: function(error, element) {
+            error.addClass('invalid-feedback');
+            element.closest('.form-group').append(error);
+        },
+        highlight: function(element, errorClass, validClass) {
+            $(element).addClass('is-invalid').removeClass('is-valid');
+        },
+        unhighlight: function(element, errorClass, validClass) {
+            $(element).removeClass('is-invalid').addClass('is-valid');
+        }
+    });
+
+    // Function to add validation rules to an option form
+    function addValidationToOptionForm(optionForm) {
+        optionForm.find('input[name$="-name"]').each(function() {
+            $(this).rules("add", {
+                required: true,
+                minlength: 2,
+                uniqueOptionName: true
+            });
+        });
+        optionForm.find('input[name$="-texture"]').each(function() {
+            $(this).rules("add", {
+                required: true,
+                accept: "image/*"
+            });
+        });
+        optionForm.find('input[name$="-thumbnail"]').each(function() {
+            $(this).rules("add", {
+                required: true,
+                accept: "image/*"
+            });
+        });
+        optionForm.find('input[name$="-price"]').each(function() {
+            $(this).rules("add", {
+                required: true,
+                number: true,
+                min: 0
+            });
+        });
+        optionForm.find('input[name$="-stock"]').each(function() {
+            $(this).rules("add", {
+                required: true,
+                digits: true,
+                min: 0
+            });
+        });
+        optionForm.find('input[name$="-roughness"]').each(function() {
+            $(this).rules("add", {
+                required: true,
+                number: true,
+                range: [0, 1]
+            });
+        });
+        optionForm.find('input[name$="-metalness"]').each(function() {
+            $(this).rules("add", {
+                required: true,
+                number: true,
+                range: [0, 1]
+            });
+        });
+    }
+
+    // Add validation to initial option forms
+    $('.option-form').each(function() {
+        addValidationToOptionForm($(this));
+    });
+
+    // Add option button functionality
+    $(".add-option").click(function() {
+        var partId = $(this).data('part-id');
+        var optionForms = $(`.option-forms[data-part-id="${partId}"]`);
+        var formCount = optionForms.children('.option-form').length;
+        var newForm = optionForms.children('.option-form:first').clone(true);
+        
+        newForm.find('input, select, textarea').each(function() {
+            var oldName = $(this).attr('name');
+            var newName = oldName.replace('-0-', '-' + formCount + '-');
+            $(this).attr('name', newName).attr('id', newName).val('');
+        });
+        
+        newForm.find('label').each(function() {
+            var oldFor = $(this).attr('for');
+            var newFor = oldFor.replace('-0-', '-' + formCount + '-');
+            $(this).attr('for', newFor);
+        });
+        
+        optionForms.append(newForm);
+        addValidationToOptionForm(newForm);
+        
+        // Update total form count
+        var totalForms = optionForms.siblings(`input[name$=TOTAL_FORMS]`);
+        totalForms.val(parseInt(totalForms.val()) + 1);
+    });
+});
+</script>
+{% endblock %}

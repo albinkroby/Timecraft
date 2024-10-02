@@ -1,0 +1,134 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block admin_content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Add Customizable Watch - Step 2: Select Watch Parts</h2>
+    <form method="post" id="watchPartsForm">
+        {% csrf_token %}
+        {{ formset.management_form }}
+        {% if formset.non_form_errors %}
+            <div class="alert alert-danger">
+                {{ formset.non_form_errors }}
+            </div>
+        {% endif %}
+        <div id="part-forms">
+            {% for form in formset %}
+                <div class="card mb-3 part-form">
+                    <div class="card-body">
+                        {% for hidden in form.hidden_fields %}
+                            {{ hidden }}
+                        {% endfor %}
+                        <div class="form-group mb-3">
+                            <label for="{{ form.part_name.id_for_label }}">Select Watch Part</label>
+                            {{ form.part_name|add_class:"form-control" }}
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="{{ form.description.id_for_label }}">Description</label>
+                            {{ form.description|add_class:"form-control" }}
+                            <div class="invalid-feedback"></div>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="{{ form.model_path.id_for_label }}">Model Path</label>
+                            {{ form.model_path|add_class:"form-control" }}
+                            <div class="invalid-feedback"></div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        <button type="button" id="add-part" class="btn btn-secondary mb-3">Add Another Part</button>
+        <button type="submit" class="btn btn-primary">Next: Add Options</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/jquery.validation/1.16.0/jquery.validate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/jquery.validation/1.16.0/additional-methods.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Form validation
+    $("#watchPartsForm").validate({
+        ignore: [],
+        errorElement: 'div',
+        errorClass: 'invalid-feedback',
+        errorPlacement: function(error, element) {
+            error.insertAfter(element);
+        },
+        highlight: function(element) {
+            $(element).addClass('is-invalid').removeClass('is-valid');
+        },
+        unhighlight: function(element) {
+            $(element).addClass('is-valid').removeClass('is-invalid');
+        },
+        rules: {
+            'watchpart-0-part_name': {
+                required: true
+            },
+            'watchpart-0-description': {
+                required: true
+            },
+            'watchpart-0-model_path': {
+                required: true
+            }
+        },
+        messages: {
+            'watchpart-0-part_name': {
+                required: "Please select a watch part"
+            },
+            'watchpart-0-description': {
+                required: "Please enter a description"
+            },
+            'watchpart-0-model_path': {
+                required: "Please enter a model path"
+            }
+        }
+    });
+
+    // Add new part form
+    $("#add-part").click(function() {
+        var form_idx = $('#id_watchpart-TOTAL_FORMS').val();
+        var newForm = $('.part-form:first').clone(true);
+        newForm.find(':input').val('').attr('name', function(index, name) {
+            return name.replace('-0-', '-' + form_idx + '-');
+        }).attr('id', function(index, id) {
+            return id.replace('-0-', '-' + form_idx + '-');
+        });
+        newForm.find('label').attr('for', function(index, name) {
+            return name.replace('-0-', '-' + form_idx + '-');
+        });
+        newForm.find('.invalid-feedback').empty();
+        newForm.find('.is-invalid, .is-valid').removeClass('is-invalid is-valid');
+        $('#part-forms').append(newForm);
+        $('#id_watchpart-TOTAL_FORMS').val(parseInt(form_idx) + 1);
+
+        // Add validation rules for the new form
+        $("#watchPartsForm").validate().settings.rules['watchpart-' + form_idx + '-part_name'] = {required: true};
+        $("#watchPartsForm").validate().settings.rules['watchpart-' + form_idx + '-description'] = {required: true};
+        $("#watchPartsForm").validate().settings.rules['watchpart-' + form_idx + '-model_path'] = {required: true};
+
+        $("#watchPartsForm").validate().settings.messages['watchpart-' + form_idx + '-part_name'] = {required: "Please select a watch part"};
+        $("#watchPartsForm").validate().settings.messages['watchpart-' + form_idx + '-description'] = {required: "Please enter a description"};
+        $("#watchPartsForm").validate().settings.messages['watchpart-' + form_idx + '-model_path'] = {required: "Please enter a model path"};
+    });
+
+    // Custom validation method for unique part names
+    $.validator.addMethod("uniquePartNames", function(value, element) {
+        var partNames = [];
+        $('select[name$="-part_name"]').each(function() {
+            if ($(this).val()) {
+                partNames.push($(this).val());
+            }
+        });
+        return new Set(partNames).size === partNames.length;
+    }, "Each part must be unique");
+
+    // Add the custom validation method to the form
+    $("#watchPartsForm").validate().settings.rules['watchpart-0-part_name']['uniquePartNames'] = true;
+});
+</script>
+{% endblock %}

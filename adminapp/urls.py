@@ -35,5 +35,19 @@ urlpatterns = [
     path('materials/add/', views.add_material, name='add_material'),
     path('materials/edit/<int:material_id>/', views.edit_material, name='edit_material'),
     path('materials/toggle/<int:material_id>/', views.toggle_material, name='toggle_material'),
+    
+    path('add-customizable-watch/', views.add_customizable_watch, name='add_customizable_watch'),
+    path('check-watch-name/', views.check_watch_name, name='check_watch_name'),
+    path('customizable-watches/', views.customizable_watch_list, name='customizable_watch_list'),
+    path('customizable-watches/<int:watch_id>/', views.view_customizable_watch, name='view_customizable_watch'),
+    path('add-watch-parts/<int:watch_id>/', views.add_watch_parts, name='add_watch_parts'),
+    path('add-part-options/<int:watch_id>/', views.add_part_options, name='add_part_options'),
+    
+    path('customizable-watch/<int:watch_id>/edit/', views.edit_customizable_watch, name='edit_customizable_watch'),
+    path('watch-part/<int:part_id>/edit/', views.edit_watch_part, name='edit_watch_part'),
+    path('watch-part-option/<int:option_id>/edit/', views.edit_watch_part_option, name='edit_watch_part_option'),
+     path('customizable-watch/<int:watch_id>/delete/', views.delete_customizable_watch, name='delete_customizable_watch'),
+    path('watch-part/<int:part_id>/delete/', views.delete_watch_part, name='delete_watch_part'),
+    path('watch-part-option/<int:option_id>/delete/', views.delete_watch_part_option, name='delete_watch_part_option'),
 ]
 
