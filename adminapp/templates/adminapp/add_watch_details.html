@@ -1,0 +1,115 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+{% load widget_tweaks %}
+
+{% block admin_content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Add Watch Details</h2>
+    <form method="post" enctype="multipart/form-data" id="watchDetailsForm">
+        {% csrf_token %}
+        <div class="card border-0">
+            <div class="card-body">
+                {% for field in form %}
+                    <div class="form-group mb-3">
+                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {% if field.name == 'thumbnail' %}
+                            <div class="custom-file">
+                                {{ field|add_class:"custom-file-input" }}
+                            </div>
+                            <div class="mt-2">
+                                <img id="{{ field.name }}_preview" src="#" alt="Preview" style="max-width: 200px; max-height: 200px; display: none;">
+                            </div>
+                        {% else %}
+                            {{ field|add_class:"form-control" }}
+                        {% endif %}
+                        <div class="invalid-feedback">
+                            {{ field.errors }}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+        <input type="hidden" name="model_path" value="{{ model_path }}">
+        <button type="submit" class="btn btn-primary mt-3">Save Watch</button>
+    </form>
+</div>
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Custom file input for thumbnail
+    $('.custom-file-input').on('change', function(e) {
+        let fileName = $(this).val().split('\\').pop();
+        $(this).next('.custom-file-label').addClass("selected").html(fileName);
+        
+        // Preview thumbnail
+        if (this.files && this.files[0]) {
+            let reader = new FileReader();
+            let preview = $('#thumbnail_preview');
+            
+            reader.onload = function(e) {
+                preview.attr('src', e.target.result);
+                preview.show();
+            }
+            
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+
+    // Form validation
+    $("#watchDetailsForm").validate({
+        rules: {
+            name: {
+                required: true,
+                minlength: 3
+            },
+            description: {
+                required: true,
+                minlength: 10
+            },
+            base_price: {
+                required: true,
+                number: true,
+                min: 0
+            },
+            thumbnail: {
+                required: true,
+                extension: "png|jpg|jpeg"
+            }
+        },
+        messages: {
+            name: {
+                required: "Please enter a name for the watch",
+                minlength: "Name must be at least 3 characters long"
+            },
+            description: {
+                required: "Please enter a description",
+                minlength: "Description must be at least 10 characters long"
+            },
+            base_price: {
+                required: "Please enter a base price",
+                number: "Please enter a valid number",
+                min: "Base price must be 0 or greater"
+            },
+            thumbnail: {
+                required: "Please upload a thumbnail image",
+                extension: "Please upload a valid PNG, JPG, or JPEG file"
+            }
+        },
+        errorElement: 'div',
+        errorPlacement: function(error, element) {
+            error.addClass('invalid-feedback');
+            element.closest('.form-group').append(error);
+        },
+        highlight: function(element, errorClass, validClass) {
+            $(element).addClass('is-invalid').removeClass('is-valid');
+        },
+        unhighlight: function(element, errorClass, validClass) {
+            $(element).removeClass('is-invalid').addClass('is-valid');
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

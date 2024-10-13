@@ -15,13 +15,13 @@
         </thead>
         <tbody>
             {% for watch in watches %}
-            <tr>
+            <tr id="watch-row-{{ watch.id }}">
                 <td>{{ watch.name }}</td>
                 <td>${{ watch.base_price }}</td>
                 <td>
                     <a href="{% url 'adminapp:view_customizable_watch' watch.id %}" class="btn btn-info btn-sm">View</a>
                     <a href="{% url 'adminapp:edit_customizable_watch' watch.id %}" class="btn btn-primary btn-sm">Edit Watch</a>
-                    <a href="{% url 'adminapp:delete_customizable_watch' watch.id %}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this watch?')">Delete Watch</a>
+                    <button class="btn btn-danger btn-sm delete-watch" data-watch-id="{{ watch.id }}">Delete Watch</button>
                 </td>
             </tr>
             {% empty %}
@@ -32,4 +32,33 @@
         </tbody>
     </table>
 </div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+    $('.delete-watch').click(function() {
+        var watchId = $(this).data('watch-id');
+        if (confirm('Are you sure you want to delete this watch?')) {
+            $.ajax({
+                url: '{% url "adminapp:delete_customizable_watch" 0 %}'.replace('0', watchId),
+                type: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $('#watch-row-' + watchId).remove();
+                        showCustomAlert(response.message);
+                    } else {
+                        showCustomAlert('Error: ' + response.message);
+                    }
+                },
+                error: function() {
+                    showCustomAlert('An error occurred while trying to delete the watch.');
+                }
+            });
+        }
+    });
+});
+</script>
 {% endblock %}

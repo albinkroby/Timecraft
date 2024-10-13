@@ -36,7 +36,7 @@ class CustomizableWatch(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
     base_price = models.DecimalField(max_digits=10, decimal_places=2)
-    model_file = models.FileField(upload_to='custom_watch_models/', help_text="3D model file (e.g., GLTF)")
+    model_file = models.FileField(upload_to='custom_watch_models/', help_text="ZIP file containing the 3D model (GLTF/GLB) and associated files")
     thumbnail = models.ImageField(upload_to='custom_watch_thumbnails/', null=True, blank=True)
 
     def __str__(self):
@@ -83,3 +83,14 @@ class CustomWatchOrderPart(models.Model):
 
     def __str__(self):
         return f"{self.order} - {self.part.name}: {self.selected_option.name}"
+
+class CustomWatchSavedDesign(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    customizable_watch = models.ForeignKey(CustomizableWatch, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100, unique=True)
+    design_data = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s design: {self.name}"

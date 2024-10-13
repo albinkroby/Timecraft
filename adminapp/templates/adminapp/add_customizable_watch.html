@@ -1,39 +1,58 @@
 {% extends "adminapp/base.html" %}
 {% load static %}
 {% load widget_tweaks %}
+
 {% block admin_content %}
 <div class="container mt-5">
-    <h2 class="mb-4">Add Customizable Watch - Step 1: Watch Details</h2>
-    <form method="post" enctype="multipart/form-data" id="customizableWatchForm">
-        {% csrf_token %}
-        <div class="card border-0">
-            <div class="card-body">
-                {% for field in form %}
-                    <div class="form-group mb-3">
-                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                        {% if field.name == 'model_file' or field.name == 'thumbnail' %}
-                            <div class="custom-file">
-                                {{ field|add_class:"custom-file-input" }}
+    <h2 class="mb-4 text-center">Upload a new model</h2>
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <form method="post" enctype="multipart/form-data" id="modelUploadForm">
+                {% csrf_token %}
+                
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <h4>Form Errors:</h4>
+                    <ul>
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li>{{ field }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <div class="card border-dashed">
+                    <div class="card-body text-center p-5">
+                        <div class="upload-area" id="uploadArea">
+                            <i class="fas fa-cloud-upload-alt fa-3x mb-3"></i>
+                            <h4>Drag & Drop or browse</h4>
+                            <p class="text-muted">
+                                We support GLTF and GLB file formats.
+                            </p>
+                            <p class="text-muted">
+                                You can also upload a ZIP archive containing your GLTF/GLB file along with any associated textures and materials.
+                            </p>
+                            <p class="text-muted">
+                                If you need help preparing your files, please <a href="#" class="text-primary">refer to our guide</a> on exporting GLTF/GLB models.
+                            </p>
+                            <div class="mt-4">
+                                {{ form.model_file }}
                             </div>
-                            <div class="mt-2">
-                                <img id="{{ field.name }}_preview" src="#" alt="Preview" style="max-width: 200px; max-height: 200px; display: none;">
-                            </div>
-                            <div class="invalid-feedback">
-                                {{ field.errors }}
-                            </div>
-                        {% else %}
-                            {{ field|add_class:"form-control" }}
-                            <div class="invalid-feedback">
-                                {{ field.errors }}
-                            </div>
-                        {% endif %}
-                        
+                        </div>
+                        <div class="invalid-feedback d-block">
+                            {{ form.model_file.errors }}
+                        </div>
                     </div>
-                {% endfor %}
-            </div>
+                </div>
+                <div class="text-center mt-3">
+                    <button type="button" class="btn btn-outline-primary" id="cancelButton">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitButton">Upload</button>
+                </div>
+            </form>
         </div>
-        <button type="submit" class="btn btn-primary mt-3">Next: Add Parts</button>
-    </form>
+    </div>
 </div>
 
 {% block extra_js %}
@@ -42,112 +61,40 @@
 <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/additional-methods.min.js"></script>
 <script>
 $(document).ready(function() {
-    // Custom file input
-    $('.custom-file-input').on('change', function(e) {
-        e.preventDefault();  // Prevent form submission
-        let fileName = $(this).val().split('\\').pop();
-        $(this).next('.custom-file-label').addClass("selected").html(fileName);
-        
-        // Preview image
-        if (this.files && this.files[0]) {
-            let reader = new FileReader();
-            let preview = $(`#${this.name}_preview`);
-            
-            reader.onload = function(e) {
-                preview.attr('src', e.target.result);
-                preview.show();
-            }
-            
-            reader.readAsDataURL(this.files[0]);
+    const uploadArea = $('#uploadArea');
+    const fileInput = $('input[type="file"]');
+    const submitButton = $('#submitButton');
+    const cancelButton = $('#cancelButton');
+    const form = $('#modelUploadForm');
+
+    fileInput.on('change', function(e) {
+        console.log('File selected:', this.files[0]);
+        if (this.files[0]) {
+            submitButton.prop('disabled', false);
+        } else {
+            submitButton.prop('disabled', true);
         }
     });
 
-    // Add custom method for unique name validation
-    $.validator.addMethod("uniqueName", function(value, element) {
-        var isUnique = false;
-        $.ajax({
-            url: "{% url 'adminapp:check_watch_name' %}",  // You'll need to create this URL
-            type: "GET",
-            async: false,
-            data: { name: value },
-            success: function(response) {
-                isUnique = response.is_unique;
-            }
-        });
-        return isUnique;
-    }, "This watch name already exists. Please choose a different name.");
-
-    // Form validation
-    $("#customizableWatchForm").validate({
-        rules: {
-            name: {
-                required: true,
-                minlength: 3,
-                uniqueName: true
-            },
-            description: {
-                required: true,
-                minlength: 10
-            },
-            base_price: {
-                required: true,
-                number: true,
-                min: 0
-            },
-            model_file: {
-                required: true,
-                extension: "gltf|glb"
-            },
-            thumbnail: {
-                required: true,
-                extension: "png|jpg|jpeg"
-            }
-        },
-        messages: {
-            name: {
-                required: "Please enter a name for the watch",
-                minlength: "Name must be at least 3 characters long",
-                uniqueName: "This watch name already exists. Please choose a different name."
-            },
-            description: {
-                required: "Please enter a description",
-                minlength: "Description must be at least 10 characters long"
-            },
-            base_price: {
-                required: "Please enter a base price",
-                number: "Please enter a valid number",
-                min: "Base price must be 0 or greater"
-            },
-            model_file: {
-                required: "Please upload a 3D model file",
-                extension: "Please upload a valid GLTF or GLB file"
-            },
-            thumbnail: {
-                required: "Please upload a thumbnail image",
-                extension: "Please upload a valid PNG, JPG, or JPEG file"
-            }
-        },
-        errorElement: 'div',
-        errorPlacement: function(error, element) {
-            error.addClass('invalid-feedback');
-            element.closest('.form-group').append(error);
-        },
-        highlight: function(element, errorClass, validClass) {
-            $(element).addClass('is-invalid').removeClass('is-valid');
-        },
-        unhighlight: function(element, errorClass, validClass) {
-            $(element).removeClass('is-invalid').addClass('is-valid');
-        }
+    form.on('submit', function(e) {
+        console.log('Form submitted');
+        console.log('File input value:', fileInput.val());
+        console.log('File selected:', fileInput[0].files[0]);
     });
 
-    // Custom submit handler
-    $("#customizableWatchForm").on('submit', function(e) {
-        e.preventDefault();  // Prevent default form submission
-        if ($("#customizableWatchForm").valid()) {
-            this.submit();  // If form is valid, submit it
-        }
-    });
+    // ... (rest of your JavaScript code)
 });
 </script>
 {% endblock %}
+
+<style>
+.border-dashed {
+    border: 2px dashed #ccc;
+    border-radius: 5px;
+}
+.drag-over {
+    background-color: #f8f9fa;
+    border-color: #007bff;
+}
+</style>
 {% endblock %}

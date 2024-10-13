@@ -37,6 +37,7 @@ urlpatterns = [
     path('materials/toggle/<int:material_id>/', views.toggle_material, name='toggle_material'),
     
     path('add-customizable-watch/', views.add_customizable_watch, name='add_customizable_watch'),
+    path('add-watch-details/<path:model_path>/', views.add_watch_details, name='add_watch_details'),
     path('check-watch-name/', views.check_watch_name, name='check_watch_name'),
     path('customizable-watches/', views.customizable_watch_list, name='customizable_watch_list'),
     path('customizable-watches/<int:watch_id>/', views.view_customizable_watch, name='view_customizable_watch'),
@@ -50,4 +51,3 @@ urlpatterns = [
     path('watch-part/<int:part_id>/delete/', views.delete_watch_part, name='delete_watch_part'),
     path('watch-part-option/<int:option_id>/delete/', views.delete_watch_part_option, name='delete_watch_part_option'),
 ]
-

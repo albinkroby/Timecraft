@@ -17,15 +17,12 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                             <li><a class="dropdown-item" href="{% url 'userapp:profile' %}"><i class='bx bx-user'></i> Profile</a></li>
-                            <li><a class="dropdown-item" href="{% url 'userapp:wishlist' %}"><i class='bx bx-heart'></i> Wishlist</a></li>
-                            <li><a class="dropdown-item" href="{% url 'userapp:my_orders' %}"><i class='bx bx-folder' ></i> My Orders</a></li>
-                            {% if user.role == 'vendor' %}  
-                                <li><a class="dropdown-item" href="{% url 'vendorapp:index' %}"><i class='bx bx-user'></i> Seller Dashboard</a></li>
-                            {% endif %}
+                            <li><a class="dropdown-item" href="{% url 'watch_customizer:saved_designs' %}"><i class='bx bx-save'></i> My Designs</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'mainapp:logout' %}"><i class='bx bx-log-out'></i> Logout</a></li>
                         </ul>
-                        </div>              
+                        </div>           
+                        <button id="saveDesignBtn" class="ms-3 btn btn-first-1">Save Design</button>   
                     {% else %}
                         <a class="nav-link" href="{% url 'mainapp:login' %}">LOGIN</a>
                     {% endif %}
@@ -36,43 +33,24 @@
         <!-- Add this section after the navbar -->
         <div class="d-flex justify-content-between align-items-center">
             <div id="partSelector" class="btn-group" role="group" aria-label="Part selector">
-                <button type="button" class="btn" onclick="showCustomizationOptions('strap'); setActiveButton(this)">Strap</button>
-                <button type="button" class="btn" onclick="showCustomizationOptions('bezel'); setActiveButton(this)">Bezel</button>
-                <button type="button" class="btn" onclick="showCustomizationOptions('base'); setActiveButton(this)">Dial</button>
+                {% for customizable_part in customizable_parts %}
+                    <button type="button" class="btn" onclick="showCustomizationOptions('{{ customizable_part.part.part_name.name|lower }}'); setActiveButton(this)">{{ customizable_part.part.part_name.name }}</button>
+                {% endfor %}
             </div>
         </div>
 
         <div class="d-flex justify-content-between mt-5 px-3">            
-            <div id="textureButtons" class="d-flex flex-column align-items-start">
-                <div id="strapOptions" class="btn-group-vertical" role="group" aria-label="Strap options" style="display: none;">
-                    <input type="checkbox" class="btn-check" id="btnCheck6" autocomplete="off" onchange="changeMaterial('{% static "3d_model/textures/Color 1.png" %}', 'Sketchfab_model>root>GLTF_SceneRootNode>STRAP_-_PARENT_29>Strap_Merged002_27>Object_64', 0.2, 0.8, this.checked)">
-                    <label class="btn btn-outline-primary d-flex align-items-center" for="btnCheck6">
-                        <img src="{% static '3d_model/textures/Color 1.png' %}" alt="Strap 1 Texture" class="me-2" style="width: 30px; height: 30px;">
-                        Apply Texture to Strap 1
-                    </label>
-                    
-                    <input type="checkbox" class="btn-check" id="btnCheck7" autocomplete="off" onchange="changeMaterial('{% static "3d_model/textures/Base_baseColor.jpg" %}', 'Sketchfab_model>root>GLTF_SceneRootNode>STRAP_-_PARENT_29>Strap_Merged002_27>Object_65', 0.2, 0.8, this.checked)">
-                    <label class="btn btn-outline-primary d-flex align-items-center" for="btnCheck7">
-                        <img src="{% static '3d_model/textures/Base_baseColor.jpg' %}" alt="Strap 2 Texture" class="me-2" style="width: 30px; height: 30px;">
-                        Apply Texture to Strap 2
-                    </label>
-                </div>
-                
-                <div id="bezelOptions" class="btn-group-vertical" role="group" aria-label="Bezel options" style="display: none;">
-                    <input type="checkbox" class="btn-check" id="btnCheck5" autocomplete="off" onchange="changeMaterial('{% static "3d_model/textures/Base_baseColor.jpg" %}', 'Sketchfab_model>root>GLTF_SceneRootNode>CASE_10>BEZEL_2>Object_6', 0.2, 0.8, this.checked)">
-                    <label class="btn btn-outline-primary d-flex align-items-center" for="btnCheck5">
-                        <img src="{% static '3d_model/textures/Base_baseColor.jpg' %}" alt="Bezel Texture" class="me-2" style="width: 30px; height: 30px;">
-                        Apply Texture to Bezel
-                    </label>
-                </div>
-                
-                <div id="baseOptions" class="btn-group-vertical" role="group" aria-label="Base options" style="display: none;">
-                    <input type="checkbox" class="btn-check" id="btnCheck4" autocomplete="off" onchange="changeMaterial('{% static "3d_model/textures/Base_baseColor.jpg" %}', 'Sketchfab_model>root>GLTF_SceneRootNode>Base002_23>Object_54', 0.2, 0.8, this.checked)">
-                    <label class="btn btn-outline-primary d-flex align-items-center" for="btnCheck4">
-                        <img src="{% static '3d_model/textures/Base_baseColor.jpg' %}" alt="Base Texture" class="me-2" style="width: 30px; height: 30px;">
-                        Apply Texture to Base
-                    </label>
-                </div>
+            <div id="textureButtons" class="ps-4 d-flex flex-column align-items-start">
+                {% for customizable_part in customizable_parts %}
+                    <div id="{{ customizable_part.part.part_name.name|lower }}Options" class="btn-group-vertical" role="group" aria-label="{{ customizable_part.part.part_name.name }} options" style="display: none;">
+                        {% for option in customizable_part.options.all %}
+                            <input type="checkbox" class="btn-check" id="btnCheck{{ option.id }}" autocomplete="off" onchange="changeMaterial('{{ option.texture.url }}', '{{ customizable_part.part.model_path }}', {{ option.roughness }}, {{ option.metalness }}, this.checked)">
+                            <label class="btn btn-custom d-flex align-items-center" for="btnCheck{{ option.id }}">
+                                <img src="{{ option.thumbnail.url }}" alt="{{ option.name }} Texture" class="" style="width: 100px; height: 100px;">
+                            </label>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
             </div>
             <div id="viewSelector" class="btn-group d-flex flex-column align-items-end" role="group" aria-label="View selector">
                 <button type="button" class="btn btn-outline-secondary" onclick="changeView('front')">Front</button>
@@ -84,6 +62,25 @@
         </div>
             
     </div>
+</div>
+
+<!-- Save Design Modal -->
+<div class="modal fade" id="saveDesignModal" tabindex="-1" aria-labelledby="saveDesignModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="saveDesignModalLabel">Save Your Design</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="designName" class="form-control" placeholder="Enter design name">
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" id="confirmSaveDesign">Save Design</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script type="module">
@@ -167,7 +164,9 @@
 
     function loadModel() {
         const loader = new GLTFLoader();
-        loader.load('{% static "3d_model/model2.gltf" %}', function (gltf) {
+        const modelUrl = '{{ customizable_watch.model_file.url }}';
+        console.log('Loading model from:', modelUrl);  // Add this line for debugging
+        loader.load(modelUrl, function (gltf) {
             model = gltf.scene;
             model.scale.set(7, 7, 7);
 
@@ -192,26 +191,36 @@
     }
 
     window.showCustomizationOptions = function(part) {
+        // Get all option divs
+        var optionDivs = document.querySelectorAll('[id$="Options"]');
+        
         // Hide all customization options
-        document.getElementById('strapOptions').style.display = 'none';
-        document.getElementById('bezelOptions').style.display = 'none';
-        document.getElementById('baseOptions').style.display = 'none';
+        optionDivs.forEach(function(div) {
+            div.style.display = 'none';
+        });
 
         // Show the selected part's customization options
-        document.getElementById(part + 'Options').style.display = 'block';
+        var selectedOptionDiv = document.getElementById(part + 'Options');
+        if (selectedOptionDiv) {
+            selectedOptionDiv.style.display = 'block';
+        } else {
+            console.warn('Options div not found for part:', part);
+        }
 
         // Adjust camera and model position based on the selected part
         switch(part) {
-            case 'base':
+            case 'dial':
                 changeView('front');
                 break;
-            case 'bezel':
+            case 'case':
                 changeView('front');
                 model.rotation.set(-0.47, -0.38, 0);
                 break;
             case 'strap':
                 changeView('left');
                 break;
+            default:
+                console.warn('Unknown part:', part);
         }
 
         // Update camera and controls
@@ -314,6 +323,35 @@
         renderer.setSize(container.clientWidth, container.clientHeight);
     }
 
+    // Add this function to apply the saved design
+    function applySavedDesign(designData) {
+        console.log("Applying saved design:", designData);
+        for (const [partName, optionId] of Object.entries(designData)) {
+            console.log(`Applying ${partName}: ${optionId}`);
+            const checkbox = document.getElementById(optionId);
+            if (checkbox) {
+                checkbox.checked = true;
+                console.log(`Checkbox ${optionId} checked`);
+                // Trigger the change event
+                const event = new Event('change');
+                checkbox.dispatchEvent(event);
+                console.log(`Change event dispatched for ${optionId}`);
+            } else {
+                console.warn(`Checkbox not found for ${partName}: ${optionId}`);
+            }
+        }
+    }
+
+    // Add this at the end of your script
+    {% if saved_design %}
+        console.log("Saved design found:", {{ saved_design.design_data|safe }});
+        const savedDesignData = {{ saved_design.design_data|safe }};
+        // Delay the application of the saved design to ensure all elements are loaded
+        setTimeout(() => applySavedDesign(savedDesignData), 1000);
+    {% else %}
+        console.log("No saved design found");
+    {% endif %}
+
     init();
 </script>
 <script>
@@ -325,6 +363,66 @@
         // Add 'active' class to the clicked button
         clickedButton.classList.add('active');
     }
+
+    document.getElementById('saveDesignBtn').addEventListener('click', function() {
+        var modal = new bootstrap.Modal(document.getElementById('saveDesignModal'));
+        modal.show();
+    });
+
+    let savedDesignId = null;
+
+    document.getElementById('confirmSaveDesign').addEventListener('click', function() {
+        var designName = document.getElementById('designName').value;
+        var designData = getDesignData();
+        
+        var url = savedDesignId ? 
+            `{% url 'watch_customizer:save_design' %}${savedDesignId}/` :
+            '{% url 'watch_customizer:save_design' %}';
+
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                name: designName,
+                design_data: designData,
+                watch_id: {{ customizable_watch.id }}
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showCustomAlert(savedDesignId ? 'Design updated successfully!' : 'Design saved successfully!', 'success');
+                savedDesignId = data.design_id;
+                bootstrap.Modal.getInstance(document.getElementById('saveDesignModal')).hide();
+            } else {
+                showCustomAlert(data.message, 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showCustomAlert('An error occurred while saving the design.', 'error');
+        });
+    });
+
+    function getDesignData() {
+        var designData = {};
+        document.querySelectorAll('[id$="Options"] input:checked').forEach(function(checkbox) {
+            var partName = checkbox.closest('[id$="Options"]').id.replace('Options', '');
+            designData[partName] = checkbox.id;
+        });
+        console.log("Current design data:", designData);
+        return designData;
+    }
+
+    // If there's a saved design, populate the design name input and set the savedDesignId
+    {% if saved_design %}
+        console.log("Setting design name:", "{{ saved_design.name }}");
+        document.getElementById('designName').value = "{{ saved_design.name }}";
+        savedDesignId = {{ saved_design.id }};
+    {% endif %}
 </script>
 <style>
     .navbar-brand, .nav-link{
@@ -415,6 +513,30 @@
         padding: 10px;
         font-family: monospace;
         z-index: 10;
+    }
+
+    .btn-check:checked+.btn-custom, .btn-check:active+.btn-custom, .btn-check:hover+.btn-custom{
+        background-color: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid var(--first-color);
+    }
+
+    .btn-custom{
+        background-color: transparent;
+        border: 1px solid transparent;
+    }
+
+    .btn-first-1{
+        padding: 10px 20px;
+        background-color: var(--first-color);
+        color: #fff;
+    }
+
+    .btn-first-1:hover{
+        background-color: transparent;
+        border: 1px solid var(--first-color);
+        color: var(--first-color);
     }
 
     #partSelector {

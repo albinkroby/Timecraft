@@ -19,9 +19,11 @@ from django.db import IntegrityError
 from django.db.models import Q
 from django.views.decorators.http import require_POST
 from watch_customizer.models import CustomizableWatch, CustomizableWatchPart, CustomWatchOrder, CustomWatchOrderPart, WatchPart, WatchPartOption
-from watch_customizer.forms import CustomizableWatchForm, WatchPartForm, WatchPartOptionForm
+from watch_customizer.forms import CustomizableWatchForm, WatchPartForm, WatchPartOptionForm, ModelUploadForm
 from django.forms.models import modelformset_factory
 from django.views.decorators.csrf import csrf_protect
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
 # Create your views here.
 User=get_user_model()
 
@@ -347,18 +349,93 @@ def change_password(request):
         form = PasswordChangeForm(request.user)
     return render(request, 'adminapp/admin_profile.html', {'form': form})
 
+# ... (previous imports)
+import zipfile
+import os
+from django.conf import settings
+
+import logging
+from django.utils import timezone
+from django.urls import reverse
+from datetime import datetime
+
+logger = logging.getLogger(__name__)
+
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def add_customizable_watch(request):
     if request.method == 'POST':
+        logger.debug(f"POST data: {request.POST}")
+        logger.debug(f"FILES data: {request.FILES}")
+        
+        form = ModelUploadForm(request.POST, request.FILES)
+        if form.is_valid():
+            try:
+                model_file = form.cleaned_data['model_file']
+                logger.debug(f"Cleaned data: {form.cleaned_data}")
+                logger.debug(f"Model file name: {model_file.name}")
+                logger.debug(f"Model file size: {model_file.size}")
+                
+                if not model_file.name:
+                    raise ValueError("File name is empty")
+                
+                # Create a unique folder name using timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                folder_name = f"custom_watch_models/model_{timestamp}"
+                
+                file_extension = os.path.splitext(model_file.name)[1].lower()
+                main_file_path = None
+                
+                if file_extension == '.zip':
+                    # Handle ZIP file
+                    with zipfile.ZipFile(model_file) as zf:
+                        for file_info in zf.infolist():
+                            if file_info.filename.endswith('/'):  # Skip directories
+                                continue
+                            file_name = os.path.basename(file_info.filename)  # Get only the file name, not the full path
+                            file_content = zf.read(file_info.filename)
+                            file_path = default_storage.save(f"{folder_name}/{file_name}", ContentFile(file_content))
+                            logger.debug(f"Saved file from ZIP: {file_path}")
+                            if file_name.lower().endswith(('.gltf', '.glb')) and main_file_path is None:
+                                main_file_path = file_path
+                else:
+                    # Handle single file (GLTF or GLB)
+                    main_file_path = default_storage.save(f"{folder_name}/{model_file.name}", model_file)
+                    logger.debug(f"Saved single file: {main_file_path}")
+                
+                if main_file_path is None:
+                    raise ValueError("No GLTF or GLB file found in the uploaded content")
+                
+                messages.success(request, 'Model uploaded successfully!')
+                return redirect(reverse('adminapp:add_watch_details', kwargs={'model_path': main_file_path}))
+            except Exception as e:
+                logger.error(f"Error saving file: {str(e)}")
+                messages.error(request, f'Error uploading file: {str(e)}')
+        else:
+            logger.error(f"Form errors: {form.errors}")
+            messages.error(request, 'There was an error with your submission. Please check the form.')
+    else:
+        form = ModelUploadForm()
+    
+    return render(request, 'adminapp/add_customizable_watch.html', {'form': form})
+
+@never_cache
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def add_watch_details(request, model_path):
+    if request.method == 'POST':
         form = CustomizableWatchForm(request.POST, request.FILES)
         if form.is_valid():
-            watch = form.save()
-            return redirect('adminapp:add_watch_parts', watch_id=watch.id)
+            watch = form.save(commit=False)
+            watch.model_file = model_path
+            watch.save()
+            messages.success(request, 'Customizable watch added successfully.')
+            return redirect('adminapp:customizable_watch_list')
     else:
         form = CustomizableWatchForm()
-    return render(request, 'adminapp/add_customizable_watch.html', {'form': form})
+    
+    return render(request, 'adminapp/add_watch_details.html', {'form': form, 'model_path': model_path})
 
 @never_cache
 @login_required
