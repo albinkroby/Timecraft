@@ -72,7 +72,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50 MB
 
 # Maximum number of files that can be uploaded in a single request
-DATA_UPLOAD_MAX_NUMBER_FIELDS = 10
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
 
 ROOT_URLCONF = 'Timecrafter.urls'
 

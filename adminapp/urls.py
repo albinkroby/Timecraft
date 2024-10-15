@@ -16,6 +16,8 @@ urlpatterns = [
     path('reject-vendor/<int:user_id>/', views.reject_vendor, name='reject_vendor'),
     path('all-sellers/', views.all_sellers, name='all_sellers'),
     
+    path('analysis/', views.analysis_view, name='analysis'),
+    
     path('brands/', views.brand_list, name='brand_list'),
     
     path('categories/', views.category_list, name='category_list'),

@@ -14,7 +14,7 @@
   --title-color: hsl(0, 0%, 15%);
   --text-color: hsl(0, 0%, 35%);
   --text-color-light: hsl(0, 0%, 55%);
-  --body-color: hsl(0, 0%, 99%);
+  --body-color: hsl(210, 17%, 98%);
   --container-color: #fff;
   --border-color: hsl(0, 1%, 55%);
   --border-color-2: hsl(0, 2%, 25%);
@@ -232,6 +232,9 @@ body.dark-theme {
   margin-left: 0;
 }
 
+#page-content-wrapper{
+  background-color: var(--body-color);
+}
 @media (min-width: 768px) {
   #sidebar-wrapper {
     margin-left: 0;
@@ -405,7 +408,7 @@ body.dark-theme {
 }
 
 .card {
-  background-color: var(--body-color);
+  background-color: var(--container-color);
   color: var(--text-color);
   border: 1px solid var(--border-color);
   transition: .4s;

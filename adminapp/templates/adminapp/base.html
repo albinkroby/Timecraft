@@ -30,6 +30,9 @@
     <!--=============== ADMIN CSS ===============-->
     <link rel="stylesheet" href="{% static 'css/style.min.css'%}">
 
+    <!--=============== CHART.JS ===============-->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <title>Time Craft</title>
 </head>
 <style>
@@ -114,6 +117,9 @@
                     <a href="{% url 'adminapp:user_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'user_list' %}active{% endif %}">
                         <i class='bx bxs-user' ></i> Users
                     </a>
+                    <a href="{% url 'adminapp:analysis' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'analysis' %}active{% endif %}">
+                        <i class='bx bx-line-chart'></i> Analysis
+                    </a>
                     <a href="#" class="list-group-item list-group-item-action {% if 'seller' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#sellersCollapse" aria-expanded="false" aria-controls="sellersCollapse">
                         <i class='bx bxl-shopify'></i> Sellers <i class='bx bx-chevron-down float-end'></i>
                     </a>
@@ -136,8 +142,16 @@
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'material_list' %}active{% endif %}" href="{% url 'adminapp:material_list' %}"><i class='bx bx-globe'></i>Materials</a>
                         </div>
                     </div>
-                    <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'add_customizable_watch' %}active{% endif %}" href="{% url 'adminapp:add_customizable_watch' %}"><i class='bx bx-plus-circle'></i> Add Customizable Watch</a>
-                    <a class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'customizable_watch_list' %}active{% endif %}" href="{% url 'adminapp:customizable_watch_list' %}"><i class='bx bx-show'></i> View Customizable Watches</a>
+                    
+                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#customizableWatchesCollapse" aria-expanded="false" aria-controls="customizableWatchesCollapse">
+                        <i class='bx bx-watch'></i> Customizable Watches <i class='bx bx-chevron-down float-end'></i>
+                    </a>    
+                    <div class="collapse {% if 'customizable_watch' in request.resolver_match.url_name %}show{% endif %}" id="customizableWatchesCollapse">
+                        <div class="list-group">
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'add_customizable_watch' %}active{% endif %}" href="{% url 'adminapp:add_customizable_watch' %}"><i class='bx bx-plus-circle'></i> Add Customizable Watch</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'customizable_watch_list' %}active{% endif %}" href="{% url 'adminapp:customizable_watch_list' %}"><i class='bx bx-show'></i> View Customizable Watches</a>
+                        </div>
+                    </div>
                 </div>
                 <div class="sidebar-heading mt-3">
                     PAGES

@@ -13,10 +13,10 @@ from django.contrib.auth import get_user_model,update_session_auth_hash
 from django.utils import timezone
 from datetime import timedelta
 from django.views.decorators.cache import never_cache
-from mainapp.models import Order
+from mainapp.models import Order, OrderItem
 import re
 from django.db import IntegrityError
-from django.db.models import Q
+from django.db.models import Q, Sum, Count, F
 from django.views.decorators.http import require_POST
 from watch_customizer.models import CustomizableWatch, CustomizableWatchPart, CustomWatchOrder, CustomWatchOrderPart, WatchPart, WatchPartOption
 from watch_customizer.forms import CustomizableWatchForm, WatchPartForm, WatchPartOptionForm, ModelUploadForm
@@ -24,6 +24,10 @@ from django.forms.models import modelformset_factory
 from django.views.decorators.csrf import csrf_protect
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+from django.db.models.functions import TruncDate
+from dateutil.relativedelta import relativedelta
+import json
+import random
 # Create your views here.
 User=get_user_model()
 
@@ -431,7 +435,7 @@ def add_watch_details(request, model_path):
             watch.model_file = model_path
             watch.save()
             messages.success(request, 'Customizable watch added successfully.')
-            return redirect('adminapp:customizable_watch_list')
+            return redirect('adminapp:add_watch_parts', watch_id=watch.id)
     else:
         form = CustomizableWatchForm()
     
@@ -686,6 +690,162 @@ def edit_watch_part_option(request, option_id):
     }
     return render(request, 'adminapp/edit_watch_part_option.html', context)
 
+from django.db.models import Sum, F, Count
+from django.db.models.functions import TruncHour, TruncDate
+from django.utils import timezone
+from datetime import timedelta
+from dateutil.relativedelta import relativedelta
+import json
+import calendar
 
+from django.utils import timezone
+from django.utils.timezone import make_aware
+import pytz
 
+@login_required
+@user_passes_test(lambda u: u.is_staff)
+def analysis_view(request):
+    # Get the selected time range from the request, default to 28 days
+    time_range = request.GET.get('time_range', '28')
+    
+    # Define time ranges
+    time_ranges = {
+        '7': timedelta(days=7),
+        '28': timedelta(days=28),
+        '90': timedelta(days=90),
+        '365': timedelta(days=365),
+    }
+    
+    # Handle custom date range
+    if time_range == 'custom':
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        if start_date and end_date:
+            start_date = make_aware(timezone.datetime.strptime(start_date, '%Y-%m-%d'))
+            end_date = make_aware(timezone.datetime.strptime(end_date, '%Y-%m-%d')).replace(hour=23, minute=59, second=59)
+        else:
+            # Default to last 28 days if custom dates are not provided
+            end_date = timezone.now()
+            start_date = end_date - timedelta(days=27)
+    elif time_range in time_ranges:
+        end_date = timezone.now()
+        start_date = end_date - time_ranges[time_range]
+    else:
+        # Handle year and month selections
+        year = int(time_range[:4])
+        if len(time_range) == 4:  # Year selection
+            start_date = make_aware(timezone.datetime(year, 1, 1))
+            end_date = make_aware(timezone.datetime(year, 12, 31, 23, 59, 59))
+        else:  # Month selection
+            month = int(time_range[5:])
+            start_date = make_aware(timezone.datetime(year, month, 1))
+            _, last_day = calendar.monthrange(year, month)
+            end_date = make_aware(timezone.datetime(year, month, last_day, 23, 59, 59))
 
+    # Total watches sold
+    total_watches = OrderItem.objects.filter(order__created_at__gte=start_date, order__created_at__lte=end_date).aggregate(Sum('quantity'))['quantity__sum'] or 0
+
+    # Calculate revenue
+    total_revenue = OrderItem.objects.filter(order__created_at__gte=start_date, order__created_at__lte=end_date).aggregate(
+        total=Sum(F('quantity') * F('price')))['total'] or 0
+
+    # Compare with previous period
+    previous_start = start_date - (end_date - start_date)
+    previous_revenue = OrderItem.objects.filter(order__created_at__gte=previous_start, order__created_at__lt=start_date).aggregate(
+        total=Sum(F('quantity') * F('price')))['total'] or 0
+
+    if previous_revenue > 0:
+        revenue_comparison = round(((total_revenue - previous_revenue) / previous_revenue) * 100, 2)
+    elif total_revenue > 0:
+        revenue_comparison = 100  # 100% increase if there was no previous revenue but there is current revenue
+    else:
+        revenue_comparison = 0  # No change if both periods have zero revenue
+
+    # New customers
+    new_customers = User.objects.filter(date_joined__gte=start_date, date_joined__lte=end_date).count()
+    previous_new_customers = User.objects.filter(date_joined__gte=previous_start, date_joined__lt=start_date).count()
+    customer_comparison = round(((new_customers - previous_new_customers) / previous_new_customers) * 100 if previous_new_customers else 0, 2)
+    
+    # Daily sales data for the selected period
+    daily_sales = OrderItem.objects.filter(order__created_at__gte=start_date, order__created_at__lte=end_date)\
+        .annotate(date=TruncDate('order__created_at'))\
+        .values('date')\
+        .annotate(sales=Sum('quantity'))\
+        .order_by('date')
+
+    date_labels = [item['date'].strftime('%d %b') for item in daily_sales]
+    daily_sales_data = [item['sales'] for item in daily_sales]
+
+    # Realtime data (last 48 hours)
+    last_48_hours = timezone.now() - timedelta(hours=48)
+    realtime_sales = OrderItem.objects.filter(order__created_at__gte=last_48_hours)\
+        .annotate(hour=TruncHour('order__created_at'))\
+        .values('hour')\
+        .annotate(sales=Sum('quantity'))\
+        .order_by('hour')
+
+    realtime_labels = [(timezone.now() - timedelta(hours=i)).strftime('%H:%M') for i in range(48, 0, -1)]
+    realtime_data = [0] * 48
+
+    for sale in realtime_sales:
+        hours_ago = int((timezone.now() - sale['hour']).total_seconds() / 3600)
+        if hours_ago < 48:
+            realtime_data[47 - hours_ago] = sale['sales']
+
+    recent_sales = sum(realtime_data)
+
+    # Top selling watches
+    top_watches = BaseWatch.objects.annotate(
+        sales_count=Sum('orderitem__quantity')
+    ).filter(
+        orderitem__order__created_at__gte=start_date,
+        orderitem__order__created_at__lte=end_date,
+        primary_image__isnull=False
+    ).order_by('-sales_count')[:5]
+
+    # Total customers
+    total_customers = User.objects.count()
+
+    # Prepare date range options for the template
+    current_year = timezone.now().year
+    date_range_options = [
+        {'value': '7', 'label': 'Last 7 days'},
+        {'value': '28', 'label': 'Last 28 days'},
+        {'value': '90', 'label': 'Last 90 days'},
+        {'value': '365', 'label': 'Last 365 days'},
+        {'value': str(current_year), 'label': str(current_year)},
+        {'value': str(current_year - 1), 'label': str(current_year - 1)},
+    ]
+
+    # Add current year's months
+    current_date = timezone.now()
+    current_year = current_date.year
+    current_month = current_date.month
+
+    for month_offset in range(2, -1, -1):
+        target_date = current_date - relativedelta(months=month_offset)
+        date_range_options.append({
+            'value': f"{target_date.year}-{target_date.month:02d}",
+            'label': f"{calendar.month_name[target_date.month]} {target_date.year}"
+        })
+
+    context = {
+        'total_watches': total_watches,
+        'total_revenue': total_revenue,  # Changed from formatted string to raw value
+        'revenue_comparison': revenue_comparison,
+        'new_customers': new_customers,
+        'customer_comparison': customer_comparison,
+        'start_date': start_date,
+        'end_date': end_date,
+        'date_labels': json.dumps(date_labels),
+        'daily_sales': json.dumps(daily_sales_data),
+        'recent_sales': recent_sales,
+        'realtime_labels': json.dumps(realtime_labels),
+        'realtime_data': json.dumps(realtime_data),
+        'top_watches': top_watches,
+        'total_customers': total_customers,
+        'date_range_options': date_range_options,
+        'selected_range': time_range,
+    }
+
+    return render(request, 'adminapp/analysis.html', context)
