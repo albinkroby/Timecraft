@@ -1,6 +1,6 @@
 {% extends 'vendorapp/base.html' %}
 
-{% block admin_content %}
+{% block vendor_content %}
 <h2>Add Product - Step 2: Product Details for {{ brand.brand_name }}</h2>
 <form method="post" enctype="multipart/form-data">
     {% csrf_token %}

@@ -1,0 +1,332 @@
+{% extends 'vendorapp/base.html' %}
+{% load static %}
+
+{% block title %}Watch Sales Analysis{% endblock %}
+
+{% block vendor_content %}
+<div class="analysis-dashboard container-fluid">
+    <div class="row dashboard-header">
+        <div class="col-12">
+            <h3>Your store sold {{ total_watches }} watches in the selected period</h3>
+            <div class="date-range">
+                <span>{{ start_date|date:"d M" }} - {{ end_date|date:"d M Y" }}</span>
+                <select id="dateRangeSelector" class="form-select">
+                    {% for option in date_range_options %}
+                        <option value="{{ option.value }}" {% if option.value == selected_range %}selected{% endif %}>
+                            {{ option.label }}
+                        </option>
+                    {% endfor %}
+                    <option value="custom" {% if selected_range == 'custom' %}selected{% endif %}>Custom</option>
+                </select>
+                <div id="customDateRange" style="display: none;">
+                    <input type="date" id="startDate" name="start_date">
+                    <input type="date" id="endDate" name="end_date">
+                    <button id="applyCustomDate" class="btn btn-primary btn-sm">Apply</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row h-100 column-gap-4">
+        <div class="col-md-8 h-100 ">
+            <div class="row metrics-grid">
+                <div class="col-md-4">
+                    <div class="metric-card">
+                        <h3>Watches Sold</h3>
+                        <div class="metric-value">{{ total_watches }}</div>
+                        <div class="metric-comparison">
+                            {% if revenue_comparison > 0 %}
+                                <span class="text-success">+{{ revenue_comparison }}%</span>
+                            {% elif revenue_comparison < 0 %}
+                                <span class="text-danger">{{ revenue_comparison }}%</span>
+                            {% else %}
+                                <span>No change</span>
+                            {% endif %}
+                            compared to previous period
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="metric-card">
+                        <h3>Revenue</h3>
+                        <div class="metric-value">Rs.{{ total_revenue|default:0|floatformat:2 }}</div>
+                        <div class="metric-comparison">
+                            {% if revenue_comparison > 0 %}
+                                <span class="text-success">+{{ revenue_comparison }}%</span>
+                            {% elif revenue_comparison < 0 %}
+                                <span class="text-danger">{{ revenue_comparison }}%</span>
+                            {% else %}
+                                <span>No change</span>
+                            {% endif %}
+                            compared to previous period
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="metric-card">
+                        <h3>New Customers</h3>
+                        <div class="metric-value">{{ new_customers }}</div>
+                        <div class="metric-comparison">
+                            {% if customer_comparison > 0 %}
+                                <span class="text-success">+{{ customer_comparison }}%</span>
+                            {% elif customer_comparison < 0 %}
+                                <span class="text-danger">{{ customer_comparison }}%</span>
+                            {% else %}
+                                <span>No change</span>
+                            {% endif %}
+                            compared to previous period
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 mt-4 main-chart-container">
+                    <h2>Sales for Selected Period</h2>
+                    <canvas id="salesChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 realtime-sidebar h-100">
+            <h2>Realtime</h2>
+            <div class="realtime-metric">
+                <span>{{ total_customers }}</span>
+                <span>Total Customers</span>
+            </div>
+            
+            <div class="realtime-sales">
+                <h5>{{ recent_sales }} Sales • Last 48 hours</h5>
+                {% if realtime_data %}
+                    <canvas id="realtimeSalesChart"></canvas>
+                {% else %}
+                    <p>No sales data available for the last 48 hours.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row main-content">
+        <div class="col-md-9 realtime-sidebar">
+            <div class="top-content">
+                <h3>Top Selling Watches</h3>
+                {% if top_watches %}
+                    <table class="table">
+                        <thead>
+                            <tr class="align-middle">
+                                <th scope="col">#</th>
+                                <th scope="col">Watch</th>
+                                <th scope="col">Sold</th>
+                            </tr>
+                        </thead>
+                        <tbody class="table-group-divider">
+                            {% for watch in top_watches %}
+                            <tr class="align-middle">
+                                <td scope="row">{{ forloop.counter }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center column-gap-3">
+                                        <div class="watch-image mr-3">
+                                            {% if watch.primary_image %}
+                                                <img src="{{ watch.primary_image.url }}" alt="{{ watch.model_name }}" class="rounded" style="width: 70px; height: 70px; object-fit: cover;">
+                                            {% else %}
+                                                <div class="no-image-placeholder rounded" style="width: 70px; height: 70px; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center;">
+                                                    <span>No image</span>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <span class="watch-name">{{ watch.model_name }}</span>
+                                    </div>
+                                </td>
+                                <td>{{ watch.sales_count|default:0 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>No top-selling watches data available.</p>
+                {% endif %}
+                <button class="btn btn-link">See more</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .analysis-dashboard {
+        background-color: var(--body-color);
+        color: var(--text-color);
+    }
+    .dashboard-header {
+        margin-bottom: 20px;
+    }
+    .metrics-grid {
+        margin-bottom: 20px;
+    }
+    .metric-card {
+        background-color: var(--container-color);
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        height: 100%;
+    }
+    .main-content {
+        gap: 20px;
+    }
+    .realtime-sidebar, .main-chart-container {
+        background-color: var(--container-color);
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .realtime-sales canvas {
+        max-height: 100px;
+    }
+    .metric-value {
+        font-size: 24px;
+        font-weight: bold;
+        margin: 10px 0;
+    }
+    .metric-comparison {
+        font-size: 14px;
+        color: #6c757d;
+    }
+
+    .table {
+        border: 0;
+        background-color: transparent;
+    }
+
+    .date-range {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    .date-range select {
+        width: auto;
+    }
+    #customDateRange {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+</style>
+
+<script>
+// Main Sales Chart
+var ctxSales = document.getElementById('salesChart').getContext('2d');
+var salesChart = new Chart(ctxSales, {
+    type: 'line',
+    data: {
+        labels: {{ date_labels|safe }},
+        datasets: [{
+            label: 'Watch Sales',
+            data: {{ daily_sales|safe }},
+            borderColor: 'rgba(0, 123, 255, 1)',
+            backgroundColor: 'rgba(0, 123, 255, 0.1)',
+            tension: 0.1,
+            fill: true
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            },
+            tooltip: {
+                mode: 'index',
+                intersect: false,
+            }
+        },
+        scales: {
+            x: {
+                grid: {
+                    display: false
+                }
+            },
+            y: {
+                beginAtZero: true,
+                grid: {
+                    color: 'rgba(0, 0, 0, 0.1)'
+                }
+            }
+        },
+        spanGaps: false
+    }
+});
+
+// Realtime Sales Chart
+var ctxRealtime = document.getElementById('realtimeSalesChart').getContext('2d');
+var realtimeSalesChart = new Chart(ctxRealtime, {
+    type: 'bar',
+    data: {
+        labels: {{ realtime_labels|safe }},
+        datasets: [{
+            label: 'Realtime Sales',
+            data: {{ realtime_data|safe }},
+            backgroundColor: 'rgba(0, 123, 255, 0.5)',
+            borderColor: 'rgba(0, 123, 255, 1)',
+            borderWidth: 1
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                display: false
+            }
+        },
+        scales: {
+            x: {
+                display: false
+            },
+            y: {
+                display: false,
+                beginAtZero: true
+            }
+        }
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const dateRangeSelector = document.getElementById('dateRangeSelector');
+    const customDateRange = document.getElementById('customDateRange');
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    const applyCustomDateBtn = document.getElementById('applyCustomDate');
+
+    dateRangeSelector.addEventListener('change', function() {
+        if (this.value === 'custom') {
+            customDateRange.style.display = 'flex';
+        } else {
+            customDateRange.style.display = 'none';
+            window.location.href = `?time_range=${this.value}`;
+        }
+    });
+
+    applyCustomDateBtn.addEventListener('click', function() {
+        const startDate = startDateInput.value;
+        const endDate = endDateInput.value;
+        if (startDate && endDate) {
+            window.location.href = `?time_range=custom&start_date=${startDate}&end_date=${endDate}`;
+        }
+    });
+
+    // Show custom date range if it's selected
+    if (dateRangeSelector.value === 'custom') {
+        customDateRange.style.display = 'block';
+    }
+});
+
+// Update the chart title dynamically
+document.addEventListener('DOMContentLoaded', function() {
+    const dateRangeSelector = document.getElementById('dateRangeSelector');
+    const chartTitle = document.querySelector('.main-chart-container h2');
+
+    function updateChartTitle() {
+        const selectedOption = dateRangeSelector.options[dateRangeSelector.selectedIndex];
+        chartTitle.textContent = `Sales for ${selectedOption.text}`;
+    }
+
+    dateRangeSelector.addEventListener('change', updateChartTitle);
+    updateChartTitle(); // Call once to set initial title
+});
+</script>
+{% endblock %}

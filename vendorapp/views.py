@@ -1,37 +1,44 @@
-import uuid
-from django.shortcuts import render,redirect
+import uuid, os, webcolors, traceback, re, json, calendar, cv2, numpy as np, pandas as pd, io, xlsxwriter, pytz
+from datetime import timedelta, datetime
+from dateutil.relativedelta import relativedelta
+from io import BytesIO
+from sklearn.cluster import KMeans
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.worksheet.datavalidation import DataValidation
+from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
-from mainapp.decorators import user_type_required
-from .forms import VendorAddressForm, VendorProfileEditForm, VendorProfileForm, VendorRegistrationFormStep1, VendorRegistrationFormStep2, BaseWatchForm, BrandSelectionForm, BrandApprovalRequestForm, WatchDetailsForm, WatchMaterialsForm, WatchImageFormSet, VendorOnboardingForm
-from .forms import BaseWatchUpdateForm, WatchDetailsUpdateForm, WatchMaterialsUpdateForm, WatchImageUpdateFormSet
+from django.contrib.auth import get_user_model, update_session_auth_hash, authenticate, login
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib import messages
-from .models import VendorAddress, VendorProfile
-from adminapp.models import Brand, Category, WatchType, Collection, Material, Feature,BaseWatch, WatchDetails, WatchMaterials, WatchImage
-from mainapp.utils import hash_url
 from django.urls import reverse
-from adminapp.models import Category, BaseWatch, WatchImage, WatchType, BrandApproval, Brand
-from mainapp.models import Order, OrderItem
-from django.shortcuts import get_object_or_404
-import os,webcolors,traceback
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.cache import never_cache
-from django.db.models import Sum, Count
-from django.utils import timezone
-from datetime import timedelta, datetime
 from django.core.paginator import Paginator
-import pandas as pd ,io,xlsxwriter
-import io,json ,cv2,numpy as np
-from django.contrib.auth import get_user_model,update_session_auth_hash,authenticate,login
 from django.core.exceptions import ValidationError
-from django.forms import modelformset_factory
-from sklearn.cluster import KMeans
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.conf import settings
-from django.contrib.auth.forms import PasswordChangeForm
-import re
 from django.core.mail import send_mail
+from django.conf import settings
+from django.forms import modelformset_factory
+from django.db.models import Sum, F, Count
+from django.db.models.functions import TruncHour, TruncDate
+from django.utils import timezone
+from django.utils.timezone import make_aware
+from mainapp.decorators import user_type_required
+from mainapp.utils import hash_url
+from mainapp.models import Order, OrderItem
+from adminapp.models import Brand, Category, WatchType, Collection, Material, Feature, BaseWatch, WatchDetails, WatchMaterials, WatchImage, BrandApproval
+from .forms import (
+    VendorAddressForm, VendorProfileEditForm, VendorProfileForm, 
+    VendorRegistrationFormStep1, VendorRegistrationFormStep2, 
+    BaseWatchForm, BrandSelectionForm, BrandApprovalRequestForm, 
+    WatchDetailsForm, WatchMaterialsForm, WatchImageFormSet, 
+    VendorOnboardingForm, BaseWatchUpdateForm, WatchDetailsUpdateForm, 
+    WatchMaterialsUpdateForm, WatchImageUpdateFormSet
+)
+from .models import VendorAddress, VendorProfile
 
 User = get_user_model()
 @never_cache
@@ -189,6 +196,7 @@ def vendor_login(request):
     if request.method == 'POST':
         email = request.POST.get('email')
         password = request.POST.get('password')
+        print(email, password)
         user = authenticate(request, username=email, email=email, password=password)
         
         if user is not None and user.role == 'vendor':
@@ -889,11 +897,7 @@ def upload_product_images(request):
     }
     return render(request, 'vendorapp/upload_product_images.html', context)
 
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.worksheet.datavalidation import DataValidation
-from django.http import HttpResponse
-from io import BytesIO
+
 
 @login_required
 @user_type_required('vendor')
@@ -1007,3 +1011,193 @@ def download_template(request):
     response = HttpResponse(buffer.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = 'attachment; filename=product_upload_template.xlsx'
     return response
+
+
+
+@login_required
+@user_type_required('vendor')
+def analysis_view(request):
+    # Get the current vendor
+    vendor = request.user.vendorprofile
+
+    # Get the selected time range from the request, default to 28 days
+    time_range = request.GET.get('time_range', '28')
+    
+    # Define time ranges
+    time_ranges = {
+        '7': timedelta(days=7),
+        '28': timedelta(days=28),
+        '90': timedelta(days=90),
+        '365': timedelta(days=365),
+    }
+    
+    # Handle custom date range
+    if time_range == 'custom':
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        if start_date and end_date:
+            start_date = make_aware(timezone.datetime.strptime(start_date, '%Y-%m-%d'))
+            end_date = make_aware(timezone.datetime.strptime(end_date, '%Y-%m-%d')).replace(hour=23, minute=59, second=59)
+        else:
+            # Default to last 28 days if custom dates are not provided
+            end_date = timezone.now()
+            start_date = end_date - timedelta(days=27)
+    elif time_range in time_ranges:
+        end_date = timezone.now()
+        start_date = end_date - time_ranges[time_range]
+    else:
+        # Handle year and month selections
+        year = int(time_range[:4])
+        if len(time_range) == 4:  # Year selection
+            start_date = make_aware(timezone.datetime(year, 1, 1))
+            end_date = make_aware(timezone.datetime(year, 12, 31, 23, 59, 59))
+        else:  # Month selection
+            month = int(time_range[5:])
+            start_date = make_aware(timezone.datetime(year, month, 1))
+            _, last_day = calendar.monthrange(year, month)
+            end_date = make_aware(timezone.datetime(year, month, last_day, 23, 59, 59))
+
+    # Total watches sold (only for this vendor's products)
+    total_watches = OrderItem.objects.filter(
+        order__created_at__gte=start_date,
+        order__created_at__lte=end_date,
+        watch__vendor=vendor
+    ).aggregate(Sum('quantity'))['quantity__sum'] or 0
+
+    # Calculate revenue (only for this vendor's products)
+    total_revenue = OrderItem.objects.filter(
+        order__created_at__gte=start_date,
+        order__created_at__lte=end_date,
+        watch__vendor=vendor
+    ).aggregate(total=Sum(F('quantity') * F('price')))['total'] or 0
+
+    # Compare with previous period (only for this vendor's products)
+    previous_start = start_date - (end_date - start_date)
+    previous_revenue = OrderItem.objects.filter(
+        order__created_at__gte=previous_start,
+        order__created_at__lt=start_date,
+        watch__vendor=vendor
+    ).aggregate(total=Sum(F('quantity') * F('price')))['total'] or 0
+
+    if previous_revenue > 0:
+        revenue_comparison = round(((total_revenue - previous_revenue) / previous_revenue) * 100, 2)
+    elif total_revenue > 0:
+        revenue_comparison = 100  # 100% increase if there was no previous revenue but there is current revenue
+    else:
+        revenue_comparison = 0  # No change if both periods have zero revenue
+
+    # New customers (only for this vendor)
+    new_customers = Order.objects.filter(
+        created_at__gte=start_date,
+        created_at__lte=end_date,
+        items__watch__vendor=vendor
+    ).values('user').distinct().count()
+
+    previous_new_customers = Order.objects.filter(
+        created_at__gte=previous_start,
+        created_at__lt=start_date,
+        items__watch__vendor=vendor
+    ).values('user').distinct().count()
+
+    customer_comparison = round(((new_customers - previous_new_customers) / previous_new_customers) * 100 if previous_new_customers else 0, 2)
+    
+    # Create a list of all dates in the range
+    all_dates = [start_date.date() + timedelta(days=x) for x in range((end_date.date() - start_date.date()).days + 1)]
+
+    # Get the sales data (only for this vendor's products)
+    sales_data = OrderItem.objects.filter(
+        order__created_at__date__gte=start_date.date(),
+        order__created_at__date__lte=end_date.date(),
+        watch__vendor=vendor
+    ).annotate(
+        date=TruncDate('order__created_at')
+    ).values('date').annotate(
+        sales=Sum('quantity')
+    ).order_by('date')
+
+    # Convert to a dictionary for easy lookup
+    sales_dict = {item['date']: item['sales'] for item in sales_data}
+
+    # Create the final data, including zero sales days
+    daily_sales = [{'date': date, 'sales': sales_dict.get(date, 0)} for date in all_dates]
+
+    date_labels = [item['date'].strftime('%d %b') for item in daily_sales]
+    daily_sales_data = [item['sales'] for item in daily_sales]
+
+    # Realtime data (last 48 hours, only for this vendor's products)
+    last_48_hours = timezone.now() - timedelta(hours=48)
+    realtime_sales = OrderItem.objects.filter(
+        order__created_at__gte=last_48_hours,
+        watch__vendor=vendor
+    ).annotate(hour=TruncHour('order__created_at'))\
+        .values('hour')\
+        .annotate(sales=Sum('quantity'))\
+        .order_by('hour')
+
+    realtime_labels = [(timezone.now() - timedelta(hours=i)).strftime('%H:%M') for i in range(48, 0, -1)]
+    realtime_data = [0] * 48
+
+    for sale in realtime_sales:
+        hours_ago = int((timezone.now() - sale['hour']).total_seconds() / 3600)
+        if hours_ago < 48:
+            realtime_data[47 - hours_ago] = sale['sales']
+
+    recent_sales = sum(realtime_data)
+
+    # Top selling watches (only for this vendor)
+    top_watches = BaseWatch.objects.filter(vendor=vendor).annotate(
+        sales_count=Sum('orderitem__quantity')
+    ).filter(
+        orderitem__order__created_at__gte=start_date,
+        orderitem__order__created_at__lte=end_date,
+        primary_image__isnull=False
+    ).order_by('-sales_count')[:5]
+
+    # Total customers (only for this vendor)
+    total_customers = Order.objects.filter(
+        items__watch__vendor=vendor
+    ).values('user').distinct().count()
+
+    # Prepare date range options for the template
+    current_year = timezone.now().year
+    date_range_options = [
+        {'value': '7', 'label': 'Last 7 days'},
+        {'value': '28', 'label': 'Last 28 days'},
+        {'value': '90', 'label': 'Last 90 days'},
+        {'value': '365', 'label': 'Last 365 days'},
+        {'value': str(current_year), 'label': str(current_year)},
+        {'value': str(current_year - 1), 'label': str(current_year - 1)},
+    ]
+
+    # Add current year's months
+    current_date = timezone.now()
+    current_year = current_date.year
+    current_month = current_date.month
+
+    for month_offset in range(2, -1, -1):
+        target_date = current_date - relativedelta(months=month_offset)
+        date_range_options.append({
+            'value': f"{target_date.year}-{target_date.month:02d}",
+            'label': f"{calendar.month_name[target_date.month]} {target_date.year}"
+        })
+
+    context = {
+        'total_watches': total_watches,
+        'total_revenue': total_revenue,
+        'revenue_comparison': revenue_comparison,
+        'new_customers': new_customers,
+        'customer_comparison': customer_comparison,
+        'start_date': start_date,
+        'end_date': end_date,
+        'date_labels': json.dumps(date_labels),
+        'daily_sales': json.dumps(daily_sales_data),
+        'recent_sales': recent_sales,
+        'realtime_labels': json.dumps(realtime_labels),
+        'realtime_data': json.dumps(realtime_data),
+        'top_watches': top_watches,
+        'total_customers': total_customers,
+        'date_range_options': date_range_options,
+        'selected_range': time_range,
+    }
+
+    return render(request, 'vendorapp/analysis.html', context)

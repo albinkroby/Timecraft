@@ -30,6 +30,9 @@
     <!--=============== ADMIN CSS ===============-->
     <link rel="stylesheet" href="{% static 'css/style.min.css'%}">
 
+    <!--=============== CHART.JS ===============-->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <title>Time Craft</title>
     {% block header_scripts %}
     {% endblock %}
@@ -105,16 +108,26 @@
                     <a href="{% url 'vendorapp:index' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'index' %}active{% endif %}">
                         <i class='bx bxs-dashboard'></i> Dashboard
                     </a>
-                    <a href="#" class="list-group-item list-group-item-action {% if 'product' in request.resolver_match.url_name or 'manage_stock' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#productsCollapse" aria-expanded="false" aria-controls="productsCollapse">
+                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#productsCollapse" aria-expanded="false" aria-controls="productsCollapse">
                         <i class='bx bxs-package'></i> Products <i class='bx bx-chevron-down float-end'></i>
                     </a>
-                    <div class="collapse {% if 'product' in request.resolver_match.url_name or 'manage_stock' in request.resolver_match.url_name %}show{% endif %}" id="productsCollapse">
+                    <div class="collapse {% if 'product' in request.resolver_match.url_name %}show{% endif %}" id="productsCollapse">
                         <div class="list-group">
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'add_product_step1' %}active{% endif %}" href="{% url 'vendorapp:add_product_step1' %}"><i class='bx bx-plus'></i> Add Product</a>
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}" href="{% url 'vendorapp:product_list' %}"><i class='bx bx-show'></i> View Products</a>
+                        </div>
+                    </div>
+                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#inventoryCollapse" aria-expanded="false" aria-controls="inventoryCollapse">
+                        <i class='bx bxs-package'></i> Inventory <i class='bx bx-chevron-down float-end'></i>
+                    </a>
+                    <div class="collapse {% if 'manage_stock' in request.resolver_match.url_name %}show{% endif %}" id="inventoryCollapse">
+                        <div class="list-group">
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'manage_stock' %}active{% endif %}" href="{% url 'vendorapp:manage_stock' %}"><i class='bx bxs-bar-chart-alt-2'></i> Manage Stock</a>
                         </div>
                     </div>
+                    <a href="{% url 'vendorapp:analysis' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'analysis' %}active{% endif %}">
+                        <i class='bx bx-line-chart'></i> Analysis
+                    </a>
                     <a href="{% url 'vendorapp:order_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'order_list' %}active{% endif %}">
                         <i class='bx bxs-cart'></i> Orders
                     </a>
@@ -152,7 +165,7 @@
                     </div>
                     <div class="row">
                         <div class="col-12">
-                            {% block admin_content %}
+                            {% block vendor_content %}
                             {% endblock %}
                         </div>
                     </div>
