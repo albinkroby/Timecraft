@@ -43,10 +43,10 @@
                             <h6>₹{{ item.price }}</h6>
                             <p class="text-success">{{ order.get_status_display }}</p>
                             {% if order.status == 'delivered' %}
-                                {% if item.user_review %}
-                                    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#reviewModal{{ item.id }}">Edit Review</button>
+                                {% if order.item.user_review %}
+                                    <a href="{% url 'userapp:edit_review' item.id %}" class="btn btn-outline-primary btn-sm">Edit Review</a>
                                 {% else %}
-                                    <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#reviewModal{{ item.id }}">Rate & Review Product</button>
+                                    <a href="{% url 'userapp:write_review' item.id %}" class="btn btn-outline-primary btn-sm">Rate & Review Product</a>
                                 {% endif %}
                             {% endif %}
                         </div>

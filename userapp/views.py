@@ -251,9 +251,11 @@ def order_details(request, order_id):
     order = get_object_or_404(Order, order_id=order_id, user=request.user)
     
     for item in order.items.all():
+        print(item)
         item.user_review = Review.objects.filter(user=request.user, watch=item.watch).first()
+        print(item.user_review)
         
-    print(item)
+    print(order.items.all())
     
     context = {
         'order': order,
