@@ -134,6 +134,13 @@
         loadModel();
 
         window.addEventListener('resize', onWindowResize, false);
+
+        // Make renderer globally accessible
+        window.threeJSRenderer = renderer;
+
+        // Make necessary objects globally accessible
+        window.threeJSScene = scene;
+        window.threeJSCamera = camera;
     }
 
     function addDirectionalLights() {
@@ -353,6 +360,34 @@
     {% endif %}
 
     init();
+    animate();
+
+    // Add this function to capture the rendered frame with fixed dimensions
+    window.captureRenderedImage = function(width = 1280, height = 720) {
+        return new Promise((resolve) => {
+            // Create an offscreen canvas
+            const offscreenCanvas = document.createElement('canvas');
+            offscreenCanvas.width = width;
+            offscreenCanvas.height = height;
+            const offscreenRenderer = new THREE.WebGLRenderer({ canvas: offscreenCanvas, antialias: true });
+            offscreenRenderer.setSize(width, height);
+
+            // Create a new camera for the offscreen render
+            const aspect = width / height;
+            const offscreenCamera = window.threeJSCamera.clone();
+            offscreenCamera.aspect = aspect;
+            offscreenCamera.updateProjectionMatrix();
+
+            // Render the scene
+            offscreenRenderer.render(window.threeJSScene, offscreenCamera);
+
+            // Get the image data
+            resolve(offscreenCanvas.toDataURL('image/png'));
+
+            // Clean up
+            offscreenRenderer.dispose();
+        });
+    };
 </script>
 <script>
     function setActiveButton(clickedButton) {
@@ -396,6 +431,16 @@
             if (data.status === 'success') {
                 showCustomAlert(savedDesignId ? 'Design updated successfully!' : 'Design saved successfully!', 'success');
                 savedDesignId = data.design_id;
+                
+                // Capture and save the preview image
+                if (window.captureRenderedImage) {
+                    window.captureRenderedImage(1280, 720).then(canvasImage => {
+                        savePreviewImage(savedDesignId, canvasImage);
+                    });
+                } else {
+                    console.error('Image capture function not found');
+                }
+                
                 bootstrap.Modal.getInstance(document.getElementById('saveDesignModal')).hide();
             } else {
                 showCustomAlert(data.message, 'error');
@@ -406,6 +451,30 @@
             showCustomAlert('An error occurred while saving the design.', 'error');
         });
     });
+
+    function savePreviewImage(designId, imageData) {
+        fetch(`{% url 'watch_customizer:save_preview_image' 0 %}`.replace('0', designId), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                preview_image: imageData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                console.log('Preview image saved successfully');
+            } else {
+                console.error('Error saving preview image:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error saving preview image:', error);
+        });
+    }
 
     function getDesignData() {
         var designData = {};
@@ -581,8 +650,4 @@
     }
 
 </style>
-{% endblock %}
-{% block extra_js %}
-{% block adds_js%}
-{% endblock %}
 {% endblock %}

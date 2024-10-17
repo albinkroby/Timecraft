@@ -6,6 +6,8 @@ from .models import CustomizableWatch, CustomizableWatchPart, CustomWatchSavedDe
 from django.db import IntegrityError
 import json
 import logging
+import base64
+from django.core.files.base import ContentFile
 
 logger = logging.getLogger(__name__)
 
@@ -93,6 +95,26 @@ def delete_design(request, design_id):
         design = CustomWatchSavedDesign.objects.get(id=design_id, user=request.user)
         design.delete()
         return JsonResponse({'status': 'success'})
+    except CustomWatchSavedDesign.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Design not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_POST
+def save_preview_image(request, design_id):
+    try:
+        design = CustomWatchSavedDesign.objects.get(id=design_id, user=request.user)
+        data = json.loads(request.body)
+        preview_image_data = data.get('preview_image')
+
+        if preview_image_data:
+            format, imgstr = preview_image_data.split(';base64,')
+            ext = format.split('/')[-1]
+            data = ContentFile(base64.b64decode(imgstr), name=f'{design.name}_preview.{ext}')
+            design.preview_image.save(f'{design.name}_preview.{ext}', data, save=True)
+
+        return JsonResponse({'status': 'success', 'message': 'Preview image saved successfully'})
     except CustomWatchSavedDesign.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Design not found'}, status=404)
     except Exception as e:

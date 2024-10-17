@@ -87,10 +87,10 @@ class CustomWatchOrderPart(models.Model):
 class CustomWatchSavedDesign(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     customizable_watch = models.ForeignKey(CustomizableWatch, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     design_data = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    preview_image = models.ImageField(upload_to='design_previews/', null=True, blank=True)
 
     def __str__(self):
         return f"{self.user.username}'s design: {self.name}"
