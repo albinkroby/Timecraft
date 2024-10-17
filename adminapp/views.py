@@ -766,12 +766,24 @@ def analysis_view(request):
     previous_new_customers = User.objects.filter(date_joined__gte=previous_start, date_joined__lt=start_date).count()
     customer_comparison = round(((new_customers - previous_new_customers) / previous_new_customers) * 100 if previous_new_customers else 0, 2)
     
-    # Daily sales data for the selected period
-    daily_sales = OrderItem.objects.filter(order__created_at__gte=start_date, order__created_at__lte=end_date)\
-        .annotate(date=TruncDate('order__created_at'))\
-        .values('date')\
-        .annotate(sales=Sum('quantity'))\
-        .order_by('date')
+    # Create a list of all dates in the range
+    all_dates = [start_date.date() + timedelta(days=x) for x in range((end_date.date() - start_date.date()).days + 1)]
+
+    # Get the sales data
+    sales_data = OrderItem.objects.filter(
+        order__created_at__date__gte=start_date.date(),
+        order__created_at__date__lte=end_date.date()
+    ).annotate(
+        date=TruncDate('order__created_at')
+    ).values('date').annotate(
+        sales=Sum('quantity')
+    ).order_by('date')
+
+    # Convert to a dictionary for easy lookup
+    sales_dict = {item['date']: item['sales'] for item in sales_data}
+
+    # Create the final data, including zero sales days
+    daily_sales = [{'date': date, 'sales': sales_dict.get(date, 0)} for date in all_dates]
 
     date_labels = [item['date'].strftime('%d %b') for item in daily_sales]
     daily_sales_data = [item['sales'] for item in daily_sales]
