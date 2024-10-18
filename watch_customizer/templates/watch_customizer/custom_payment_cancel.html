@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <h1>Custom Watch Order Payment Cancelled</h1>
+    <p>Your custom watch order payment has been cancelled.</p>
+    <p>If you encountered any issues or have changed your mind, please feel free to try again or contact our support team for assistance.</p>
+    <a href="{% url 'watch_customizer:saved_designs' %}" class="btn btn-primary">Return to Saved Designs</a>
+    <a href="{% url 'mainapp:index' %}" class="btn btn-secondary">Return to Home</a>
+</div>
+{% endblock %}

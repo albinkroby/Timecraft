@@ -10,6 +10,8 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST, require_http_methods
 from django.urls import reverse
 from django.db import transaction
+
+from watch_customizer.models import CustomWatchOrder
 from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem, WatchNotification
 from .forms import SignUpForm
 from userapp.forms import AddressForm
@@ -41,6 +43,7 @@ from rembg import remove
 import io,cv2
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from sklearn.cluster import KMeans
+from django.utils.html import strip_tags
 
 User = get_user_model()
 # Create your views here.
@@ -554,13 +557,30 @@ def create_checkout_session(request):
         data = json.loads(request.body)
         address_id = data.get('address_id')
         product_id = data.get('product_id')
+        custom_watch_order_id = data.get('custom_watch_order_id')
 
         if not address_id:
             return JsonResponse({'error': 'Please select a delivery address'}, status=400)
 
         address = get_object_or_404(Address, id=address_id, user=request.user)
 
-        if product_id:
+        if custom_watch_order_id:
+            # Custom watch order checkout
+            custom_order = get_object_or_404(CustomWatchOrder, id=custom_watch_order_id, user=request.user)
+            line_items = [{
+                'price_data': {
+                    'currency': 'inr',
+                    'unit_amount': int(custom_order.total_price * 100),
+                    'product_data': {
+                        'name': f"Custom Watch: {custom_order.customizable_watch.name}",
+                    },
+                },
+                'quantity': 1,
+            }]
+            total_amount = custom_order.total_price
+            success_url = request.build_absolute_uri(reverse('watch_customizer:custom_payment_success')) + '?session_id={CHECKOUT_SESSION_ID}'
+            cancel_url = request.build_absolute_uri(reverse('watch_customizer:custom_payment_cancel'))
+        elif product_id:
             # Single product checkout
             product = get_object_or_404(BaseWatch, id=product_id)
             line_items = [{
@@ -574,6 +594,8 @@ def create_checkout_session(request):
                 'quantity': 1,
             }]
             total_amount = product.base_price
+            success_url = request.build_absolute_uri(reverse('mainapp:payment_success')) + '?session_id={CHECKOUT_SESSION_ID}'
+            cancel_url = request.build_absolute_uri(reverse('mainapp:payment_cancel'))
         else:
             # Cart checkout
             cart = Cart.objects.filter(user=request.user).first()
@@ -591,6 +613,8 @@ def create_checkout_session(request):
                 'quantity': item.quantity,
             } for item in cart.items.all()]
             total_amount = sum(item.watch.base_price * item.quantity for item in cart.items.all())
+            success_url = request.build_absolute_uri(reverse('mainapp:payment_success')) + '?session_id={CHECKOUT_SESSION_ID}'
+            cancel_url = request.build_absolute_uri(reverse('mainapp:payment_cancel'))
 
         # Create or update Stripe Customer with shipping address
         # Check if the customer already exists in Stripe
@@ -664,16 +688,38 @@ def create_checkout_session(request):
             metadata={
                 'address_id': str(address_id),
                 'product_id': str(product_id) if product_id else '',
+                'custom_watch_order_id': str(custom_watch_order_id) if custom_watch_order_id else '',
                 'total_amount': str(total_amount),
             },
-            success_url=request.build_absolute_uri(reverse('mainapp:payment_success')) + '?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url=request.build_absolute_uri(reverse('mainapp:payment_cancel')),
+            success_url=success_url,
+            cancel_url=cancel_url,
         )
+
+        # Update CustomWatchOrder with stripe_session_id
+        if custom_watch_order_id:
+            custom_order.stripe_session_id = checkout_session.id
+            custom_order.save()
+
         return JsonResponse({'id': checkout_session.id})
     except stripe.error.StripeError as e:
         return JsonResponse({'error': str(e)}, status=400)
     except Exception as e:
-        return JsonResponse({'error': 'An unexpected error occurred.'}, status=400)
+        return JsonResponse({'error': str(e)}, status=400)
+
+def send_order_confirmation_email(order, request):
+    subject = f'Order Confirmation - Order #{order.id}'
+    html_message = render_to_string('emails/order_confirmation.html', {
+        'order': order,
+        'user': order.user,
+        'view_order_history_url': request.build_absolute_uri(reverse('userapp:my_orders')),
+        'refund_policy_url': '#',
+        # 'refund_policy_url': request.build_absolute_uri(reverse('mainapp:refund_policy')),
+    })
+    plain_message = strip_tags(html_message)
+    from_email = settings.DEFAULT_FROM_EMAIL
+    to_email = order.user.email
+
+    send_mail(subject, plain_message, from_email, [to_email], html_message=html_message)
 
 @never_cache
 @login_required
@@ -695,6 +741,10 @@ def payment_success(request):
                 if cart:
                     cart.items.all().delete()
                     cart.delete()
+                
+                # Send order confirmation email
+                send_order_confirmation_email(order, request)
+                
                 return render(request, 'registration/payment_success.html', {'paid': True, 'order': order})
             except ValueError as e:
                 return render(request, 'registration/payment_success.html', {'paid': False, 'error': str(e)})
@@ -710,6 +760,7 @@ def payment_success(request):
 def create_order(user, session):
     address_id = session.metadata.get('address_id')
     product_id = session.metadata.get('product_id')
+    custom_watch_order_id = session.metadata.get('custom_watch_order_id')
     total_amount = Decimal(session.metadata.get('total_amount'))
 
     address = Address.objects.get(id=address_id)
@@ -720,37 +771,46 @@ def create_order(user, session):
         if existing_order:
             return existing_order
 
-        order = Order.objects.create(
-            user=user,
-            address=address,
-            total_amount=total_amount,
-            stripe_session_id=session.id
-        )
-
-        if product_id:
-            # Single product order
-            product = BaseWatch.objects.get(id=product_id)
-            OrderItem.objects.create(
-                order=order,
-                watch=product,
-                quantity=1,
-                price=product.base_price
-            )
-            product.update_stock_after_order(1)
+        if custom_watch_order_id:
+            # Custom watch order
+            custom_order = CustomWatchOrder.objects.get(id=custom_watch_order_id)
+            custom_order.status = 'on_the_way'
+            custom_order.stripe_session_id = session.id
+            custom_order.address = address
+            custom_order.save()
+            return custom_order
         else:
-            # Cart order
-            line_items = stripe.checkout.Session.list_line_items(session.id, limit=100)
-            for item in line_items.data:
-                product = BaseWatch.objects.get(model_name=item.description)
+            order = Order.objects.create(
+                user=user,
+                address=address,
+                total_amount=total_amount,
+                stripe_session_id=session.id
+            )
+
+            if product_id:
+                # Single product order
+                product = BaseWatch.objects.get(id=product_id)
                 OrderItem.objects.create(
                     order=order,
                     watch=product,
-                    quantity=item.quantity,
-                    price=item.price.unit_amount / 100  # Convert from cents to dollars
+                    quantity=1,
+                    price=product.base_price
                 )
-                product.update_stock_after_order(item.quantity)
+                product.update_stock_after_order(1)
+            else:
+                # Cart order
+                line_items = stripe.checkout.Session.list_line_items(session.id, limit=100)
+                for item in line_items.data:
+                    product = BaseWatch.objects.get(model_name=item.description)
+                    OrderItem.objects.create(
+                        order=order,
+                        watch=product,
+                        quantity=item.quantity,
+                        price=item.price.unit_amount / 100  # Convert from cents to dollars
+                    )
+                    product.update_stock_after_order(item.quantity)
 
-    return order
+        return order
 
 
 @never_cache

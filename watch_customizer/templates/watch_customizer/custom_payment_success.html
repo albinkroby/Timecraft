@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <h1>Custom Watch Order Payment {% if paid %}Successful{% else %}Failed{% endif %}</h1>
+    {% if paid %}
+        <p>Thank you for your custom watch order! Your payment has been processed successfully.</p>
+        <h2>Order Details</h2>
+        <p>Order ID: {{ order.order_id }}</p>
+        <p>Total Amount: ${{ order.total_price }}</p>
+        <p>Status: {{ order.get_status_display }}</p>
+        <p>We will start working on your custom watch soon. You will receive an email with further details.</p>
+    {% else %}
+        <p>We're sorry, but there was an issue processing your payment.</p>
+        <p>Error: {{ error }}</p>
+        <p>Please try again or contact our support team for assistance.</p>
+    {% endif %}
+    <a href="{% url 'mainapp:index' %}" class="btn btn-primary">Return to Home</a>
+</div>
+{% endblock %}

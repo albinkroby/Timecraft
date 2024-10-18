@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .logo {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .thank-you {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .invoice-box {
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .invoice-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+        .total {
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">
+        <h1 style="font-size: 24px; font-weight: bold; color: #333;">TIME CRAFT</h1>
+    </div>
+    
+    <div class="thank-you">Thank You.</div>
+    
+    <div class="invoice-box">
+        <div class="invoice-header">
+            <h2>Hi {{ user.fullname }}!</h2>
+            <p>Thank you for your purchase!</p>
+            
+            <h3>INVOICE ID: {{ order.order_id }}</h3>
+        </div>
+        
+        <h4>YOUR ORDER INFORMATION:</h4>
+        <p><strong>Order ID:</strong> {{ order.order_id }}</p>
+        <p><strong>Order Date:</strong> {{ order.created_at|date:"F d, Y" }}</p>
+        <p><strong>Bill To:</strong> {{ user.email }}</p>
+        <p><strong>Source:</strong> Time Craft Watch Store</p>
+        
+        <h4>HERE'S WHAT YOU ORDERED:</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th>Brand</th>
+                    <th>Price</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in order.items.all %}
+                <tr>
+                    <td>{{ item.watch.brand }} {{ item.watch.model_name }}</td>
+                    <td>{{ item.watch.brand }}</td>
+                    <td>₹{{ item.price }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <h4>TOTAL: ₹{{ order.total_amount }}</h4>
+        
+        <p>Please keep a copy of this receipt for your records.</p>
+        
+        <p><a href="{{ view_order_history_url }}">View your purchase history</a></p>
+    </div>
+    
+    <div class="footer">
+        <p>Watches purchased from Time Craft are eligible for a refund within 14 days of purchase if they have less than 2 hours of wear time, unless otherwise stated on their product page.</p>
+        <p>For more information, please see our <a href="{{ refund_policy_url }}">refund policy</a>.</p>
+        
+        <p>Time Craft Watches Pvt. Ltd.<br>
+        123 Watch Street, Luxury Lane, Mumbai 400001, India<br>
+        GST Registration Number: 27AABCT1332L1ZT</p>
+    </div>
+</body>
+</html>

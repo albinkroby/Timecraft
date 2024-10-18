@@ -25,3 +25,7 @@ def multiplyfloat(value, arg):
 @register.filter
 def map_watch(cart_items):
     return [item.watch for item in cart_items]
+
+@register.filter
+def subtract(value, arg):
+    return value - arg

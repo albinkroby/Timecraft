@@ -2,6 +2,10 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 from mainapp.models import Address, User
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
+from django.utils import timezone
+import uuid
 
 # Create your models here.
 
@@ -53,6 +57,17 @@ class CustomizableWatchPart(models.Model):
     def __str__(self):
         return f"{self.customizable_watch.name} - {self.part.part_name.name}"
 
+class CustomWatchSavedDesign(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    customizable_watch = models.ForeignKey(CustomizableWatch, on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    design_data = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    preview_image = models.ImageField(upload_to='design_previews/', null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username}'s design: {self.name}"
+    
 class CustomWatchOrder(models.Model):
     STATUS_CHOICES = (
         ('on_the_way', 'On the way'),
@@ -60,7 +75,7 @@ class CustomWatchOrder(models.Model):
         ('cancelled', 'Cancelled'),
         ('returned', 'Returned'),
     )
-    customizable_watch = models.ForeignKey(CustomizableWatch, on_delete=models.CASCADE)
+    customizable_watch = models.ForeignKey(CustomWatchSavedDesign, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='custom_watch_orders')
@@ -73,6 +88,14 @@ class CustomWatchOrder(models.Model):
     def __str__(self):
         return f"Custom Order for {self.customizable_watch.name}"
 
+@receiver(pre_save, sender=CustomWatchOrder)
+def create_order_id(sender, instance, **kwargs):
+    if not instance.order_id:
+        now = timezone.now()
+        time_string = now.strftime("%d%m%Y%H%M%S%f")
+        unique_id = str(uuid.uuid4().hex[:6])  # Add this for extra uniqueness
+        instance.order_id = f"CWH{time_string}{unique_id}"
+
 class CustomWatchOrderPart(models.Model):
     order = models.ForeignKey(CustomWatchOrder, on_delete=models.CASCADE, related_name='selected_parts')
     part = models.ForeignKey(WatchPart, on_delete=models.CASCADE)
@@ -84,13 +107,4 @@ class CustomWatchOrderPart(models.Model):
     def __str__(self):
         return f"{self.order} - {self.part.name}: {self.selected_option.name}"
 
-class CustomWatchSavedDesign(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    customizable_watch = models.ForeignKey(CustomizableWatch, on_delete=models.CASCADE)
-    name = models.CharField(max_length=100)
-    design_data = models.JSONField()
-    created_at = models.DateTimeField(auto_now_add=True)
-    preview_image = models.ImageField(upload_to='design_previews/', null=True, blank=True)
 
-    def __str__(self):
-        return f"{self.user.username}'s design: {self.name}"

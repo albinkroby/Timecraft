@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="home__container container mt-5">
+    <div class="row">
+        <div class="col-md-8">
+            <!-- Address selection -->
+            <div class="card mb-3">
+                <div class="card-body bg-light">
+                    <h5 class="card-title">DELIVERY ADDRESS <i class="fas fa-check-circle text-success"></i></h5>
+                    <div class="row">
+                        <div class="col-md-9">
+                            <form id="address-form">
+                                {% csrf_token %}
+                                <div class="form-group">
+                                    <select name="address" id="address-select" class="form-control" required style="height: 50px;">
+                                        <option value="">Select an address</option>
+                                        {% for address in addresses %}
+                                            <option value="{{ address.id }}" {% if address.is_primary %}selected{% endif %}>
+                                                {{ address }} {% if address.is_primary %}(Primary){% endif %}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                {% if not addresses %}
+                                    <p>No addresses found. Please add an address.</p>
+                                {% endif %}
+                            </form>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="#" id="add-address" class="button p-3 rounded">ADD NEW ADDRESS</a>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <div id="add-address-content" style="display: none;">
+                                <h3 id="form-title">Add New Address</h3>
+                                <form id="new-address-form" action="{% url 'userapp:add_address' %}" method="post">
+                                    {% csrf_token %}
+                                    <div class="row">
+                                        {% for field in form %}
+                                        <div class="col-6">
+                                            <div class="form-floating mb-3">
+                                                {{ field }}
+                                                {{ field.label_tag }}
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="mb-3 row">
+                                        <div class="col-md-6">
+                                            <button type="submit" class="custom-btn-1">Add Address</button> 
+                                        </div>
+                                        <div class="col-md-6">
+                                            <button type="button" id="add-cancel" class="custom-btn">Cancel</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Custom Watch Order summary -->
+            <div class="card mb-3">
+                <div class="card-body bg-light">
+                    <h5 class="card-title">CUSTOM WATCH ORDER SUMMARY</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-2">
+                            <img src="{{ design.preview_image.url }}" class="img-fluid" alt="{{ design.name }}">
+                        </div>
+                        <div class="col-md-6">
+                            <h6>{{ design.name }}</h6>
+                            <p>Base Model: {{ design.customizable_watch.name }}</p>
+                        </div>
+                        <div class="col-md-4 text-right">
+                            <h6>₹{{ total }}</h6>
+                        </div>
+                    </div>
+                    <h6>Selected Parts:</h6>
+                    <ul>
+                        {% for part in design.design_data %}
+                        <li>{{ part.part_name }}: {{ part.option_name }} (₹{{ part.price }})</li>
+                        {% endfor %}
+                    </ul>
+                    <hr>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">PRICE DETAILS</h5>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <p>Custom Watch Price</p>
+                        <p>₹{{ total }}</p>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <p>Delivery Charges</p>
+                        <p class="text-success">FREE</p>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between font-weight-bold">
+                        <p>Total Payable</p>
+                        <p>₹{{ final_total }}</p>
+                    </div>
+                    <hr>
+                    <p class="text-success">Your Total Savings on this order ₹{{ total_savings }}</p>
+                </div>
+            </div>
+            <div class="card mb-3">
+                <div class="card-body bg-light">
+                    <p>Order confirmation email will be sent to <strong>{{ request.user.email }}</strong></p>
+                    <button id="checkout-button" class="button py-3 rounded w-100">CONTINUE</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    var stripe = Stripe('{{ stripe_publishable_key }}');
+    var checkoutButton = document.getElementById('checkout-button');
+
+    checkoutButton.addEventListener('click', function() {
+        var addressSelect = document.getElementById('address-select');
+        var addressId = addressSelect.value;
+
+        if (!addressId) {
+            showCustomAlert('Please select a delivery address');
+            return;
+        }
+
+        fetch('{% url "mainapp:create_checkout_session" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                address_id: addressId,
+                custom_watch_order_id: '{{ custom_order_id }}',
+                design_id: '{{ design.id }}'
+            })
+        })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(data) {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                return stripe.redirectToCheckout({ sessionId: data.id });
+            }
+        })
+        .then(function(result) {
+            if (result && result.error) {
+                alert(result.error.message);
+            }
+        })
+        .catch(function(error) {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
+    });
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function(){
+        $("#add-address").click(function(e){
+            e.preventDefault();
+            $("#add-address-content").toggle();
+        });
+        $("#add-cancel").click(function(){
+            $("#add-address-content").hide();
+        });
+
+        // Handle form submission
+        $("#new-address-form").submit(function(e){
+            e.preventDefault();
+            $.ajax({
+                url: $(this).attr('action'),
+                type: 'POST',
+                data: $(this).serialize(),
+                success: function(response){
+                    if(response.success){
+                        location.reload(); // Reload the page to show the new address
+                    } else {
+                        // Replace the form with the returned partial (which will show errors)
+                        $("#add-address-content").html(response);
+                    }
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

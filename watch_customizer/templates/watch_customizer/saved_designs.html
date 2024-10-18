@@ -28,7 +28,7 @@
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title">{{ design.name }}</h5>
                             <p class="card-text">Created: {{ design.created_at|date:"F d, Y" }}</p>
-                            <button class="btn btn-primary place-order-btn mt-auto">Place Order</button>
+                            <a href="{% url 'watch_customizer:place_custom_order' %}?design_id={{ design.id }}" class="btn btn-primary place-order-btn mt-auto">Place Order</a>
                         </div>
                     </div>
                 </div>

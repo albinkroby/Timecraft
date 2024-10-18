@@ -2,9 +2,10 @@ from django.shortcuts import render, redirect,get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from mainapp.models import Address,UserProfile, User, Order, OrderItem
+from watch_customizer.models import CustomWatchOrder
 from .forms import AddressForm, UserProfileForm, ReviewForm
 from django.db import IntegrityError
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from .models import Wishlist, Review, ReviewImage
 from mainapp.models import Address
 from adminapp.models import BaseWatch
@@ -188,10 +189,12 @@ def remove_from_wishlist(request, watch_id):
 @never_cache
 @login_required
 def my_orders(request):
-    orders = Order.objects.filter(user=request.user).order_by('-created_at')
+    # Fetch both normal orders and custom watch orders
+    normal_orders = Order.objects.filter(user=request.user).order_by('-created_at')
+    custom_orders = CustomWatchOrder.objects.filter(user=request.user).order_by('-created_at')
 
-    # Prefetch related items and reviews
-    orders = orders.prefetch_related(
+    # Prefetch related items and reviews for normal orders
+    normal_orders = normal_orders.prefetch_related(
         Prefetch(
             'items',
             queryset=OrderItem.objects.select_related('watch').prefetch_related(
@@ -204,41 +207,47 @@ def my_orders(request):
         )
     )
 
+    # Prefetch related parts for custom orders
+    custom_orders = custom_orders.prefetch_related('selected_parts__part', 'selected_parts__selected_option')
+
+    # Combine and sort all orders
+    all_orders = sorted(
+        [(order, 'normal') for order in normal_orders] + 
+        [(order, 'custom') for order in custom_orders],
+        key=lambda x: x[0].created_at,
+        reverse=True
+    )
+
     # Filter by status
     status = request.GET.getlist('status')
     if status:
-        orders = orders.filter(status__in=status)
+        all_orders = [order for order, _ in all_orders if order.status in status]
 
     # Filter by time
     order_time = request.GET.get('time')
     if order_time:
         if order_time == 'last_30_days':
             start_date = datetime.now() - timedelta(days=30)
-            orders = orders.filter(created_at__gte=start_date)
+            all_orders = [order for order, _ in all_orders if order.created_at >= start_date]
         elif order_time.isdigit():
             year = int(order_time)
-            orders = orders.filter(created_at__year=year)
+            all_orders = [order for order, _ in all_orders if order.created_at.year == year]
 
     # Search functionality
     search_query = request.GET.get('search')
     if search_query:
-        orders = orders.filter(
-            Q(items__watch__model_name__icontains=search_query) |
-            Q(order_id__icontains=search_query)
-        ).distinct()
-
-    for order in orders:
-        for item in order.items.all():
-            if hasattr(item.watch, 'user_review') and item.watch.user_review:
-                item.user_review = item.watch.user_review[0]
-            else:
-                item.user_review = None
+        all_orders = [
+            order for order, _ in all_orders
+            if (isinstance(order, Order) and any(search_query.lower() in item.watch.model_name.lower() for item in order.items.all()))
+            or (isinstance(order, CustomWatchOrder) and search_query.lower() in order.customizable_watch.name.lower())
+            or search_query.lower() in order.order_id.lower()
+        ]
 
     current_year = datetime.now().year
     year_range = range(current_year, 2019, -1)  # Adjust the start year as needed
 
     context = {
-        'orders': orders,
+        'orders': all_orders,
         'current_year': current_year,
         'year_range': year_range,
     }
@@ -322,9 +331,25 @@ def edit_review(request, item_id):
 @never_cache
 @login_required
 def download_invoice(request, order_id):
-    order = get_object_or_404(Order, order_id=order_id, user=request.user)
-    vender = OrderItem.objects.get(order_id=order).watch.vendor
-    company_name = vender.company_name
+    if order_id.startswith('CWH'):
+        # Custom Watch Order
+        order = get_object_or_404(CustomWatchOrder, order_id=order_id, user=request.user)
+        is_custom = True
+        vendor = {
+            'company_name': 'Time Craft',
+            'address': 'NDR warehousing private ltd, SF No. 525, 526, 529-533, Okkilipalayam, Palladam Road, Othakalmandapam, Coimbatore, Tamilnadu, India - 641032, IN-TN.',
+            'gstin': '33AAECS1679J1Z5',
+        }
+    elif order_id.startswith('WH'):
+        # Regular Order
+        order = get_object_or_404(Order, order_id=order_id, user=request.user)
+        is_custom = False
+        vendor = order.items.first().watch.vendor
+    else:
+        raise Http404("Invalid order ID")
+
+    company_name = vendor['company_name'] if isinstance(vendor, dict) else vendor.company_name
+
     # Create a file-like buffer to receive PDF data
     buffer = BytesIO()
 
@@ -333,8 +358,8 @@ def download_invoice(request, order_id):
 
     # Set up some variables
     width, height = letter
-    margin = 0.5 * inch  # Set narrow margin
-    
+    margin = 0.5 * inch
+
     # Add the Time Craft logo at the top right corner
     logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo.png')
     p.drawImage(logo_path, width - 2.2*inch, height - 12*margin - inch, width=2*inch, height=inch, preserveAspectRatio=True)
@@ -365,30 +390,45 @@ def download_invoice(request, order_id):
     p.drawString(width / 2 + 1.5*inch, height - 5.2*margin, f"{order.address.town_city}, {order.address.state} - {order.address.pincode}")
     p.drawString(width / 2 + 1.5*inch, height - 5.6*margin, f"Phone: {order.user.profile.phone}")
 
-    
-
     def format_price(price):
-        return f"Rs.{price}"
-    
+        return f"Rs.{price:.2f}"
+
     # Create table for order items
     data = [['Product', 'Qty', 'Gross Amount', 'Discounts', 'Taxable Value', 'IGST', 'Total']]
-    for item in order.items.all():
-        item.discount = 0
-        item.igst = 0
-        data.append([
-            item.watch.model_name,
-            str(item.quantity),
-            format_price(item.price),
-            format_price(item.discount),
-            format_price(item.quantity * item.price - item.discount),
-            format_price(item.igst),
-            format_price(item.quantity * item.price - item.discount + item.igst)
-        ])
     
-    # Add totals
-    total_amount = sum(item.quantity * item.price for item in order.items.all())
-    total_discount = sum(0 for item in order.items.all())
-    total_igst = sum(0 for item in order.items.all())
+    if is_custom:
+        # For custom watch order
+        item_name = f"Custom Watch: {order.customizable_watch.name}"
+        price = order.total_price
+        data.append([
+            item_name,
+            "1",
+            format_price(price),
+            format_price(0),  # Assuming no discount for custom watches
+            format_price(price),
+            format_price(0),  # Assuming no IGST for custom watches
+            format_price(price)
+        ])
+        total_amount = price
+        total_discount = 0
+        total_igst = 0
+    else:
+        # For regular order
+        for item in order.items.all():
+            item_price = item.price * item.quantity
+            data.append([
+                item.watch.model_name,
+                str(item.quantity),
+                format_price(item_price),
+                format_price(0),  # Assuming no discount per item
+                format_price(item_price),
+                format_price(0),  # Assuming no IGST per item
+                format_price(item_price)
+            ])
+        total_amount = sum(item.price * item.quantity for item in order.items.all())
+        total_discount = 0  # Assuming no discount
+        total_igst = 0  # Assuming no IGST
+
     grand_total = total_amount - total_discount + total_igst
 
     data.extend([

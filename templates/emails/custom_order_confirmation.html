@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Watch Order Confirmation</title>
+</head>
+<body>
+    <h1>Custom Watch Order Confirmation</h1>
+    <p>Dear {{ user.fullname }},</p>
+    <p>Thank you for your custom watch order. We're excited to create your unique timepiece!</p>
+    <h2>Order Details</h2>
+    <p><strong>Order ID:</strong> {{ order.order_id }}</p>
+    <p><strong>Total Amount:</strong> ${{ order.total_price }}</p>
+    <p><strong>Status:</strong> {{ order.get_status_display }}</p>
+    <h3>Custom Watch Details</h3>
+    <p><strong>Base Model:</strong> {{ order.customizable_watch.name }}</p>
+    <h4>Selected Parts:</h4>
+    <ul>
+    {% for part in order.selected_parts.all %}
+        <li>{{ part.part.part_name.name }}: {{ part.selected_option.name }}</li>
+    {% endfor %}
+    </ul>
+    <p>We will start working on your custom watch soon. You will receive updates on the progress of your order.</p>
+    <p>You can view your order history <a href="{{ view_order_history_url }}">here</a>.</p>
+    <p>If you have any questions or concerns, please don't hesitate to contact our customer support team.</p>
+    <p>Thank you for choosing our custom watch service!</p>
+    <p>Best regards,<br>Your Custom Watch Team</p>
+</body>
+</html>
