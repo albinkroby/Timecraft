@@ -44,7 +44,7 @@ mongoengine==0.28.2
 mpmath==1.3.0
 namex==0.0.8
 networkx==3.3
-numba==0.60.0
+numba
 numpy==1.26.4
 oauthlib==3.2.2
 onnxruntime==1.19.0
@@ -71,7 +71,7 @@ python3-openid==3.2.0
 pytz==2024.1
 PyWavelets==1.7.0
 referencing==0.35.1
-rembg==2.0.59
+rembg
 reportlab==4.2.2
 requests==2.32.3
 requests-oauthlib==2.0.0
