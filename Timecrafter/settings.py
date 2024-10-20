@@ -28,7 +28,7 @@ PORT = os.getenv('PORT', 4000)
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-PORT = 4000
+PORT = os.getenv('PORT')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
@@ -118,6 +118,7 @@ DATABASES['default'] = dj_database_url.parse(DATABASE_URL)
 
 AUTH_USER_MODEL = 'mainapp.User'
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
@@ -165,8 +166,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR,'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0' 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

@@ -10,11 +10,10 @@ from django.core.validators import RegexValidator
 import imagehash
 from PIL import Image
 from django.conf import settings
-from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
-from tensorflow.keras.preprocessing import image
 from django.db.models import UniqueConstraint
 from django.db.models.functions import Lower
 import numpy as np
+from .utils import extract_features
 
 
 class Brand(models.Model):
@@ -197,19 +196,12 @@ class BaseWatch(models.Model):
             self.generate_image_feature()
 
     def generate_image_feature(self):
-        model = ResNet50(weights='imagenet', include_top=False, pooling='avg')
-        img = Image.open(self.primary_image.path)
-        img = img.convert('RGBA').convert('RGB')  # Convert to RGBA then to RGB
-        img = img.resize((224, 224))
-        x = image.img_to_array(img)
-        x = np.expand_dims(x, axis=0)
-        x = preprocess_input(x)
-        features = model.predict(x)
-        
-        ImageFeature.objects.update_or_create(
-            base_watch=self,
-            defaults={'feature_vector': features.flatten().tobytes()}
-        )
+        if self.primary_image:
+            features = extract_features(self.primary_image.path)
+            ImageFeature.objects.update_or_create(
+                base_watch=self,
+                defaults={'feature_vector': features.tobytes()}
+            )
 
     def get_primary_image(self):
         return self.primary_image

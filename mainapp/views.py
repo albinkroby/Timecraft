@@ -23,7 +23,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import default_token_generator
 from .utils import hash_url, verify_hashed_url
-from django.db.models import Q,Count
+from django.db.models import Q,Count, F
 from adminapp.models import BaseWatch, WatchImage, Brand, Category, ImageFeature, Material
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -36,14 +36,14 @@ from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 from PIL import Image
 import numpy as np
-from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
-from tensorflow.keras.preprocessing import image
 from scipy.spatial.distance import cosine
 from rembg import remove
-import io,cv2
+import io, cv2
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from sklearn.cluster import KMeans
 from django.utils.html import strip_tags
+from adminapp.models import BaseWatch, ImageFeature
+from adminapp.utils import remove_background, extract_features, find_similar_watches
 
 User = get_user_model()
 # Create your views here.
@@ -381,7 +381,7 @@ def search_results(request):
     function_displays = request.GET.getlist('function_display')
     sort_by = request.GET.get('sort_by', 'relevance')
 
-    watches = BaseWatch.objects.filter(is_active=True)
+    watches = BaseWatch.objects.filter(is_active=True).order_by('id')  # Add default ordering
 
     if query:
         watches = watches.filter(
@@ -412,16 +412,21 @@ def search_results(request):
     elif sort_by == 'newest':
         watches = watches.order_by('-id')
 
-    similar_watches = []
     if request.method == 'POST' and request.FILES.get('image'):
         uploaded_image = request.FILES['image']
-        
-        # Remove background from the uploaded image
         uploaded_image_nobg = remove_background(uploaded_image)
         
-        search_features = extract_features(uploaded_image_nobg)
-        similar_watches = find_similar_watches(search_features, similarity_threshold=0.5)
-        watch_ids = [watch.id for watch, similarity in similar_watches if similarity > 0.5]
+        temp_image_path = default_storage.save('temp_images/search_image.jpg', uploaded_image_nobg)
+        temp_image_path = default_storage.path(temp_image_path)
+        
+        search_features = extract_features(temp_image_path)
+        
+        # Get all image features from the database
+        image_features = [(feature.base_watch, np.frombuffer(feature.feature_vector, dtype=np.float32)) 
+                          for feature in ImageFeature.objects.all()]
+        
+        similar_watches = find_similar_watches(search_features, image_features, similarity_threshold=0.5)
+        watch_ids = [watch.id for watch, similarity in similar_watches]
         watches = watches.filter(id__in=watch_ids)
         image_search = True
         
@@ -430,6 +435,9 @@ def search_results(request):
         print("Number of similar watches found:", len(similar_watches))
         for watch, similarity in similar_watches[:5]:  # Print top 5 matches
             print(f"Watch: {watch.model_name}, Similarity: {similarity}")
+        
+        # Clean up the temporary file
+        default_storage.delete(temp_image_path)
         
         request.session['image_search'] = True
         request.session['search_features'] = search_features.tolist()
@@ -466,51 +474,6 @@ def search_results(request):
         'sort_by': sort_by,
     }
     return render(request, 'search_results.html', context)
-
-def remove_background(image_file):
-    # Open the image using PIL
-    img = Image.open(image_file)
-    
-    # Remove the background
-    img_without_bg = remove(img)
-    
-    # Convert the image back to bytes
-    img_byte_arr = io.BytesIO()
-    img_without_bg.save(img_byte_arr, format='PNG')
-    img_byte_arr.seek(0)
-    
-    # Create a new InMemoryUploadedFile
-    return InMemoryUploadedFile(
-        img_byte_arr,
-        'ImageField',
-        f"{image_file.name.split('.')[0]}_nobg.png",
-        'image/png',
-        img_byte_arr.tell(),
-        None
-    )
-
-def extract_features(image_file):
-    model = ResNet50(weights='imagenet', include_top=False, pooling='avg')
-    img = Image.open(image_file)
-    img = img.convert('RGB')
-    img = img.resize((224, 224))
-    x = image.img_to_array(img)
-    x = np.expand_dims(x, axis=0)
-    x = preprocess_input(x)
-    features = model.predict(x)
-    return features.flatten()
-
-def find_similar_watches(search_features, similarity_threshold=0.6):
-    similar_watches = []
-    for image_feature in ImageFeature.objects.all():
-        watch_features = np.frombuffer(image_feature.feature_vector, dtype=np.float32)
-        similarity = 1 - cosine(search_features, watch_features)  # Cosine similarity
-        print(f"Similarity: {similarity}")
-        
-        if similarity > similarity_threshold:
-            similar_watches.append((image_feature.base_watch, similarity))
-    
-    return sorted(similar_watches, key=lambda x: x[1], reverse=True)
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 

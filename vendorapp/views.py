@@ -693,6 +693,9 @@ def add_product_step2(request):
             base_watch.save()
             base_watch_form.save_m2m()
 
+            # Generate image feature
+            base_watch.generate_image_feature()
+
             details = details_form.save(commit=False)
             details.base_watch = base_watch
             details.save()
