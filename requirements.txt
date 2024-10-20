@@ -12,7 +12,7 @@ opencv_python_headless==4.10.0.84
 rembg
 
 # Data Processing and Analysis
-numpy==2.1.2
+numpy
 pandas==2.2.3
 scipy==1.14.1
 pytz==2024.1
