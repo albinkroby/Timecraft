@@ -40,3 +40,6 @@ stripe==10.7.0
 python-dotenv==1.0.1
 tqdm==4.66.5
 webcolors==24.8.0
+
+# WSGI Server
+gunicorn
