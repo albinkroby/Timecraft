@@ -66,7 +66,7 @@
             </form>
         </div>
         <!-- Orders List -->
-        <div class="col-md-9">
+        <div class="col-md-9 ">
             <form method="get" class="mb-4">
                 <div class="input-group">
                     <input type="text" class="form-control" placeholder="Search your orders here" name="search"
@@ -74,68 +74,79 @@
                     <button class="btn btn-primary" type="submit">Search Orders</button>
                 </div>
             </form>
-            {% if orders %}
-                {% for order, order_type in orders %}
-                <div class="card mb-3">
-                    <div class="card-body">
-                        {% if order_type == 'normal' %}
-                            {% for item in order.items.all %}
-                            <div class="row" style="border-bottom: 1px solid #ccc; padding-bottom: 10px; background-color: #f9f9f9;">
-                                <div class="col-md-8">
-                                    <a href="{% url 'userapp:order_details' order.order_id %}" style="text-decoration: none; color: inherit;">
-                                        <div class="row">
-                                            <div class="col-md-2">
-                                                <img src="{{ item.watch.primary_image.url }}" alt="{{ item.watch.model_name }}" class="img-fluid">
+            <div class="scrollable-orders">
+                {% if orders %}
+                    {% for order, order_type in orders %}
+                    <div class="card mb-3 ">
+                        <div class="card-body">
+                            {% if order_type == 'normal' %}
+                                {% for item in order.items.all %}
+                                <div class="row" style="border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+                                    <div class="col-md-8">
+                                        <a href="{% url 'userapp:order_details' order.order_id %}" style="text-decoration: none; color: inherit;">
+                                            <div class="row">
+                                                <div class="col-md-2">
+                                                    <img src="{{ item.watch.primary_image.url }}" alt="{{ item.watch.model_name }}" class="img-fluid">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h5>{{ item.watch.model_name }}</h5>
+                                                    <p>Color: {{ item.watch.color }}</p>
+                                                </div>
                                             </div>
-                                            <div class="col-md-6">
-                                                <h5>{{ item.watch.model_name }}</h5>
-                                                <p>Color: {{ item.watch.color }}</p>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </div>
-                                <div class="col-md-4">
-                                    <h5>₹{{ item.price }}</h5>
-                                    <p class="text-success">{{ order.get_status_display }} {{ order.delivery_date|date:"M d"}}</p>
-                                    <p>Your item has been {{ order.get_status_display|lower }}</p>
-                                    {% if order.status == 'delivered' %}
-                                        {% if item.user_review %}
-                                            <a href="{% url 'userapp:edit_review' item.id %}" class="btn btn-outline-primary btn-sm">Edit Review</a>
-                                        {% else %}
-                                            <a href="{% url 'userapp:write_review' item.id %}" class="btn btn-outline-primary btn-sm">Rate & Review Product</a>
+                                        </a>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h5>₹{{ item.price }}</h5>
+                                        <p class="{% if order.status == 'cancelled' %}text-danger {% elif order.status == 'returned' %}text-warning {% elif order.status == 'on_the_way' %}text-info{% else %}text-success{% endif %}">{{ order.get_status_display }} {{ order.delivery_date|date:"M d"}}</p>
+                                        <p>Your item has been {{ order.get_status_display|lower }}</p>
+                                        {% if order.status == 'delivered' %}
+                                            {% if item.user_review %}
+                                                <a href="{% url 'userapp:edit_review' item.id %}" class="btn btn-outline-primary btn-sm">Edit Review</a>
+                                            {% else %}
+                                                <a href="{% url 'userapp:write_review' item.id %}" class="btn btn-outline-primary btn-sm">Rate & Review Product</a>
+                                            {% endif %}
+                                            {% if order.is_returnable %}
+                                                <a href="{% url 'userapp:return_order' order.id %}" class="btn btn-outline-warning btn-sm">Return Order</a>
+                                            {% endif %}
                                         {% endif %}
-                                    {% endif %}
+                                        {% if order.status != 'delivered' and order.status != 'cancelled' and order.status != 'returned' %}
+                                            <a href="{% url 'userapp:cancel_order' order.id %}" class="btn btn-outline-danger btn-sm">Cancel Order</a>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                            </div>
-                            {% endfor %}
-                        {% else %}
-                            <div class="row" style="border-bottom: 1px solid #ccc; padding-bottom: 10px; background-color: #f9f9f9;">
-                                <div class="col-md-8">
-                                    <a href="{% url 'watch_customizer:custom_order_details' order.order_id %}" style="text-decoration: none; color: inherit;">
-                                        <div class="row">
-                                            <div class="col-md-2">
-                                                <img src="{{ order.customizable_watch.preview_image.url }}" alt="{{ order.customizable_watch.name }}" class="img-fluid">
+                                {% endfor %}
+                            {% else %}
+                                <div class="row" style="border-bottom: 1px solid #ccc; padding-bottom: 10px; background-color: #f9f9f9;">
+                                    <div class="col-md-8">
+                                        <a href="{% url 'watch_customizer:custom_order_details' order.order_id %}" style="text-decoration: none; color: inherit;">
+                                            <div class="row">
+                                                <div class="col-md-2">
+                                                    <img src="{{ order.customizable_watch.preview_image.url }}" alt="{{ order.customizable_watch.name }}" class="img-fluid">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h5>{{ order.customizable_watch.name }} <span class="badge bg-info">Custom Watch</span></h5>
+                                                    <p>Custom Design</p>
+                                                </div>
                                             </div>
-                                            <div class="col-md-6">
-                                                <h5>{{ order.customizable_watch.name }} <span class="badge bg-info">Custom Watch</span></h5>
-                                                <p>Custom Design</p>
-                                            </div>
-                                        </div>
-                                    </a>
+                                        </a>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <h5>₹{{ order.total_price }}</h5>
+                                        <p class="{% if order.status == 'cancelled' %}text-danger {% elif order.status == 'returned' %}text-warning {% elif order.status == 'on_the_way' %}text-info{% else %}text-success{% endif %}">{{ order.get_status_display }} {{ order.delivery_date|date:"M d"}}</p>
+                                        <p>Your custom watch has been {{ order.get_status_display|lower }}</p>
+                                        {% if order.status != 'delivered' and order.status != 'cancelled' and order.status != 'returned' %}
+                                            <a href="{% url 'watch_customizer:cancel_custom_watch_order' order.id %}" class="btn btn-outline-danger btn-sm">Cancel Order</a>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                                <div class="col-md-4">
-                                    <h5>₹{{ order.total_price }}</h5>
-                                    <p class="text-success">{{ order.get_status_display }} {{ order.delivery_date|date:"M d"}}</p>
-                                    <p>Your custom watch has been {{ order.get_status_display|lower }}</p>
-                                </div>
-                            </div>
-                        {% endif %}
+                            {% endif %}
+                        </div>
                     </div>
-                </div>
                 {% endfor %}
                 <div class="text-center mt-4">
                     <button class="btn btn-outline-primary">No More Results To Display</button>
                 </div>
+            </div>
             {% else %}
                 <div class="alert alert-info">
                     No orders found. Start shopping to see your orders here!
@@ -144,6 +155,17 @@
         </div>
     </div>
 </div>
+<style>
+    .scrollable-orders {
+        max-height: 500px; /* Adjust the height as needed */
+        overflow-y: auto;
+        scrollbar-width: none; /* For Firefox */
+    }
+
+    .scrollable-orders::-webkit-scrollbar {
+        display: none; /* For Chrome, Safari, and Opera */
+    }
+</style>
 {% endblock %}
 
 {% block extra_js %}

@@ -244,3 +244,49 @@ def custom_order_details(request, order_id):
         'order': order,
     }
     return render(request, 'watch_customizer/custom_order_details.html', context)
+
+@never_cache
+@login_required
+def cancel_custom_watch_order(request, order_id):
+    order = get_object_or_404(CustomWatchOrder, id=order_id, user=request.user)
+    
+    if request.method == 'POST':
+        reason = request.POST.get('cancellation_reason', '')
+        if reason == 'Other':
+            custom_reason = request.POST.get('custom_reason', '')
+            reason = custom_reason if custom_reason else reason
+            
+        order.status = 'cancelled'
+        order.cancellation_reason = reason
+        order.save()
+        
+        if order.cancel_order(reason):
+            messages.success(request, 'Custom watch order cancelled successfully.')
+        else:
+            messages.error(request, 'Custom watch order cannot be cancelled.')
+        return redirect('userapp:my_orders')
+    
+    return render(request, 'userapp/cancel_order.html', {'order': order})
+
+@never_cache
+@login_required
+def return_custom_watch_order(request, order_id):
+    order = get_object_or_404(CustomWatchOrder, id=order_id, user=request.user)
+    
+    if order.is_returnable():
+        if request.method == 'POST':
+            return_reason = request.POST.get('return_reason', '')
+            if return_reason == 'Other':
+                custom_reason = request.POST.get('custom_reason', '')
+                return_reason = custom_reason if custom_reason else return_reason
+            
+            order.status = 'returned'
+            order.return_reason = return_reason
+            order.save()
+            messages.success(request, 'Custom watch order returned successfully.')
+            return redirect('userapp:my_orders')
+    else:
+        messages.error(request, 'Custom watch order cannot be returned. Return period has expired.')
+        return redirect('userapp:my_orders')
+    
+    return render(request, 'userapp/return_order.html', {'order': order})

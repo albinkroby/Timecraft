@@ -468,3 +468,45 @@ def download_invoice(request, order_id):
     # present the option to save the file.
     buffer.seek(0)
     return HttpResponse(buffer, content_type='application/pdf')
+
+@never_cache
+@login_required
+def cancel_order(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    
+    if request.method == 'POST':
+        reason = request.POST.get('cancellation_reason', '')
+        if reason == 'Other':
+            custom_reason = request.POST.get('custom_reason', '')
+            reason = custom_reason if custom_reason else reason
+        
+        if order.cancel_order(reason):
+            messages.success(request, 'Order cancelled successfully.')
+        else:
+            messages.error(request, 'Order cannot be cancelled.')
+        return redirect('userapp:my_orders')
+    
+    return render(request, 'userapp/cancel_order.html', {'order': order})
+
+from django.utils import timezone
+
+def return_order(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+    
+    if order.is_returnable():
+        if request.method == 'POST':
+            return_reason = request.POST.get('return_reason', '')
+            if return_reason == 'Other':
+                custom_reason = request.POST.get('custom_reason', '')
+                return_reason = custom_reason if custom_reason else return_reason
+            
+            order.status = 'returned'
+            order.return_reason = return_reason
+            order.save()
+            messages.success(request, 'Order returned successfully.')
+            return redirect('userapp:my_orders')
+    else:
+        messages.error(request, 'Order cannot be returned. Return period has expired.')
+        return redirect('userapp:my_orders')
+    
+    return render(request, 'userapp/return_order.html', {'order': order})

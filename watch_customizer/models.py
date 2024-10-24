@@ -6,6 +6,7 @@ from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 import uuid
+from datetime import timedelta
 
 # Create your models here.
 
@@ -84,9 +85,24 @@ class CustomWatchOrder(models.Model):
     stripe_session_id = models.CharField(max_length=200, blank=True, null=True)
     order_id = models.CharField(max_length=50, unique=True, blank=True)
     delivery_date = models.DateField(null=True, blank=True)
+    cancellation_reason = models.CharField(max_length=200, blank=True, null=True)
+    return_reason = models.CharField(max_length=200, blank=True, null=True)
 
     def __str__(self):
         return f"Custom Order for {self.customizable_watch.name}"
+
+    def is_returnable(self):
+        if self.status == 'delivered' and self.delivery_date:
+            return (timezone.now().date() - self.delivery_date) <= timedelta(days=10)
+        return False
+
+    def cancel_order(self, reason):
+        if self.status not in ['delivered', 'cancelled']:
+            self.status = 'cancelled'
+            self.cancellation_reason = reason
+            self.save()
+            return True
+        return False
 
 @receiver(pre_save, sender=CustomWatchOrder)
 def create_order_id(sender, instance, **kwargs):
@@ -106,5 +122,3 @@ class CustomWatchOrderPart(models.Model):
 
     def __str__(self):
         return f"{self.order} - {self.part.name}: {self.selected_option.name}"
-
-

@@ -16,6 +16,8 @@ urlpatterns = [
     
     path('place_custom_order/', views.place_custom_order, name='place_custom_order'),
     path('order_confirmation/<int:order_id>/', views.order_confirmation, name='order_confirmation'),
+    path('custom-orders/<int:order_id>/cancel/', views.cancel_custom_watch_order, name='cancel_custom_watch_order'),
+    path('custom-orders/<int:order_id>/return/', views.return_custom_watch_order, name='return_custom_watch_order'),
     
     path('custom_payment_success/', views.custom_payment_success, name='custom_payment_success'),
     path('custom_payment_cancel/', views.custom_payment_cancel, name='custom_payment_cancel'),

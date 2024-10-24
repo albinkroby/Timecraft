@@ -4,6 +4,7 @@ from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 import uuid
+from datetime import timedelta
 
 class User(AbstractUser):
     ROLE_CHOICES = (
@@ -98,6 +99,8 @@ class Order(models.Model):
     stripe_session_id = models.CharField(max_length=200, blank=True, null=True)
     order_id = models.CharField(max_length=50, unique=True, blank=True)
     delivery_date = models.DateField(null=True, blank=True)
+    cancellation_reason = models.TextField(blank=True, null=True)
+    return_reason = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"Order {self.order_id} by {self.user.email}"
@@ -107,6 +110,21 @@ class Order(models.Model):
             item.price * item.quantity 
             for item in self.items.filter(watch__vendor=vendor)
         )
+
+    def cancel_order(self, reason):
+        if self.status not in ['delivered', 'cancelled']:
+            self.status = 'cancelled'
+            self.cancellation_reason = reason
+            self.save()
+            return True
+        return False
+    
+    from datetime import timedelta
+
+    def is_returnable(self):
+        if self.status == 'delivered' and self.delivery_date:
+            return (timezone.now().date() - self.delivery_date) <= timedelta(days=10)
+        return False
 
 @receiver(pre_save, sender=Order)
 def create_order_id(sender, instance, **kwargs):

@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="home__container container mt-4">
+    <h2>Cancel Order</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="cancellation_reason" class="form-label">Reason for Cancellation</label>
+            <select class="form-control" id="cancellation_reason" name="cancellation_reason" required>
+                <option value="">Select Cancellation Reason</option>
+                <option value="Order Created by Mistake">Order Created by Mistake</option>
+                <option value="Item(s) Would Not Arrive on Time">Item(s) Would Not Arrive on Time</option>
+                <option value="Shipping Cost Too High">Shipping Cost Too High</option>
+                <option value="Item Price Too High">Item Price Too High</option>
+                <option value="Found Cheaper Somewhere Else">Found Cheaper Somewhere Else</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        <div class="mb-3" id="custom_reason_container" style="display: none;">
+            <label for="custom_reason" class="form-label">Custom Reason</label>
+            <textarea class="form-control" id="custom_reason" name="custom_reason" rows="3" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-danger">Cancel Order</button>
+        <a href="{% url 'userapp:my_orders' %}" class="btn btn-secondary">Back to Orders</a>
+    </form>
+</div>
+
+<script>
+    document.getElementById('cancellation_reason').addEventListener('change', function() {
+        var customReasonContainer = document.getElementById('custom_reason_container');
+        if (this.value === 'Other') {
+            customReasonContainer.style.display = 'block';
+            customReasonContainer.querySelector('textarea').required = true;
+        } else {
+            customReasonContainer.style.display = 'none';
+            customReasonContainer.querySelector('textarea').required = false;
+        }
+    });
+</script>
+{% endblock %}

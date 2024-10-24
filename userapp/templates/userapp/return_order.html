@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="home__container container mt-4">
+    <h2>Return Order</h2>
+    <p>Are you sure you want to return this order?</p>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="return_reason" class="form-label">Reason for Return</label>
+            <select class="form-control" id="return_reason" name="return_reason" required>
+                <option value="">Select Return Reason</option>
+                <option value="Defective Product">Defective Product</option>
+                <option value="Wrong Item Sent">Wrong Item Sent</option>
+                <option value="Product No Longer Needed">Product No Longer Needed</option>
+                <option value="Found a Better Price">Found a Better Price</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        <div class="mb-3" id="custom_reason_container" style="display: none;">
+            <label for="custom_reason" class="form-label">Custom Reason</label>
+            <textarea class="form-control" id="custom_reason" name="custom_reason" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn btn-warning">Confirm Return</button>
+        <a href="{% url 'userapp:my_orders' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+
+<script>
+    document.getElementById('return_reason').addEventListener('change', function() {
+        var customReasonContainer = document.getElementById('custom_reason_container');
+        if (this.value === 'Other') {
+            customReasonContainer.style.display = 'block';
+            customReasonContainer.querySelector('textarea').required = true;
+        } else {
+            customReasonContainer.style.display = 'none';
+            customReasonContainer.querySelector('textarea').required = false;
+        }
+    });
+</script>
+{% endblock %}
