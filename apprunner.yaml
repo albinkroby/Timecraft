@@ -1,0 +1,46 @@
+version: 1.0
+runtime: python3
+build:
+  commands:
+    - pip install -r requirements.txt
+run:
+  runtime-version: 3.12.0
+  command: gunicorn Timecrafter.wsgi:application
+  network:
+    port: 8000
+  env:
+    - name: DJANGO_SETTINGS_MODULE
+      value: Timecrafter.settings
+    - name: DEBUG
+      value: "False"
+  secrets:
+    - name: SECRET_KEY
+      value-from: /app/secrets/SECRET_KEY
+    - name: DATABASE_URL
+      value-from: /app/secrets/DATABASE_URL
+    - name: AWS_STORAGE_BUCKET_NAME
+      value-from: /app/secrets/AWS_STORAGE_BUCKET_NAME
+    - name: AWS_S3_REGION_NAME
+      value-from: /app/secrets/AWS_S3_REGION_NAME
+    - name: AWS_ACCESS_KEY_ID
+      value-from: /app/secrets/AWS_ACCESS_KEY_ID
+    - name: AWS_SECRET_ACCESS_KEY
+      value-from: /app/secrets/AWS_SECRET_ACCESS_KEY
+    - name: EMAIL_HOST
+      value-from: /app/secrets/EMAIL_HOST
+    - name: EMAIL_PORT
+      value-from: /app/secrets/EMAIL_PORT
+    - name: EMAIL_HOST_USER
+      value-from: /app/secrets/EMAIL_HOST_USER
+    - name: EMAIL_HOST_PASSWORD
+      value-from: /app/secrets/EMAIL_HOST_PASSWORD
+    - name: EMAIL_USE_TLS
+      value-from: /app/secrets/EMAIL_USE_TLS
+    - name: SOCIAL_AUTH_GOOGLE_OAUTH2_KEY
+      value-from: /app/secrets/SOCIAL_AUTH_GOOGLE_OAUTH2_KEY
+    - name: SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET
+      value-from: /app/secrets/SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET
+    - name: STRIPE_PUBLIC_KEY
+      value-from: /app/secrets/STRIPE_PUBLIC_KEY
+    - name: STRIPE_SECRET_KEY
+      value-from: /app/secrets/STRIPE_SECRET_KEY
