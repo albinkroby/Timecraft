@@ -1,11 +1,59 @@
 version: 1.0
-runtime: python3
+runtime: python311
 build:
   commands:
+    pre-build:
+      - echo "Starting pre-build..."
+      - python3 -V
+      - pip3 install --upgrade pip
+      - echo "Pre-build complete"
     build:
-      - pip install -r requirements.txt
+      - echo "Starting dependency installation..."
+      - pwd
+      - ls -la
+      - pip3 install pipenv
+      - pipenv install
+      - pip3 install -r requirements.txt || echo "Failed to install requirements"
+      - pip3 install gunicorn  # Explicitly installing gunicorn
+      - echo "Build phase complete"
+
 run:
-  runtime-version: 3.11.10
-  command: sh startup.sh
+  runtime-version: 3.11
+  pre-run:  
+    - pip3 install pipenv
+    - pipenv install
+  command: pipenv run gunicorn Timecrafter.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60
   network:
     port: 8000
+  env:
+    - name: DJANGO_SETTINGS_MODULE
+      value: "Timecrafter.settings"
+    - name: PYTHONUNBUFFERED
+      value: "1"
+    - name: DJANGO_ALLOWED_HOSTS
+      value: "*"
+  secrets:
+    - name: SECRET_KEY
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:SECRET_KEY"
+    - name: DEBUG
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:DEBUG"
+    - name: EMAIL_HOST
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:EMAIL_HOST"
+    - name: EMAIL_PORT
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:EMAIL_PORT"
+    - name: EMAIL_USE_TLS
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:EMAIL_USE_TLS"
+    - name: EMAIL_HOST_USER
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:EMAIL_HOST_USER"
+    - name: EMAIL_HOST_PASSWORD
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:EMAIL_HOST_PASSWORD"
+    - name: SOCIAL_AUTH_GOOGLE_OAUTH2_KEY
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:SOCIAL_AUTH_GOOGLE_OAUTH2_KEY"
+    - name: SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET"
+    - name: STRIPE_PUBLIC_KEY
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:STRIPE_PUBLIC_KEY"
+    - name: STRIPE_SECRET_KEY
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:STRIPE_SECRET_KEY"
+    - name: STRIPE_ACCOUNT_ID
+      value-from: "arn:aws:secretsmanager:us-east-1:216989102141:secret:timecraft/env-EsPXlx:STRIPE_ACCOUNT_ID"

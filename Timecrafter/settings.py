@@ -20,17 +20,15 @@ dotenv.load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-PORT = os.getenv('PORT', 4000)
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ['SECRET_KEY']
+SECRET_KEY = os.environ.get['SECRET_KEY']
 
-PORT = os.environ['PORT']
+PORT = os.environ.get['PORT']
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ['DEBUG'] == 'True'
+DEBUG = os.environ.get['DEBUG'] == 'True'
 
 ALLOWED_HOSTS = ['*']
 
@@ -106,15 +104,15 @@ WSGI_APPLICATION = 'Timecrafter.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/4.1/ref/settings/#databases
 
-if 'RDS_HOSTNAME' in os.environ:
+if 'RDS_HOSTNAME' in os.environ.get:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.environ['RDS_DB_NAME'],
-            'USER': os.environ['RDS_USERNAME'],
-            'PASSWORD': os.environ['RDS_PASSWORD'],
-            'HOST': os.environ['RDS_HOSTNAME'],
-            'PORT': os.environ['RDS_PORT'],
+            'NAME': os.environ.get['RDS_DB_NAME'],
+            'USER': os.environ.get['RDS_USERNAME'],
+            'PASSWORD': os.environ.get['RDS_PASSWORD'],
+            'HOST': os.environ.get['RDS_HOSTNAME'],
+            'PORT': os.environ.get['RDS_PORT'],
         }
     }
 else:
@@ -125,12 +123,12 @@ else:
         }
     }
 
-DATABASE_URL = os.environ['DATABASE_URL']
+DATABASE_URL = os.environ.get['DATABASE_URL']
 # DATABASES['default'] = dj_database_url.parse(DATABASE_URL)
 
 AUTH_USER_MODEL = 'mainapp.User'
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ.get['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 # Password validation
 # https://docs.djangoproject.com/en/4.1/ref/settings/#auth-password-validators
@@ -166,8 +164,6 @@ USE_TZ = True
 # Static files (CSS, JavaScr-ipt, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-import os
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Static files settings
@@ -180,11 +176,11 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
    # AWS S3 settings for static files
-if 'AWS_STORAGE_BUCKET_NAME' in os.environ:
-    AWS_STORAGE_BUCKET_NAME = os.environ['AWS_STORAGE_BUCKET_NAME']
-    AWS_S3_REGION_NAME = os.environ['AWS_S3_REGION_NAME']
-    AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
-    AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
+if 'AWS_STORAGE_BUCKET_NAME' in os.environ.get:
+    AWS_STORAGE_BUCKET_NAME = os.environ.get['AWS_STORAGE_BUCKET_NAME']
+    AWS_S3_REGION_NAME = os.environ.get['AWS_S3_REGION_NAME']
+    AWS_ACCESS_KEY_ID = os.environ.get['AWS_ACCESS_KEY_ID']
+    AWS_SECRET_ACCESS_KEY = os.environ.get['AWS_SECRET_ACCESS_KEY']
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
@@ -200,11 +196,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
 
-EMAIL_HOST = os.environ['EMAIL_HOST']
-EMAIL_PORT = os.environ['EMAIL_PORT']
-EMAIL_HOST_USER = os.environ['EMAIL_HOST_USER']
-EMAIL_HOST_PASSWORD = os.environ['EMAIL_HOST_PASSWORD']
-EMAIL_USE_TLS = os.environ['EMAIL_USE_TLS']
+EMAIL_HOST = os.environ.get['EMAIL_HOST']
+EMAIL_PORT = os.environ.get['EMAIL_PORT']
+EMAIL_HOST_USER = os.environ.get['EMAIL_HOST_USER']
+EMAIL_HOST_PASSWORD = os.environ.get['EMAIL_HOST_PASSWORD']
+EMAIL_USE_TLS = os.environ.get['EMAIL_USE_TLS']
 
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 ACCOUNT_EMAIL_REQUIRED = True
@@ -219,8 +215,8 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Add social auth settings
-SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ['SOCIAL_AUTH_GOOGLE_OAUTH2_KEY']
-SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ['SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET']
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = os.environ.get['SOCIAL_AUTH_GOOGLE_OAUTH2_KEY']
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = os.environ.get['SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET']
 
 
 LOGIN_URL = 'mainapp:login'
@@ -244,5 +240,5 @@ SOCIAL_AUTH_PIPELINE = (
 
 #  stripe key
 
-STRIPE_PUBLIC_KEY = os.environ['STRIPE_PUBLIC_KEY']     
-STRIPE_SECRET_KEY = os.environ['STRIPE_SECRET_KEY']
+STRIPE_PUBLIC_KEY = os.environ.get['STRIPE_PUBLIC_KEY']     
+STRIPE_SECRET_KEY = os.environ.get['STRIPE_SECRET_KEY']
