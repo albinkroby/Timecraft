@@ -1,5 +1,5 @@
 # Web Framework
-Django==5.0.6  # Using the latest version you have listed
+Django  # Using the latest version you have listed
 django-widget-tweaks  # Added as per your mention, version not specified
 
 # Database
