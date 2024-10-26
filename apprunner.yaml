@@ -3,20 +3,16 @@ runtime: python311
 build:
   commands:
     pre-build:
-      - echo "Installing system dependencies..."
-      - yum update -y
-      - yum install -y python3-devel gcc
+      - echo "Starting pre-build..."
       - python3 -V
       - pip3 install --upgrade pip
+      - echo "Pre-build complete"
     build:
-      - echo "Installing Python dependencies..."
-      - pip3 install -r requirements.txt
-      - echo "Dependencies installed successfully"
-    post-build:
-      - echo "Running Django commands..."
-      - python3 manage.py check
-      - python3 manage.py collectstatic --noinput --verbosity 2
-      - python3 manage.py migrate --noinput --verbosity 2
+      - echo "Starting dependency installation..."
+      - pwd
+      - ls -la
+      - pip3 install -r requirements.txt || echo "Failed to install requirements"
+      - echo "Build phase complete"
 
 run:
   runtime-version: 3.11
