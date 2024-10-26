@@ -32,3 +32,5 @@ run:
       value: "1"
     - name: DJANGO_ALLOWED_HOSTS
       value: "*"
+    - name: SECRET_KEY
+      value: "django-insecure-zpn%0$qr(dty2yl8-q5zeb@bomr7&+ns=s)@5jb-c!e^#8+696"
