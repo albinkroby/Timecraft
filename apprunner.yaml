@@ -13,7 +13,7 @@ build:
 
 run:
   runtime-version: 3.10
-  command: gunicorn your_project_name.wsgi:application --bind 0.0.0.0:8000
+  command: gunicorn Timecrafter.wsgi:application --bind 0.0.0.0:8000
   network:
     port: 8000
   env:
