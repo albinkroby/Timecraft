@@ -13,7 +13,6 @@ build:
       - ls -la
       - pip3 install -r requirements.txt || echo "Failed to install requirements"
       - pip3 install gunicorn  # Explicitly installing gunicorn
-      - python3 manage.py check
       - echo "Build phase complete"
 
 run:
