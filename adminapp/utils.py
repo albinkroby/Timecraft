@@ -53,13 +53,33 @@ def extract_features(image_file):
 def compute_similarity(feature1, feature2):
     return 1 - cosine(feature1, feature2)  # Cosine similarity
 
-def find_similar_watches(search_features, image_features, similarity_threshold=0.5):
+def find_similar_watches(search_features, image_features, similarity_threshold=0.7, min_results=3):
     similar_watches = []
-    for watch, watch_features in image_features:
-        similarity = compute_similarity(search_features, watch_features)
-        print(f"Similarity: {similarity}")
-        
-        if similarity > similarity_threshold:
-            similar_watches.append((watch, similarity))
+    print(f"Number of watches to compare: {len(image_features)}")
+    print(f"Search features shape: {search_features.shape}")
+    print(f"Using threshold: {similarity_threshold}")
     
-    return sorted(similar_watches, key=lambda x: x[1], reverse=True)
+    # Calculate all similarities first
+    all_similarities = []
+    for watch, watch_features in image_features:
+        if watch_features.shape != search_features.shape:
+            print(f"Shape mismatch: {watch_features.shape} vs {search_features.shape}")
+            continue
+            
+        similarity = compute_similarity(search_features, watch_features)
+        all_similarities.append((watch, similarity))
+        print(f"Watch: {watch.model_name}, Similarity: {similarity}")
+    
+    # Sort by similarity
+    all_similarities = sorted(all_similarities, key=lambda x: x[1], reverse=True)
+    
+    # Either use threshold or take top min_results
+    threshold_matches = [x for x in all_similarities if x[1] > similarity_threshold]
+    
+    if len(threshold_matches) >= min_results:
+        similar_watches = threshold_matches[:10]  # Limit to top 10
+    else:
+        similar_watches = all_similarities[:min_results]  # Take top min_results
+    
+    print(f"Found {len(similar_watches)} similar watches")
+    return similar_watches

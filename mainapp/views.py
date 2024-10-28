@@ -371,6 +371,7 @@ def get_dominant_color(image, k=4):
 def search_results(request):
     query = request.GET.get('search', '')
     image_search = request.GET.get('image_search', '')
+    similar_watches = []  # Initialize the variable here
     
     brands = request.GET.getlist('brand')
     categories = request.GET.getlist('category')
@@ -425,16 +426,30 @@ def search_results(request):
         image_features = [(feature.base_watch, np.frombuffer(feature.feature_vector, dtype=np.float32)) 
                           for feature in ImageFeature.objects.all()]
         
-        similar_watches = find_similar_watches(search_features, image_features, similarity_threshold=0.5)
-        watch_ids = [watch.id for watch, similarity in similar_watches]
-        watches = watches.filter(id__in=watch_ids)
-        image_search = True
+        # Try different thresholds until we find matches
+        thresholds = [0.7, 0.6, 0.5]
+        similar_watches = []
         
-        # Debug information
-        print("Search features shape:", search_features.shape)
-        print("Number of similar watches found:", len(similar_watches))
-        for watch, similarity in similar_watches[:5]:  # Print top 5 matches
-            print(f"Watch: {watch.model_name}, Similarity: {similarity}")
+        for threshold in thresholds:
+            similar_watches = find_similar_watches(search_features, image_features, similarity_threshold=threshold)
+            if similar_watches:
+                print(f"Found matches at threshold {threshold}")
+                break
+        
+        if similar_watches:
+            watch_ids = [watch.id for watch, similarity in similar_watches]
+            watches = watches.filter(id__in=watch_ids)
+            image_search = True
+            
+            # Debug information
+            print("Search features shape:", search_features.shape)
+            print("Number of similar watches found:", len(similar_watches))
+            print(f"Using threshold: {threshold}")
+            for watch, similarity in similar_watches[:5]:  # Print top 5 matches
+                print(f"Watch: {watch.model_name}, Similarity: {similarity}")
+        else:
+            print("No similar watches found at any threshold")
+            messages.warning(request, "No similar watches found. Try a different image or search criteria.")
         
         # Clean up the temporary file
         default_storage.delete(temp_image_path)
@@ -442,12 +457,23 @@ def search_results(request):
         request.session['image_search'] = True
         request.session['search_features'] = search_features.tolist()
         request.session['similar_watches'] = [(watch.id, float(similarity)) for watch, similarity in similar_watches]
+        
     elif image_search:
         saved_similar_watches = request.session.get('similar_watches', [])
         if saved_similar_watches:
-            watch_ids = [watch_id for watch_id, similarity in saved_similar_watches if similarity > 0.6]
-            watches = watches.filter(id__in=watch_ids)
-            similar_watches = [(BaseWatch.objects.get(id=watch_id), similarity) for watch_id, similarity in saved_similar_watches]
+            # Try different thresholds for saved watches too
+            thresholds = [0.7, 0.6, 0.5]
+            similar_watches = []
+            
+            for threshold in thresholds:
+                watch_ids = [watch_id for watch_id, similarity in saved_similar_watches if similarity > threshold]
+                if watch_ids:
+                    watches = watches.filter(id__in=watch_ids)
+                    similar_watches = [(BaseWatch.objects.get(id=watch_id), similarity) 
+                                     for watch_id, similarity in saved_similar_watches
+                                     if similarity > threshold]
+                    print(f"Found saved matches at threshold {threshold}")
+                    break
 
     paginator = Paginator(watches, 12)  # Show 12 watches per page
     page_number = request.GET.get('page')
@@ -457,7 +483,7 @@ def search_results(request):
         'watches': page_obj,
         'query': query,
         'image_search': image_search,
-        'similar_watches': similar_watches,
+        'similar_watches': similar_watches,  # Now it's always defined
         'brands': Brand.objects.all(),
         'categories': Category.objects.all(),
         'price_range': BaseWatch.get_price_range(),
