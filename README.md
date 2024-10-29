@@ -32,7 +32,3 @@ TimeCraft is a personalized e-commerce platform built using Python and Django. I
    ```bash
    git clone https://github.com/username/timecraft.git
    cd timecraft
-
-
-
-
