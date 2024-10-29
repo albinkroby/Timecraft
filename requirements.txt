@@ -44,3 +44,6 @@ webcolors==24.8.0
 
 # WSGI Server
 gunicorn
+
+# Static File Handling
+whitenoise
