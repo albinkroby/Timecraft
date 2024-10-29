@@ -6,20 +6,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!--=============== FAVICON ===============-->
-    <link rel="shortcut icon" href="https://albinkroby.github.io/timecraft-static/img/favicon.png" type="image/x-icon">
+    <link rel="shortcut icon" href="{% static 'img/favicon.png'%}" type="image/x-icon">
 
     
     <!--=============== BOXICONS ===============-->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/boxicons@latest/css/boxicons.min.css">
     
     <!--=============== SWIPER CSS ===============--> 
-    <link rel="stylesheet" href="https://albinkroby.github.io/timecraft-static/css/swiper-bundle.min.css">
+    <link rel="stylesheet" href="{% static 'css/swiper-bundle.min.css'%}">
     
     
     <!--=============== CSS ===============-->
-    <link href="https://albinkroby.github.io/timecraft-static/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{% static 'css/bootstrap.min.css'%}" rel="stylesheet">
     
-    <link rel="stylesheet" href="https://albinkroby.github.io/timecraft-static/css/styles.css">
+    <link rel="stylesheet" href="{% static 'css/styles.css'%}">
 
     <!--=============== DATATABLES CSS ===============-->
     <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.24/css/dataTables.bootstrap5.min.css">
@@ -28,7 +28,7 @@
     <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
 
     <!--=============== ADMIN CSS ===============-->
-    <link rel="stylesheet" href="https://albinkroby.github.io/timecraft-static/css/style.min.css">
+    <link rel="stylesheet" href="{% static 'css/style.min.css'%}">
 
     <!--=============== CHART.JS ===============-->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -98,10 +98,10 @@
                             <span>{{user.username}}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-user me-2"></i> My Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'adminapp:admin_profile' %}"><i class="fas fa-user me-2"></i> My Profile</a></li>
                             <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i> Account Settings</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
+                            <li><a class="dropdown-item" href="{% url 'mainapp:logout' %}"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -205,15 +205,15 @@
     <a href="#" class="scrollup" id="scroll-up"> 
         <i class='bx bx-up-arrow-alt scrollup__icon' ></i>
     </a>
-    <script src="https://albinkroby.github.io/timecraft-static/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/bootstrap.bundle.min.js'%}"></script>
     <!--=============== SWIPER JS ===============-->
-    <script src="https://albinkroby.github.io/timecraft-static/js/swiper-bundle.min.js"></script>
+    <script src="{% static 'js/swiper-bundle.min.js'%}"></script>
 
     <!--=============== Extra JS ===============-->
     {% block extra_js %}
     {% endblock %}
     <!--=============== MAIN JS ===============-->
-    <script src="https://albinkroby.github.io/timecraft-static/js/main.js"></script>
+    <script src="{% static 'js/main.js'%}"></script>
     <script>
         {% if messages %}
             {% for message in messages %}

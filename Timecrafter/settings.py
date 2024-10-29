@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 
 from pathlib import Path
 import os,dj_database_url
+from re import T
 import dotenv
 
 # Load environment variables from .env file
@@ -28,9 +29,9 @@ SECRET_KEY = os.environ['SECRET_KEY']
 
 PORT = os.environ['PORT']
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ['DEBUG'] == 'True'
+DEBUG = os.environ['DEBUG']
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['127.0.0.1']
 
 
 # Application definition
@@ -58,6 +59,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -152,12 +154,14 @@ USE_TZ = True
 # Static files (CSS, JavaScr-ipt, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Static files settings
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+
+# Add WhiteNoise configuration
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files settings
 MEDIA_URL = '/media/'
@@ -219,3 +223,26 @@ SOCIAL_AUTH_PIPELINE = (
 
 STRIPE_PUBLIC_KEY = os.environ['STRIPE_PUBLIC_KEY']     
 STRIPE_SECRET_KEY = os.environ['STRIPE_SECRET_KEY']
+
+
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+logger.info(f'Debug mode is {DEBUG}')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+    },
+}

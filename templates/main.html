@@ -1,0 +1,169 @@
+{% load static %}
+<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+        <!--=============== FAVICON ===============-->
+        <link rel="shortcut icon" href="{% static 'img/favicon.png' %}" type="image/x-icon">
+
+        
+        <!--=============== BOXICONS ===============-->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/boxicons@latest/css/boxicons.min.css">
+        
+        <!--=============== SWIPER CSS ===============--> 
+        <link rel="stylesheet" href="{% static 'css/swiper-bundle.min.css' %}">
+        
+        
+        <!--=============== CSS ===============-->
+        <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+        
+        <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+
+        <!--=============== JQUERY ===============-->
+        <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
+
+        <title>Time Craft</title>
+        {% block extra_css %}
+        {% endblock %}
+    </head>
+<body>
+{% comment %} <!-- <div class="container"> --> {% endcomment %}
+    <div id="page-transition-overlay" class="page-transition-overlay"></div>
+    <div id="loading-spinner" class="loading-spinner">
+        <div class="spinner-grow text-light" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+    </div>
+    <header class="header" id="header">
+        <nav class="nav container">
+            <a href="{% url 'mainapp:index' %}" class="fs-4 nav__logo">
+                <i class='fs-4 bx bxs-watch nav__logo-icon'></i> TIME&nbspCRAFT
+            </a>
+        </nav>
+    </header>
+
+    {% block content %}
+    {% endblock %}
+
+    <div id="custom-alert" class="custom-alert">
+        <span id="alert-message"></span>
+    </div>
+
+    <!--=============== SCROLL UP ===============-->
+
+    <a href="#" class="scrollup" id="scroll-up"> 
+        <i class='bx bx-up-arrow-alt scrollup__icon' ></i>
+    </a>
+
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+    <!--=============== SWIPER JS ===============-->
+    <script src="{% static 'js/swiper-bundle.min.js' %}"></script>
+    
+    <style>
+        .loading-spinner {
+            display: block;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            z-index: 9999;
+        }
+    
+        @keyframes spin {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+    
+        /* Page Transition Overlay */
+        .page-transition-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #ffffff;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            z-index: 9998;
+        }
+    
+        .page-transition-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Add these new styles for the preloader */
+        .preloader {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .preloader .spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .preloader p {
+            color: white;
+            margin-top: 10px;
+            font-size: 18px;
+        }
+
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loadingSpinner = document.getElementById('loading-spinner');
+            const pageTransitionOverlay = document.getElementById('page-transition-overlay');
+            
+            window.addEventListener('load', function() {
+                setTimeout(() => {
+                    pageTransitionOverlay.style.opacity = '0';
+                    pageTransitionOverlay.style.visibility = 'hidden';
+                    loadingSpinner.style.display = 'none';
+                }, 500);
+            });
+        });
+    
+        // Add this if you're using Turbolinks or similar libraries
+        document.addEventListener('turbolinks:load', function() {
+            const pageTransitionOverlay = document.getElementById('page-transition-overlay');
+            pageTransitionOverlay.classList.remove('active');
+        });
+    </script>
+    
+
+    <!--=============== Extra JS ===============-->
+    {% block extra_js %}
+    {% endblock %}
+    <!--=============== MAIN JS ===============-->
+    <script src="{% static 'js/main.js' %}"></script>
+        
+    </body>
+</html>

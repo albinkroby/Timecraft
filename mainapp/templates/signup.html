@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "main.html" %}
 {% load static %}
 {% block content %}
 <main class="main">
@@ -42,5 +42,5 @@
 {% endblock content %}
 
 {% block extra_js %}
-<script src="https://albinkroby.github.io/timecraft-static/js/validation.js"></script>
+<script src="{% static 'js/validation.js'%}"></script>
 {% endblock %}
