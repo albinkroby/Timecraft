@@ -43,7 +43,7 @@
                         <td>{{ order.get_status_display }}</td>
                         <td>{{ order.created_at|date:"M d, Y" }}</td>
                         <td>
-                            <a href="#" class="button rounded p-2">View Details</a>
+                            <a href="{% url 'vendorapp:order_detail' order.order_id %}" class="button rounded p-2">View Details</a>
                         </td>
                     </tr>
                 {% empty %}

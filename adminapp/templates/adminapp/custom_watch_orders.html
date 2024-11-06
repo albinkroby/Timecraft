@@ -1,0 +1,53 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+{% block title %}
+    Custom Watch Orders
+{% endblock %}
+{% block admin_content %}
+<div class="container mt-5">
+   
+    
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Base Watch</th>
+                    <th>Total Price</th>
+                    <th>Status</th>
+                    <th>Order Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>#{{ order.id }}</td>
+                    <td>{{ order.user.email }}</td>
+                    <td>{{ order.customizable_watch.name }}</td>
+                    <td class="new__price">₹{{ order.total_price }}</td>
+                    <td>
+                        <span class="badge {% if order.status == 'pending' %}badge-pending
+                                         {% elif order.status == 'processing' %}badge-processing
+                                         {% elif order.status == 'completed' %}badge-approved
+                                         {% elif order.status == 'cancelled' %}badge-rejected{% endif %}">
+                            {{ order.status|title }}
+                        </span>
+                    </td>
+                    <td>{{ order.created_at|date:"M d, Y" }}</td>
+                    <td>
+                        <a href="{% url 'adminapp:custom_watch_order_detail' order.id %}" 
+                           class="button button--small">View Details</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center">No orders found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

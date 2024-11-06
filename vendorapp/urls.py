@@ -43,5 +43,6 @@ urlpatterns = [
     path('orders/', views.order_list, name='order_list'),
     path('check-unique-model-name/', views.check_unique_model_name, name='check_unique_model_name'),
     path('orders/download/', views.download_orders, name='download_orders'),
+    path('orders/<str:order_id>/', views.order_detail, name='order_detail'),
 
 ]

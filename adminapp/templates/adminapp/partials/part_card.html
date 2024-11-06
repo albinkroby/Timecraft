@@ -1,0 +1,12 @@
+<div class="card mb-3 part-card" id="part-{{ part.id }}">
+    <div class="card-body">
+        <h5 class="card-title">{{ part.part_name.name }}</h5>
+        <p class="card-text">{{ part.description }}</p>
+        <p class="card-text"><small class="text-muted">Model Path: {{ part.model_path }}</small></p>
+        <button class="btn btn-sm btn-danger delete-part" 
+                data-part-id="{{ part.id }}"
+                data-part-name-id="{{ part.part_name.id }}">
+            Delete
+        </button>
+    </div>
+</div>

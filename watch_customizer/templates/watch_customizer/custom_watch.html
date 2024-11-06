@@ -40,14 +40,21 @@
         </div>
 
         <div class="d-flex justify-content-between mt-5 px-3">            
-            <div id="textureButtons" class="ps-4 d-flex flex-column align-items-start">
+            <div id="textureButtons" class="ps-4">
                 {% for customizable_part in customizable_parts %}
-                    <div id="{{ customizable_part.part.part_name.name|lower }}Options" class="btn-group-vertical" role="group" aria-label="{{ customizable_part.part.part_name.name }} options" style="display: none;">
+                    <div id="{{ customizable_part.part.part_name.name|lower }}Options" class="texture-options" style="display: none;">
                         {% for option in customizable_part.options.all %}
-                            <input type="checkbox" class="btn-check" id="btnCheck{{ option.id }}" autocomplete="off" onchange="changeMaterial('{{ option.texture.url }}', '{{ customizable_part.part.model_path }}', {{ option.roughness }}, {{ option.metalness }}, this.checked)">
-                            <label class="btn btn-custom d-flex align-items-center" for="btnCheck{{ option.id }}">
-                                <img src="{{ option.thumbnail.url }}" alt="{{ option.name }} Texture" class="" style="width: 100px; height: 100px;">
-                            </label>
+                            <div class="texture-option">
+                                <input type="radio" 
+                                    class="btn-check" 
+                                    name="{{ customizable_part.part.part_name.name|lower }}_texture"
+                                    id="btnCheck{{ option.id }}" 
+                                    autocomplete="off" 
+                                    onchange="changeMaterial('{{ option.texture.url }}', '{{ customizable_part.part.model_path }}', {{ option.roughness }}, {{ option.metalness }}, this.checked, '{{ option.id }}')">
+                                <label class="btn btn-custom" for="btnCheck{{ option.id }}">
+                                    <img src="{{ option.thumbnail.url }}" alt="{{ option.name }} Texture">
+                                </label>
+                            </div>
                         {% endfor %}
                     </div>
                 {% endfor %}
@@ -182,6 +189,13 @@
             model.rotation.x = -0.47;  
             model.rotation.y = -0.38;  
 
+            function logHierarchy(object, indent = '') {
+                console.log(indent + object.name + (object.isMesh ? ' (Mesh)' : ''));
+                object.children.forEach(child => logHierarchy(child, indent + '  '));
+            }
+
+            logHierarchy(model);
+
             camera.position.copy(initialCameraPosition);
             model.rotation.copy(initialModelRotation);
 
@@ -263,45 +277,43 @@
     }
 
     window.changeMaterial = function (texturePath, partPath, roughness, metalness, isChecked) {
-        const parts = partPath.split('>');
-        let targetObject = model;
-
-        for (let part of parts) {
-            targetObject = targetObject.children.find(child => child.name === part);
-            if (!targetObject) {
-                console.error(`Part ${part} not found in the model hierarchy`);
-                return;
+        // Find the target mesh by searching through all meshes in the model
+        let targetMesh = null;
+        model.traverse((object) => {
+            if (object.isMesh && object.name === partPath.split('>').pop()) {
+                targetMesh = object;
             }
+        });
+
+        if (!targetMesh) {
+            console.error(`Mesh ${partPath} not found in the model`);
+            return;
         }
 
-        if (targetObject.isMesh) {
-            if (isChecked) {
-                // Apply new material
-                const textureLoader = new THREE.TextureLoader();
-                textureLoader.load(texturePath, function (texture) {
-                    texture.encoding = THREE.sRGBEncoding;
-                    texture.flipY = false;
+        if (isChecked) {
+            // Apply new material
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load(texturePath, function (texture) {
+                texture.encoding = THREE.sRGBEncoding;
+                texture.flipY = false;
 
-                    const newMaterial = new THREE.MeshStandardMaterial({
-                        map: texture,
-                        roughness: roughness,
-                        metalness: metalness
-                    });
-
-                    targetObject.material = newMaterial;
+                const newMaterial = new THREE.MeshStandardMaterial({
+                    map: texture,
+                    roughness: roughness,
+                    metalness: metalness
                 });
-            } else {
-                // Restore original material
-                if (originalMaterials[targetObject.name]) {
-                    targetObject.material = originalMaterials[targetObject.name].clone();
-                } else {
-                    console.warn(`Original material for ${targetObject.name} not found`);
-                }
-            }
-            targetObject.material.needsUpdate = true;
+
+                targetMesh.material = newMaterial;
+            });
         } else {
-            console.error(`The final object is not a mesh`);
+            // Restore original material
+            if (originalMaterials[targetMesh.name]) {
+                targetMesh.material = originalMaterials[targetMesh.name].clone();
+            } else {
+                console.warn(`Original material for ${targetMesh.name} not found`);
+            }
         }
+        targetMesh.material.needsUpdate = true;
     }
 
     window.resetView = function() {
@@ -537,15 +549,46 @@
         background-color: transparent;
         padding: 10px;
         border-radius: 5px;
+        max-height: calc(100vh - 200px); /* Adjust based on your needs */
     }
-    #textureButtons .btn {
-        text-align: left;
-        white-space: normal;
-        margin-bottom: 5px;
+
+    .texture-options {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        overflow: auto;
+        max-height: 100%;
+        padding-right: 10px;
     }
-    #textureButtons img {
+
+    .texture-option {
+        width: 100%;
+    }
+
+    .btn-custom {
+        width: 100%;
+        padding: 5px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .btn-custom img {
+        width: 80px;
+        height: 80px;
         object-fit: cover;
         border-radius: 3px;
+    }
+
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    .texture-options::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Hide scrollbar for IE, Edge and Firefox */
+    .texture-options {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
     }
 
     button {

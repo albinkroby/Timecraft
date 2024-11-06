@@ -6,15 +6,15 @@
 <div class="container mt-5">
     <h2 class="mb-4">Edit Customizable Watch: {{ watch.name }}</h2>
     <div class="row">
-        <div class="col-md-6 ">
-            <div class="card mb-4 ">
-                <div class="card-body ">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
                     <h3 class="card-title mb-4">Watch Details</h3>
                     <form method="post" enctype="multipart/form-data">
                         {% csrf_token %}
                         {% for field in form %}
                             <div class="form-group mb-3">
-                                <label for="{{ field.id_for_label }}" class="form-label fw-bold fs-4">{{ field.label }}</label>
+                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
                                 {{ field|add_class:"form-control" }}
                                 {% if field.help_text %}
                                     <small class="form-text text-muted">{{ field.help_text }}</small>
@@ -24,212 +24,326 @@
                                 {% endfor %}
                             </div>
                         {% endfor %}
-                        <button type="submit" class="btn btn-primary mt-3">
-                            <i class="fas fa-save mr-2"></i>Update Watch
-                        </button>
-                        <button onclick="confirmDelete('watch', {{ watch.id }})" class="btn btn-danger mt-3">Delete Watch</button>
+                        <button type="submit" class="btn btn-primary">Update Watch</button>
                     </form>
                 </div>
             </div>
         </div>
         <div class="col-md-6">
-            <div id="model-viewer" class="border-1" style="height: 400px; "></div>
+            <div id="model-viewer" style="height: 400px;"></div>
         </div>
     </div>
 
-    <h3 class="mt-5 mb-4">Customizable Parts</h3>
-    <div class="accordion" id="partsAccordion">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h3 class="mb-0">Customizable Parts</h3>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addPartModal">
+            <i class="fas fa-plus"></i> Add New Part
+        </button>
+    </div>
+
+    <div class="row">
         {% for part in customizable_parts %}
-        <div class="card mb-3 border-0 shadow-sm">
-            <div class="card-header bg-white" id="heading{{ part.id }}">
-                <h5 class="mb-0 d-flex justify-content-between align-items-center">
-                    <button class="btn btn-link btn-block text-left" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ part.id }}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="collapse{{ part.id }}">
-                        {{ part.part.part_name.name }}
-                    </button>
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ part.part.part_name.name }}</h5>
                     <div>
-                        <a href="{% url 'adminapp:edit_watch_part' part.id %}" class="btn btn-sm btn-outline-secondary">Edit Part</a>
-                        <button onclick="confirmDelete('part', {{ part.id }})" class="btn btn-sm btn-outline-danger">Delete Part</button>
+                        <button class="btn btn-sm btn-primary" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#editPartModal-{{ part.id }}">
+                            Edit Part
+                        </button>
+                        <button class="btn btn-sm btn-success" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#addOptionModal-{{ part.id }}">
+                            Add Option
+                        </button>
                     </div>
-                </h5>
-            </div>
-            <div id="collapse{{ part.id }}" class="collapse" aria-labelledby="heading{{ part.id }}" data-parent="#partsAccordion">
+                </div>
                 <div class="card-body">
-                    <p><strong>Description:</strong> {{ part.part.description }}</p>
-                    <p><strong>Model Path:</strong> {{ part.part.model_path }}</p>
-                    <h5 class="mt-4">Options:</h5>
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Price</th>
-                                    <th>Stock</th>
-                                    <th>Roughness</th>
-                                    <th>Metalness</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for option in part.options.all %}
-                                <tr>
-                                    <td>{{ option.name }}</td>
-                                    <td>${{ option.price }}</td>
-                                    <td>{{ option.stock }}</td>
-                                    <td>{{ option.roughness }}</td>
-                                    <td>{{ option.metalness }}</td>
-                                    <td>
-                                        <a href="{% url 'adminapp:edit_watch_part_option' option.id %}" class="btn btn-sm btn-outline-secondary">Edit</a>
-                                        <button onclick="confirmDelete('option', {{ option.id }})" class="btn btn-sm btn-outline-danger">Delete</button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <p class="text-muted">{{ part.part.description }}</p>
+                    <p><small class="text-muted">Model Path: {{ part.part.model_path }}</small></p>
+                    
+                    <h6 class="mt-3">Options:</h6>
+                    <div class="options-container" id="options-{{ part.id }}">
+                        {% for option in part.options.all %}
+                            {% include 'adminapp/partials/option_card.html' with option=option %}
+                        {% endfor %}
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Part Modal -->
+        <div class="modal fade" id="editPartModal-{{ part.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Part: {{ part.part.part_name.name }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form class="edit-part-form" data-part-id="{{ part.id }}">
+                        {% csrf_token %}
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Part Name</label>
+                                <input type="text" class="form-control" name="part_name" 
+                                       value="{{ part.part.part_name.name }}" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" name="description">{{ part.part.description }}</textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Model Path</label>
+                                <input type="text" class="form-control" name="model_path" 
+                                       value="{{ part.part.model_path }}">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Option Modal -->
+        <div class="modal fade" id="addOptionModal-{{ part.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Option for {{ part.part.part_name.name }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form class="add-option-form" data-part-id="{{ part.id }}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="modal-body">
+                            {% for field in option_form %}
+                            <div class="mb-3">
+                                <label class="form-label">{{ field.label }}</label>
+                                {{ field|add_class:"form-control" }}
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Add Option</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
         {% endfor %}
     </div>
-
-    <a href="{% url 'adminapp:view_customizable_watch' watch.id %}" class="btn btn-secondary mt-3">Back to View</a>
 </div>
+
+<!-- Add Part Modal -->
+<div class="modal fade" id="addPartModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Part</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="add-part-form">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Part Name</label>
+                        <select class="form-control" name="part_name" required>
+                            <option value="">Select a part type</option>
+                            {% for part_name in part_names %}
+                                <option value="{{ part_name.id }}">{{ part_name.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" name="description" required></textarea>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Model Path</label>
+                        <input type="text" class="form-control" name="model_path" required>
+                        <div class="invalid-feedback"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Add Part</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
-// 3D model viewer setup
-document.addEventListener('DOMContentLoaded', function() {
-    // Three.js setup
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xffffff);  // Set white background
-    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(600, 600);
-    document.getElementById('model-viewer').appendChild(renderer.domElement);
-
-    // Add lighting
-    function addDirectionalLights() {
-        const intensity = 3; // Adjust this value to change overall brightness
-        const positions = [
-            [0, 1, 0],   // Top
-            [-1, 1, 1],  // Top-left-front
-            [1, 1, 1],   // Top-right-front
-            [-1, 1, -1], // Top-left-back
-            [1, 1, -1],  // Top-right-back
-            [0, -1, 0],  // Bottom
-            [-1, -1, 1], // Bottom-left-front
-            [1, -1, 1],  // Bottom-right-front
-            [-1, -1, -1],// Bottom-left-back
-            [1, -1, -1]  // Bottom-right-back
-        ];
-
-        positions.forEach(pos => {
-            const light = new THREE.DirectionalLight(0xffffff, intensity);
-            light.position.set(...pos);
-            scene.add(light);
-        });
-
-        // Add an ambient light for overall illumination
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-        scene.add(ambientLight);
-    }
-
-    addDirectionalLights();
-
-    // Load the GLTF model
-    const loader = new THREE.GLTFLoader();
-    loader.load('{{ watch.model_file.url }}', function(gltf) {
-        scene.add(gltf.scene);
+$(document).ready(function() {
+    // Handle part editing
+    $('.edit-part-form').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const partId = form.data('part-id');
         
-        // Center the model
-        const box = new THREE.Box3().setFromObject(gltf.scene);
-        const center = box.getCenter(new THREE.Vector3());
-        gltf.scene.position.sub(center);
-
-        // Adjust camera position
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const fov = camera.fov * (Math.PI / 180);
-        let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
-        camera.position.z = cameraZ * 1.5;
-
-        // Add OrbitControls
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.25;
-        controls.enableZoom = true;
-
-        // Animation loop
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        }
-        animate();
-    }, undefined, function(error) {
-        console.error('An error occurred while loading the model:', error);
+        $.ajax({
+            url: "{% url 'adminapp:edit_watch_part_ajax' %}",
+            method: 'POST',
+            data: {
+                'part_id': partId,
+                'description': form.find('[name="description"]').val(),
+                'model_path': form.find('[name="model_path"]').val(),
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    $(`#editPartModal-${partId}`).modal('hide');
+                    location.reload(); // Refresh to show updates
+                    showCustomAlert('Part updated successfully');
+                } else {
+                    showCustomAlert(response.message || 'Error updating part');
+                }
+            },
+            error: function() {
+                showCustomAlert('Error updating part');
+            }
+        });
     });
 
-    
-});
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-function confirmDelete(type, id) {
-    if (confirm(`Are you sure you want to delete this ${type}?`)) {
-        let url;
-        if (type === 'watch') {
-            url = "{% url 'adminapp:delete_customizable_watch' watch.id %}";
-        } else if (type === 'part') {
-            url = `/adminapp/watch-part/${id}/delete/`;
-        } else if (type === 'option') {
-            url = `/adminapp/watch-part-option/${id}/delete/`;
-        }
-
-        fetch(url, {
+    // Handle option addition
+    $('.add-option-form').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const partId = form.data('part-id');
+        const formData = new FormData(this);
+        formData.append('part_id', partId);
+        
+        $.ajax({
+            url: "{% url 'adminapp:add_part_option_ajax' %}",
             method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken'),
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({}),
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                if (type === 'watch') {
-                    window.location.href = "{% url 'adminapp:customizable_watch_list' %}";
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    $(`#options-${partId}`).append(response.html);
+                    form[0].reset();
+                    $(`#addOptionModal-${partId}`).modal('hide');
+                    showCustomAlert('Option added successfully');
                 } else {
-                    location.reload();
+                    Object.keys(response.errors).forEach(function(field) {
+                        const input = form.find(`#id_${field}`);
+                        input.addClass('is-invalid')
+                            .siblings('.invalid-feedback')
+                            .text(response.errors[field][0]);
+                    });
                 }
-            } else {
-                alert('Error: ' + data.message);
+            },
+            error: function() {
+                showCustomAlert('Error adding option');
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while deleting.');
         });
-    }
-}
+    });
 
+    // Handle option deletion
+    $(document).on('click', '.delete-option', function() {
+        const optionId = $(this).data('option-id');
+        const card = $(this).closest('.option-card');
+        
+        if (confirm('Are you sure you want to delete this option?')) {
+            $.ajax({
+                url: "{% url 'adminapp:delete_part_option' %}",
+                method: 'POST',
+                data: {
+                    'option_id': optionId,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        card.fadeOut(300, function() { $(this).remove(); });
+                        showCustomAlert('Option deleted successfully');
+                    } else {
+                        showCustomAlert(response.message || 'Error deleting option');
+                    }
+                },
+                error: function() {
+                    showCustomAlert('Error deleting option');
+                }
+            });
+        }
+    });
 
+    // Handle new part addition
+    $('#add-part-form').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        
+        $.ajax({
+            url: "{% url 'adminapp:add_watch_part_ajax' watch.id %}",
+            method: 'POST',
+            data: form.serialize(),
+            success: function(response) {
+                if (response.success) {
+                    location.reload(); // Refresh to show new part
+                    showCustomAlert('Part added successfully');
+                } else {
+                    Object.keys(response.errors).forEach(function(field) {
+                        const input = form.find(`[name="${field}"]`);
+                        input.addClass('is-invalid')
+                            .siblings('.invalid-feedback')
+                            .text(response.errors[field][0]);
+                    });
+                }
+            },
+            error: function() {
+                showCustomAlert('Error adding part');
+            }
+        });
+    });
+
+    // Clear form errors when modal is hidden
+    $('.modal').on('hidden.bs.modal', function() {
+        const form = $(this).find('form');
+        form[0].reset();
+        form.find('.is-invalid').removeClass('is-invalid');
+        form.find('.invalid-feedback').empty();
+    });
+
+    // Handle option editing
+    $('.edit-option-form').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const optionId = form.data('option-id');
+        
+        const formData = new FormData(this);
+        formData.append('option_id', optionId);
+        
+        $.ajax({
+            url: "{% url 'adminapp:edit_part_option_ajax' %}",
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    $(`#editOptionModal-${optionId}`).modal('hide');
+                    location.reload();
+                    showCustomAlert('Option updated successfully');
+                } else {
+                    showCustomAlert(response.message || 'Error updating option');
+                }
+            },
+            error: function() {
+                showCustomAlert('Error updating option');
+            }
+        });
+    });
+});
 </script>
 {% endblock %}

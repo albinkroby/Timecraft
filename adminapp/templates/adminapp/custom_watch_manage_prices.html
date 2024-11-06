@@ -1,0 +1,199 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Watch Base Price Section -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header" style="background-color: var(--first-color); color: var(--title-color)">
+                    <h5 class="mb-0">Base Watch Selection</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        {% for watch in watches %}
+                        <div class="list-group-item watch-item" data-watch-id="{{ watch.id }}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ watch.name }}</h6>
+                                    <small class="text-muted">Current Price: Rs.<span id="watch-price-{{ watch.id }}">{{ watch.base_price }}</span></small>
+                                </div>
+                                <div class="input-group" style="width: 200px;">
+                                    <input type="number" 
+                                           class="form-control form-control-sm watch-price-input" 
+                                           data-watch-id="{{ watch.id }}"
+                                           value="{{ watch.base_price }}"
+                                           step="0.01"
+                                           min="0">
+                                    <button class="btn btn-sm update-watch-price" style="background-color: var(--button-color); color: #FFF; border: none;"
+                                            data-watch-id="{{ watch.id }}">
+                                        Update
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Part Options Prices Section -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header" style="background-color: var(--first-color); color: var(--title-color)">
+                    <h5 class="mb-0">Part Options Prices</h5>
+                </div>
+                <div class="card-body">
+                    <div id="partsContainer">
+                        <p class="text-center text-muted">Please select a base watch to view its parts</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Load parts when a watch is clicked
+    $('.watch-item').on('click', function() {
+        const watchId = $(this).data('watch-id');
+        $('.watch-item').removeClass('active');
+        $(this).addClass('active');
+        
+        $.ajax({
+            url: "{% url 'adminapp:get_watch_parts' %}",
+            method: 'GET',
+            data: { 'watch_id': watchId },
+            success: function(response) {
+                if (response.success) {
+                    displayParts(response.parts);
+                } else {
+                    showCustomAlert(response.message || 'Error loading parts');
+                }
+            },
+            error: function() {
+                showCustomAlert('Error loading parts');
+            }
+        });
+    });
+
+    function displayParts(parts) {
+        const container = $('#partsContainer');
+        container.empty();
+        
+        if (parts.length === 0) {
+            container.html('<p class="text-center text-muted">No parts found for this watch</p>');
+            return;
+        }
+
+        const accordion = $('<div class="accordion" id="partsAccordion"></div>');
+        
+        parts.forEach((part, index) => {
+            const partHtml = `
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" 
+                                data-bs-toggle="collapse" 
+                                data-bs-target="#part-${part.id}">
+                            ${part.part_name}
+                        </button>
+                    </h2>
+                    <div id="part-${part.id}" class="accordion-collapse collapse" 
+                         data-bs-parent="#partsAccordion">
+                        <div class="accordion-body">
+                            <div class="list-group">
+                                ${part.options.map(option => `
+                                    <div class="list-group-item">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <h6 class="mb-1">${option.name}</h6>
+                                                <small class="text-muted">Current Price: Rs.<span id="option-price-${option.id}">${option.price}</span></small>
+                                            </div>
+                                            <div class="input-group" style="width: 200px;">
+                                                <input type="number" 
+                                                       class="form-control form-control-sm option-price-input" 
+                                                       data-option-id="${option.id}"
+                                                       value="${option.price}"
+                                                       step="0.01"
+                                                       min="0">
+                                                <button class="btn btn-sm update-option-price" 
+                                                        style="background-color: var(--button-color); color: #FFF; border: none;"
+                                                        data-option-id="${option.id}">
+                                                    Update
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            accordion.append(partHtml);
+        });
+        
+        container.append(accordion);
+    }
+
+    // Update Watch Base Price
+    $('.update-watch-price').on('click', function() {
+        const watchId = $(this).data('watch-id');
+        const newPrice = $(this).siblings('.watch-price-input').val();
+        
+        $.ajax({
+            url: "{% url 'adminapp:update_watch_price' %}",
+            method: 'POST',
+            data: {
+                'watch_id': watchId,
+                'price': newPrice,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    $(`#watch-price-${watchId}`).text(newPrice);
+                    showCustomAlert('Watch price updated successfully');
+                } else {
+                    showCustomAlert(response.message || 'Error updating price');
+                }
+            },
+            error: function() {
+                showCustomAlert('Error updating price');
+            }
+        });
+    });
+
+    // Update Option Price (delegated event for dynamically added elements)
+    $(document).on('click', '.update-option-price', function() {
+        const optionId = $(this).data('option-id');
+        const newPrice = $(this).siblings('.option-price-input').val();
+        
+        $.ajax({
+            url: "{% url 'adminapp:update_option_price' %}",
+            method: 'POST',
+            data: {
+                'option_id': optionId,
+                'price': newPrice,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    $(`#option-price-${optionId}`).text(newPrice);
+                    showCustomAlert('Option price updated successfully');
+                } else {
+                    showCustomAlert(response.message || 'Error updating price');
+                }
+            },
+            error: function() {
+                showCustomAlert('Error updating price');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

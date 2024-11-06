@@ -1,0 +1,171 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="row align-items-center mb-4">
+        <div class="col">
+            <h2 class="h3 mb-0">Order #{{ order.order_id }}</h2>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'adminapp:order_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Orders
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Order Summary Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Order Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Order Date</label>
+                            <span>{{ order.created_at|date:"M d, Y H:i" }}</span>
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Status</label>
+                            <span class="badge {% if order.status == 'delivered' %}bg-success
+                                             {% elif order.status == 'cancelled' %}bg-danger
+                                             {% elif order.status == 'returned' %}bg-warning
+                                             {% endif %}">{{ order.get_status_display }}</span>
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Total Amount</label>
+                            <span>₹{{ order.total_amount }}</span>
+                        </div>
+                        {% if order.delivery_date %}
+                            <div class="col-6">
+                                <label class="small text-muted d-block">Delivery Date</label>
+                                <span>{{ order.delivery_date|date:"M d, Y" }}</span>
+                            </div>
+                        {% endif %}
+                        {% if order.cancellation_reason %}
+                            <div class="col-6">
+                                <label class="small text-muted d-block">Cancellation Reason</label>
+                                <span>{{ order.cancellation_reason }}</span>
+                            </div>
+                        {% endif %}
+                        {% if order.return_reason %}
+                            <div class="col-6">
+                                <label class="small text-muted d-block">Return Reason</label>
+                                <span>{{ order.return_reason }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Customer Information Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Customer Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Name</label>
+                            <span>{{ order.user.fullname }}</span>
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Email</label>
+                            <span>{{ order.user.email }}</span>
+                        </div>
+                        {% if order.user.profile.phone %}
+                            <div class="col-6">
+                                <label class="small text-muted d-block">Phone</label>
+                                <span>{{ order.user.profile.phone }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Shipping Address Card -->
+        <div class="col-md-12 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Shipping Address</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Flat/House No</label>
+                            <span>{{ order.address.flat_house_no }}</span>
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Area/Street</label>
+                            <span>{{ order.address.area_street }}</span>
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Landmark</label>
+                            <span>{{ order.address.landmark }}</span>
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Town/City</label>
+                            <span>{{ order.address.town_city }}</span>
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted d-block">State</label>
+                            <span>{{ order.address.state }}</span>
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Pincode</label>
+                            <span>{{ order.address.pincode }}</span>
+                        </div>
+                        <div class="col-6">
+                            <label class="small text-muted d-block">Country</label>
+                            <span>{{ order.address.country }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Items Card -->
+        <div class="col-md-12 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Order Items</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order.items.all %}
+                                    <tr>
+                                        <td>{{ item.watch.model_name }}</td>
+                                        <td>₹{{ item.price }}</td>
+                                        <td>{{ item.quantity }}</td>
+                                        <td>₹{{ item.total_price }}</td>
+                                    </tr>
+                                {% endfor %}
+                                <tr>
+                                    <td colspan="3" class="text-end"><strong>Total Amount:</strong></td>
+                                    <td><strong>₹{{ order.total_amount }}</strong></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

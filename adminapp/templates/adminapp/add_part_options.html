@@ -5,153 +5,191 @@
 {% block admin_content %}
 <div class="container mt-5">
     <h2 class="mb-4">Add Customizable Watch - Step 3: Part Options</h2>
-    <form method="post" enctype="multipart/form-data" id="partOptionsForm">
-        {% csrf_token %}
-        {% for part, formset in formsets %}
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5>Options for {{ part.part.part_name.name }}</h5>
+    
+    {% if not parts %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> No parts have been added yet. 
+        <a href="{% url 'adminapp:add_watch_parts' watch.id %}" class="alert-link">Click here to add parts first</a>.
+    </div>
+    {% else %}
+    <div class="row">
+        {% for customizable_part in parts %}
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                    <h5 class="mb-0">{{ customizable_part.part.part_name.name }}</h5>
+                    <button type="button" class="btn btn-primary btn-sm" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#addOptionModal-{{ customizable_part.id }}">
+                        <i class="fas fa-plus"></i> Add Option
+                    </button>
                 </div>
                 <div class="card-body">
-                    {{ formset.management_form }}
-                    <div class="option-forms" data-part-id="{{ part.id }}">
-                        {% for form in formset %}
-                            <div class="option-form mb-3">
-                                {% for field in form.visible_fields %}
-                                    <div class="form-group">
-                                        <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
-                                        {{ field|add_class:"form-control" }}
-                                        <div class="invalid-feedback"></div>
-                                    </div>
-                                {% endfor %}
+                    <p class="text-muted mb-3">{{ customizable_part.part.description }}</p>
+                    <p class="text-muted small">
+                        <strong>Model Path:</strong> <br>
+                        <code>{{ customizable_part.part.model_path }}</code>
+                    </p>
+                    <hr>
+                    <h6 class="mb-3">Options:</h6>
+                    <div class="options-container" id="options-{{ customizable_part.id }}">
+                        {% if customizable_part.options.all %}
+                            {% for option in customizable_part.options.all %}
+                                {% include 'adminapp/partials/option_card.html' with option=option %}
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-info">
+                                No options added yet for this part.
                             </div>
-                        {% endfor %}
+                        {% endif %}
                     </div>
-                    <button type="button" class="btn btn-secondary add-option" data-part-id="{{ part.id }}">Add Another Option</button>
                 </div>
             </div>
+        </div>
+
+        <!-- Modal for this part -->
+        <div class="modal fade" id="addOptionModal-{{ customizable_part.id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Add Option for {{ customizable_part.part.part_name.name }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form class="option-form" data-part-id="{{ customizable_part.id }}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <input type="hidden" name="part_id" value="{{ customizable_part.id }}">
+                        <div class="modal-body">
+                            {% for field in form %}
+                            <div class="mb-3">
+                                <label for="{{ field.id_for_label }}" class="form-label">
+                                    {{ field.label }}
+                                    {% if field.field.required %}
+                                        <span class="text-danger">*</span>
+                                    {% endif %}
+                                </label>
+                                {{ field|add_class:"form-control" }}
+                                {% if field.help_text %}
+                                    <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                                <div class="invalid-feedback"></div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" class="btn btn-primary">Add Option</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
         {% endfor %}
-        <button type="submit" class="btn btn-primary">Save Customizable Watch</button>
-    </form>
+    </div>
+
+    <div class="mt-4 d-flex justify-content-between">
+        <a href="{% url 'adminapp:add_watch_parts' watch.id %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Parts
+        </a>
+        <a href="{% url 'adminapp:customizable_watch_list' %}" class="btn btn-success">
+            <i class="fas fa-check"></i> Complete Watch Setup
+        </a>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-validate/1.19.3/jquery.validate.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.19.5/dist/additional-methods.min.js"></script>
 <script>
 $(document).ready(function() {
-    // Custom method for unique option name within a part
-    $.validator.addMethod("uniqueOptionName", function(value, element) {
-        var isUnique = true;
-        var partId = $(element).closest('.option-forms').data('part-id');
-        $(`input[name^="options_${partId}-"][name$="-name"]`).not(element).each(function() {
-            if ($(this).val().toLowerCase() === value.toLowerCase()) {
-                isUnique = false;
-                return false;  // break the loop
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl)
+    });
+
+    $('.option-form').on('submit', function(e) {
+        e.preventDefault();
+        const form = $(this);
+        const partId = form.data('part-id');
+        const formData = new FormData(this);
+        
+        $.ajax({
+            url: "{% url 'adminapp:add_part_option_ajax' %}",
+            method: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            success: function(response) {
+                if (response.success) {
+                    // Add new option card to container
+                    $(`#options-${partId}`).append(response.html);
+                    
+                    // Reset form and close modal
+                    form[0].reset();
+                    $(`#addOptionModal-${partId}`).modal('hide');
+                    
+                    showCustomAlert('Option added successfully');
+                } else {
+                    // Show form errors
+                    Object.keys(response.errors).forEach(function(field) {
+                        const input = form.find(`#id_${field}`);
+                        input.addClass('is-invalid')
+                            .siblings('.invalid-feedback')
+                            .text(response.errors[field][0]);
+                    });
+                }
+            },
+            error: function() {
+                showCustomAlert('Error adding option');
             }
         });
-        return isUnique;
-    }, "This option name already exists for this part. Please choose a different name.");
+    });
 
-    // Form validation
-    $("#partOptionsForm").validate({
-        ignore: [],
-        errorElement: 'div',
-        errorPlacement: function(error, element) {
-            error.addClass('invalid-feedback');
-            element.closest('.form-group').append(error);
-        },
-        highlight: function(element, errorClass, validClass) {
-            $(element).addClass('is-invalid').removeClass('is-valid');
-        },
-        unhighlight: function(element, errorClass, validClass) {
-            $(element).removeClass('is-invalid').addClass('is-valid');
+    // Handle option deletion
+    $(document).on('click', '.delete-option', function(e) {
+        e.preventDefault();
+        const optionId = $(this).data('option-id');
+        const card = $(this).closest('.option-card');
+        
+        if (confirm('Are you sure you want to delete this option?')) {
+            $.ajax({
+                url: "{% url 'adminapp:delete_part_option' %}",
+                method: 'POST',
+                data: {
+                    'option_id': optionId,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        // Remove the option card with animation
+                        card.fadeOut(300, function() {
+                            $(this).remove();
+                            
+                            // Check if this was the last option
+                            const container = card.closest('.options-container');
+                            if (container.children().length === 0) {
+                                container.append('<div class="alert alert-info">No options added yet.</div>');
+                            }
+                        });
+                        
+                        showCustomAlert('Option deleted successfully');
+                    } else {
+                        showCustomAlert(response.message || 'Error deleting option');
+                    }
+                },
+                error: function(xhr) {
+                    showCustomAlert(xhr.responseJSON?.message || 'Error deleting option');
+                }
+            });
         }
     });
 
-    // Function to add validation rules to an option form
-    function addValidationToOptionForm(optionForm) {
-        optionForm.find('input[name$="-name"]').each(function() {
-            $(this).rules("add", {
-                required: true,
-                minlength: 2,
-                uniqueOptionName: true
-            });
-        });
-        optionForm.find('input[name$="-texture"]').each(function() {
-            $(this).rules("add", {
-                required: true,
-                accept: "image/*"
-            });
-        });
-        optionForm.find('input[name$="-thumbnail"]').each(function() {
-            $(this).rules("add", {
-                required: true,
-                accept: "image/*"
-            });
-        });
-        optionForm.find('input[name$="-price"]').each(function() {
-            $(this).rules("add", {
-                required: true,
-                number: true,
-                min: 0
-            });
-        });
-        optionForm.find('input[name$="-stock"]').each(function() {
-            $(this).rules("add", {
-                required: true,
-                digits: true,
-                min: 0
-            });
-        });
-        optionForm.find('input[name$="-roughness"]').each(function() {
-            $(this).rules("add", {
-                required: true,
-                number: true,
-                range: [0, 1]
-            });
-        });
-        optionForm.find('input[name$="-metalness"]').each(function() {
-            $(this).rules("add", {
-                required: true,
-                number: true,
-                range: [0, 1]
-            });
-        });
-    }
-
-    // Add validation to initial option forms
-    $('.option-form').each(function() {
-        addValidationToOptionForm($(this));
-    });
-
-    // Add option button functionality
-    $(".add-option").click(function() {
-        var partId = $(this).data('part-id');
-        var optionForms = $(`.option-forms[data-part-id="${partId}"]`);
-        var formCount = optionForms.children('.option-form').length;
-        var newForm = optionForms.children('.option-form:first').clone(true);
-        
-        newForm.find('input, select, textarea').each(function() {
-            var oldName = $(this).attr('name');
-            var newName = oldName.replace('-0-', '-' + formCount + '-');
-            $(this).attr('name', newName).attr('id', newName).val('');
-        });
-        
-        newForm.find('label').each(function() {
-            var oldFor = $(this).attr('for');
-            var newFor = oldFor.replace('-0-', '-' + formCount + '-');
-            $(this).attr('for', newFor);
-        });
-        
-        optionForms.append(newForm);
-        addValidationToOptionForm(newForm);
-        
-        // Update total form count
-        var totalForms = optionForms.siblings(`input[name$=TOTAL_FORMS]`);
-        totalForms.val(parseInt(totalForms.val()) + 1);
+    // Clear form errors when modal is hidden
+    $('.modal').on('hidden.bs.modal', function() {
+        const form = $(this).find('form');
+        form[0].reset();
+        form.find('.is-invalid').removeClass('is-invalid');
+        form.find('.invalid-feedback').empty();
     });
 });
 </script>
