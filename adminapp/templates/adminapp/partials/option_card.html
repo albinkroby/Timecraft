@@ -1,0 +1,56 @@
+<div class="option-card mb-2 p-2 border rounded">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <strong>{{ option.name }}</strong> - ${{ option.price }}
+        </div>
+        <div>
+            <button class="btn btn-sm btn-primary edit-option" 
+                    data-bs-toggle="modal" 
+                    data-bs-target="#editOptionModal-{{ option.id }}">
+                Edit
+            </button>
+            <button class="btn btn-sm btn-danger delete-option" data-option-id="{{ option.id }}">
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Option Modal -->
+<div class="modal fade" id="editOptionModal-{{ option.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Option</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form class="edit-option-form" data-option-id="{{ option.id }}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" name="name" value="{{ option.name }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Thumbnail</label>
+                        {% if option.thumbnail %}
+                            <img src="{{ option.thumbnail.url }}" class="img-thumbnail mb-2" style="max-width: 100px">
+                        {% endif %}
+                        <input type="file" class="form-control" name="thumbnail" accept="image/*">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Texture</label>
+                        {% if option.texture %}
+                            <div class="mb-2">Current: {{ option.texture.name }}</div>
+                        {% endif %}
+                        <input type="file" class="form-control" name="texture">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

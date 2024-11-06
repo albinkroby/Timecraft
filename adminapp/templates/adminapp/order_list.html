@@ -1,0 +1,119 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+
+{% block title %}
+All Orders
+{% endblock %}
+{% block admin_content %}
+    <!-- Add date filter and download button -->
+    <div class="row mb-3 justify-content-between">
+        <div class="col-md-6">
+            <form method="get" class="form-inline">
+                <div class="input-group">
+                    <input type="date" name="start_date" class="form-control" placeholder="Start Date" value="{{ request.GET.start_date }}">
+                    <input type="date" name="end_date" class="form-control" placeholder="End Date" value="{{ request.GET.end_date }}">
+                    <button type="submit" class="btn btn-primary">Filter</button>
+                </div>
+            </form>
+        </div>
+        <div class="col-md-6 text-right">
+            <a href="{% url 'vendorapp:download_orders' %}?{{ request.GET.urlencode }}" class="btn btn-success"><i class='bx bx-spreadsheet'></i> Download Excel</a>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table id="OrderTable" class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Order ID</th>
+                    <th>Model Name</th>
+                    <th>Customer</th>
+                    <th>Total Amount</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in page_obj %}
+                    <tr>
+                        <td>{{ order.order_id }}</td>
+                        <td>{{ order.items.first.watch.model_name }}</td>
+                        <td>{{ order.user.email }}</td>
+                        <td>₹{{ order.total_amount }}</td>
+                        <td>{{ order.get_status_display }}</td>
+                        <td>{{ order.created_at|date:"M d, Y" }}</td>
+                        <td>
+                            <a href="{% url 'adminapp:order_detail' order.order_id %}" class="button rounded p-2">View Details</a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center">No orders found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+        <nav aria-label="Page navigation">
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">&laquo; Previous</a>
+                    </li>
+                {% endif %}
+
+                {% for i in page_obj.paginator.page_range %}
+                    {% if page_obj.number == i %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ i }} <span class="sr-only">(current)</span></span>
+                        </li>
+                    {% else %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ i }}">{{ i }}</a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+
+                {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next &raquo;</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    {% endif %}
+<style>
+    .dataTables_filter label{
+        float: left;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+    <script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#OrderTable').DataTable({
+                "pageLength": 10,
+                "lengthChange": false,
+                "searching": true,
+                "ordering": true,
+                "info": true,
+                "autoWidth": false,
+                "responsive": true,
+                "paging": false,
+                "dom": '<"row"<"col-sm-12 col-md-6"f><"col-sm-12 col-md-6"l>>' +
+                       '<"row"<"col-sm-12"tr>>' +
+                       '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                "language": {
+                    "search": "_INPUT_",
+                    "searchPlaceholder": "Search orders..."
+                }
+            });
+        });
+    </script>
+{% endblock %}

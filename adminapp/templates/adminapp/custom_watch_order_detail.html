@@ -1,0 +1,209 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <!-- Order Status Timeline -->
+                    <div class="stepper-wrapper mb-5">
+                        <div class="stepper-item {% if order.status != 'pending' %}completed{% endif %}">
+                            <div class="step-counter"><i class="ri-timer-line"></i></div>
+                            <div class="step-name">Pending</div>
+                        </div>
+                        <div class="stepper-item {% if order.status in 'approved,manufacturing,ready_to_ship,shipped,out_for_delivery,delivered' %}completed{% endif %}">
+                            <div class="step-counter"><i class="ri-check-line"></i></div>
+                            <div class="step-name">Approved</div>
+                        </div>
+                        <div class="stepper-item {% if order.status in 'manufacturing,ready_to_ship,shipped,out_for_delivery,delivered' %}completed{% endif %}">
+                            <div class="step-counter"><i class="ri-tools-line"></i></div>
+                            <div class="step-name">Manufacturing</div>
+                        </div>
+                        <div class="stepper-item {% if order.status in 'ready_to_ship,shipped,out_for_delivery,delivered' %}completed{% endif %}">
+                            <div class="step-counter"><i class="ri-box-3-line"></i></div>
+                            <div class="step-name">Ready to Ship</div>
+                        </div>
+                        <div class="stepper-item {% if order.status in 'shipped,out_for_delivery,delivered' %}completed{% endif %}">
+                            <div class="step-counter"><i class="ri-truck-line"></i></div>
+                            <div class="step-name">Shipped</div>
+                        </div>
+                        <div class="stepper-item {% if order.status == 'delivered' %}completed{% endif %}">
+                            <div class="step-counter"><i class="ri-home-smile-line"></i></div>
+                            <div class="step-name">Delivered</div>
+                        </div>
+                    </div>
+
+                    <!-- Status Update Section -->
+                    <div class="mb-4">
+                        <select id="orderStatus" class="form-select" style="max-width: 200px;">
+                            {% if order.status == 'pending' %}
+                                <option value="pending" selected>Pending Approval</option>
+                                <option value="approved">Approve Order</option>
+                                <option value="cancelled">Cancel Order</option>
+                            {% elif order.status == 'approved' %}
+                                <option value="approved" selected>Approved</option>
+                                <option value="manufacturing">Start Manufacturing</option>
+                            {% elif order.status == 'manufacturing' %}
+                                <option value="manufacturing" selected>Manufacturing</option>
+                                <option value="ready_to_ship">Ready to Ship</option>
+                            {% elif order.status == 'ready_to_ship' %}
+                                <option value="ready_to_ship" selected>Ready to Ship</option>
+                                <option value="shipped">Start Shipping</option>
+                            {% else %}
+                                <option value="{{ order.status }}" selected>{{ order.get_status_display }}</option>
+                            {% endif %}
+                        </select>
+                    </div>
+
+                    <!-- Estimated Delivery Info -->
+                    {% if order.estimated_delivery_date %}
+                    <div class="alert alert-info">
+                        <i class="ri-calendar-check-line"></i>
+                        Estimated Delivery: {{ order.estimated_delivery_date|date:"F d, Y" }}
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-4">
+                        <!-- Customer Info -->
+                        <div class="col-md-6">
+                            <div class="card h-100 border">
+                                <div class="card-body">
+                                    <h3 class="h5 mb-3">Customer Information</h3>
+                                    <p class="mb-2"><strong>Name:</strong> {{ order.user.get_full_name }}</p>
+                                    <p class="mb-2"><strong>Email:</strong> {{ order.user.email }}</p>
+                                    <p class="mb-2"><strong>Order Date:</strong> {{ order.created_at|date:"F d, Y H:i" }}</p>
+                                    {% if order.delivery_date %}
+                                    <p class="mb-2"><strong>Delivery Date:</strong> {{ order.delivery_date }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Base Watch -->
+                        <div class="col-md-6">
+                            <div class="card h-100 border">
+                                <div class="card-body">
+                                    <h3 class="h5 mb-3">Base Watch</h3>
+                                    <h4 class="h6">{{ order.customizable_watch.name }}</h4>
+                                    <p class="fw-bold">Base Price: ₹{{ order.customizable_watch.base_price }}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Selected Parts -->
+                        <div class="col-12">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <h3 class="h5 mb-3">Selected Parts</h3>
+                                    <div class="row g-3">
+                                        {% for selection in order.selected_parts.all %}
+                                        <div class="col-md-6">
+                                            <div class="border rounded p-3">
+                                                <h5 class="h6 mb-2">{{ selection.part.part_name.name }}</h5>
+                                                <p class="mb-1">Option: {{ selection.selected_option.name }}</p>
+                                                <p class="fw-bold mb-0">₹{{ selection.selected_option.price }}</p>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Total Price -->
+                        <div class="col-12">
+                            <div class="card border">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <h3 class="h5 mb-0">Total Amount</h3>
+                                        <span class="fw-bold">₹{{ order.total_price }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#orderStatus').change(function() {
+        const newStatus = $(this).val();
+        
+        $.ajax({
+            url: "{% url 'adminapp:update_custom_watch_order_status' order.id %}",
+            method: 'POST',
+            data: {
+                'status': newStatus,
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.success) {
+                    toastr.success('Order status updated successfully');
+                } else {
+                    toastr.error(response.message || 'Error updating status');
+                }
+            },
+            error: function() {
+                toastr.error('Error updating order status');
+            }
+        });
+    });
+});
+</script>
+
+<style>
+    .stepper-wrapper {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 20px;
+      }
+      
+      .stepper-item {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+      }
+      
+      .stepper-item::before {
+        position: absolute;
+        content: "";
+        border-bottom: 2px solid #ccc;
+        width: 100%;
+        top: 20px;
+        left: -50%;
+        z-index: 2;
+      }
+      
+      .stepper-item::after {
+        position: absolute;
+        content: "";
+        border-bottom: 2px solid #ccc;
+        width: 100%;
+        top: 20px;
+        left: 50%;
+        z-index: 2;
+      }
+      
+      .stepper-item .step-counter {
+        position: relative;
+        z-index: 5;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #ccc;
+        margin-bottom: 6px;
+      }
+      
+</style>
+{% endblock %}

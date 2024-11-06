@@ -71,10 +71,14 @@ class CustomWatchSavedDesign(models.Model):
     
 class CustomWatchOrder(models.Model):
     STATUS_CHOICES = (
-        ('on_the_way', 'On the way'),
+        ('pending', 'Pending Approval'),
+        ('approved', 'Order Approved'),
+        ('manufacturing', 'Manufacturing'),
+        ('ready_to_ship', 'Ready to Ship'),
+        ('shipped', 'Shipped'),
+        ('out_for_delivery', 'Out for Delivery'),
         ('delivered', 'Delivered'),
         ('cancelled', 'Cancelled'),
-        ('returned', 'Returned'),
     )
     customizable_watch = models.ForeignKey(CustomWatchSavedDesign, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -87,6 +91,8 @@ class CustomWatchOrder(models.Model):
     delivery_date = models.DateField(null=True, blank=True)
     cancellation_reason = models.CharField(max_length=200, blank=True, null=True)
     return_reason = models.CharField(max_length=200, blank=True, null=True)
+    estimated_delivery_date = models.DateField(null=True, blank=True)
+    shipping_started_date = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Custom Order for {self.customizable_watch.name}"

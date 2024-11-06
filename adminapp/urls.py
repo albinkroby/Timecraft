@@ -1,6 +1,7 @@
 from django.urls import path,reverse_lazy
 from . import views
 from django.contrib.auth import views as auth_views
+from django.views.decorators.csrf import csrf_protect
 
 app_name="adminapp"
 urlpatterns = [
@@ -46,10 +47,30 @@ urlpatterns = [
     path('add-watch-parts/<int:watch_id>/', views.add_watch_parts, name='add_watch_parts'),
     path('add-part-options/<int:watch_id>/', views.add_part_options, name='add_part_options'),
     
+    path('order-list/', views.order_list, name='order_list'),
+    path('download-orders/', views.download_orders, name='download_orders'),
+    path('orders/<str:order_id>/', views.order_detail, name='order_detail'),
+    
     path('customizable-watch/<int:watch_id>/edit/', views.edit_customizable_watch, name='edit_customizable_watch'),
-    path('watch-part/<int:part_id>/edit/', views.edit_watch_part, name='edit_watch_part'),
-    path('watch-part-option/<int:option_id>/edit/', views.edit_watch_part_option, name='edit_watch_part_option'),
-     path('customizable-watch/<int:watch_id>/delete/', views.delete_customizable_watch, name='delete_customizable_watch'),
+    # path('watch-part/<int:part_id>/edit/', views.edit_watch_part, name='edit_watch_part'),
+    # path('watch-part-option/<int:option_id>/edit/', views.edit_watch_part_option, name='edit_watch_part_option'),
+    path('customizable-watch/<int:watch_id>/delete/', views.delete_customizable_watch, name='delete_customizable_watch'),
     path('watch-part/<int:part_id>/delete/', views.delete_watch_part, name='delete_watch_part'),
+    path('delete-watch-part/', views.delete_watch_part_ajax, name='delete_watch_part_ajax'),
     path('watch-part-option/<int:option_id>/delete/', views.delete_watch_part_option, name='delete_watch_part_option'),
+    path('add-watch-part-ajax/<int:watch_id>/', views.add_watch_part_ajax, name='add_watch_part_ajax'),
+    path('add-part-option-ajax/', views.add_part_option_ajax, name='add_part_option_ajax'),
+    path('delete-part-option/', views.delete_part_option, name='delete_part_option'),
+    path('edit-watch-part-ajax/', views.edit_watch_part_ajax, name='edit_watch_part_ajax'),
+    path('edit-part-option/', views.edit_part_option_ajax, name='edit_part_option_ajax'),
+    
+    path('manage-prices/', views.manage_prices, name='manage_prices'),
+    path('update-watch-price/', views.update_watch_price, name='update_watch_price'),
+    path('update-option-price/', views.update_option_price, name='update_option_price'),
+    path('get-watch-parts/', views.get_watch_parts, name='get_watch_parts'),
+    
+    path('custom-watch-orders/', views.custom_watch_orders, name='custom_watch_orders'),
+    path('custom-watch-order/<int:order_id>/', views.custom_watch_order_detail, name='custom_watch_order_detail'),
+    path('custom-watch-order/<int:order_id>/update-status/', views.update_custom_watch_order_status, name='update_custom_watch_order_status'),
+    
 ]

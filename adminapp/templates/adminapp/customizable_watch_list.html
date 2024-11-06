@@ -17,7 +17,7 @@
             {% for watch in watches %}
             <tr id="watch-row-{{ watch.id }}">
                 <td>{{ watch.name }}</td>
-                <td>${{ watch.base_price }}</td>
+                <td>Rs.{{ watch.base_price }}</td>
                 <td>
                     <a href="{% url 'adminapp:view_customizable_watch' watch.id %}" class="btn btn-info btn-sm">View</a>
                     <a href="{% url 'adminapp:edit_customizable_watch' watch.id %}" class="btn btn-primary btn-sm">Edit Watch</a>

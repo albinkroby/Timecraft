@@ -16,7 +16,7 @@ from re import T
 import dotenv
 
 # Load environment variables from .env file
-dotenv.load_dotenv()
+dotenv.load_dotenv(override=True)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -31,7 +31,7 @@ PORT = os.environ['PORT']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ['DEBUG']
 
-ALLOWED_HOSTS = ['127.0.0.1']
+ALLOWED_HOSTS = ['127.0.0.1','.onrender.com','timecraft-dbto.onrender.com']
 
 
 # Application definition

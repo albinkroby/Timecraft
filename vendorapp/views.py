@@ -581,6 +581,29 @@ def download_orders(request):
     return response
 
 
+@never_cache
+@login_required
+@user_type_required('vendor')
+def order_detail(request, order_id):
+    # Get order with related data in a single query
+    order = get_object_or_404(
+        Order.objects.select_related(
+            'user',
+            'user__profile',
+            'address'
+        ).prefetch_related(
+            'items',
+            'items__watch'
+        ),
+        order_id=order_id
+    )
+    
+    context = {
+        'order': order,
+        'title': f'Order #{order.order_id}',
+    }
+    
+    return render(request, 'vendorapp/order_detail.html', context)
 # test
 
 @login_required
