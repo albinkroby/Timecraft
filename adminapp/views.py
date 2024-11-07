@@ -43,8 +43,6 @@ import pytz
 from django.template.loader import render_to_string
 from django.db import transaction
 from django.http import JsonResponse
-from watch_customizer.management.commands.process_shipping import Command as ProcessShippingCommand
-from watch_customizer.tasks import process_shipping_status
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 # Create your views here.
