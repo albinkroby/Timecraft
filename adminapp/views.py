@@ -1,5 +1,4 @@
 import io
-from turtle import pd
 from django.forms import formset_factory, inlineformset_factory
 from django.shortcuts import render,redirect,get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -417,6 +416,7 @@ def order_list(request):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def download_orders(request):
+    import pandas as pd
     try:
         orders = Order.objects.all().distinct().order_by('-created_at')
     except Exception as e:
