@@ -223,26 +223,3 @@ SOCIAL_AUTH_PIPELINE = (
 
 STRIPE_PUBLIC_KEY = os.environ['STRIPE_PUBLIC_KEY']     
 STRIPE_SECRET_KEY = os.environ['STRIPE_SECRET_KEY']
-
-
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-logger.info(f'Debug mode is {DEBUG}')
-
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'level': 'INFO',
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        '': {
-            'handlers': ['console'],
-            'level': 'INFO',
-        },
-    },
-}
