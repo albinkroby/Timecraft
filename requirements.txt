@@ -12,6 +12,8 @@ ImageHash
 opencv_python_headless
 rembg
 
+turtle
+
 # Data Processing and Analysis
 numpy
 pandas
