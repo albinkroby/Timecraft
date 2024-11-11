@@ -50,7 +50,7 @@
                                         <img src="{% static 'img/default_watch.png' %}" alt="Default watch image" class="products__img">
                                     {% endif %}
 
-                                    <h3 class="products__title">{{ basewatch.model_name|truncatechars:18 }}</h3>
+                                    <h3 class="products__title">{{ basewatch.brand.brand_name }} {{ basewatch.model_name|truncatechars:18 }}</h3>
                                     <span class="products__price">Rs.{{ basewatch.base_price }}</span>
                                 </a>
 
@@ -67,7 +67,7 @@
         
 
             <!--==================== NEW ====================-->
-            {% comment %} <section class="new section container" id="new">
+            <section class="new section container" id="new">
                 <h2 class="section__title">
                     New Arrivals
                 </h2>
@@ -75,64 +75,108 @@
                 <div class="new__container">
                     <div class="swiper new-swiper">
                         <div class="swiper-wrapper">
-                            <article class="new__card swiper-slide">
-                                <span class="new__tag">New</span>
-        
-                                <img src="{% static 'img/new1.png' %}" alt="" class="new__img">
-        
-                                <div class="new__data">
-                                    <h3 class="new__title">Longines rose</h3>
-                                    <span class="new__price">$980</span>
-                                </div>
-        
-                                <button class="button new__button">ADD TO CART</button>
-                            </article>
+                            {% for watch in new_arrivals %}
+                                <div class="swiper-slide">
+                                    <article class="products__card h-100">
+                                        <span class="new__tag">New</span>
+                                        
+                                        <a href="{% url 'mainapp:product_detail' slug=watch.slug %}">
+                                            {% if watch.primary_image %}
+                                                <img src="{{ watch.primary_image.url }}" alt="{{ watch.model_name }}" class="products__img">
+                                            {% else %}
+                                                <img src="{% static 'img/default_watch.png' %}" alt="Default watch image" class="products__img">
+                                            {% endif %}
 
-                            <article class="new__card swiper-slide">
-                                <span class="new__tag">New</span>
-        
-                                <img src="assets/img/new2.png" alt="" class="new__img">
-        
-                                <div class="new__data">
-                                    <h3 class="new__title">Jazzmaster</h3>
-                                    <span class="new__price">$1150</span>
-                                </div>
-        
-                                <button class="button new__button">ADD TO CART</button>
-                            </article>
+                                            <h3 class="products__title">{{ watch.brand.brand_name }} {{ watch.model_name|truncatechars:18 }}</h3>
+                                            <span class="products__price">Rs.{{ watch.base_price }}</span>
+                                        </a>
 
-                            <article class="new__card swiper-slide">
-                                <span class="new__tag">New</span>
-        
-                                <img src="{% static 'img/new3.png' %}" alt="" class="new__img">
-        
-                                <div class="new__data">
-                                    <h3 class="new__title">Dreyfuss gold</h3>
-                                    <span class="new__price">$750</span>
+                                        {% if watch.available_stock > 0 %}
+                                            <button class="products__button" data-watch-id="{{ watch.id }}" onclick="addToCart({{ watch.id }})">
+                                                <i class='bx bxs-cart-add'></i>
+                                            </button>
+                                        {% else %}
+                                            <button class="products__button disabled" disabled>
+                                                <i class='bx bx-x'></i>
+                                            </button>
+                                        {% endif %}
+                                    </article>
                                 </div>
-        
-                                <button class="button new__button">ADD TO CART</button>
-                            </article>
-
-                            <article class="new__card swiper-slide">
-                                <span class="new__tag">New</span>
-        
-                                <img src="assets/img/new4.png" alt="" class="new__img">
-        
-                                <div class="new__data">
-                                    <h3 class="new__title">Portuguese rose</h3>
-                                    <span class="new__price">$1590</span>
+                            {% empty %}
+                                <div class="swiper-slide">
+                                    <p class="text-center">No new arrivals at the moment.</p>
                                 </div>
-        
-                                <button class="button new__button">ADD TO CART</button>
-                            </article>                       
+                            {% endfor %}
                         </div>
+
+                        <!-- Add navigation buttons -->
+                        <div class="swiper-button-next"></div>
+                        <div class="swiper-button-prev"></div>
                     </div>
                 </div>
-            </section> {% endcomment %}
+            </section>
 
         </main>
 
+        <style>
+            .new__container {
+                padding: 1rem;
+            }
+            
+            .new-swiper {
+                padding: 2rem 1rem;
+            }
+            
+            .swiper-button-prev,
+            .swiper-button-next {
+                color: var(--first-color);
+            }
+            
+            .swiper-button-prev::after,
+            .swiper-button-next::after {
+                font-size: 1.5rem;
+            }
+            
+            .swiper-slide {
+                height: auto;
+            }
+            
+            .products__card {
+                position: relative;
+                margin: 0 auto;
+                max-width: 280px;
+            }
+            
+            @media screen and (max-width: 768px) {
+                .swiper-button-prev,
+                .swiper-button-next {
+                    display: none;
+                }
+            }
+
+            .new__tag {
+                position: absolute;
+                width: fit-content;
+                top: 1rem;
+                left: 1rem;
+                background-color: var(--first-color);
+                color: #FFF;
+                padding: 0.25rem 0.5rem;
+                border-radius: 0.25rem;
+                font-size: 0.875rem;
+                z-index: 1;
+            }
+
+            @keyframes pulse {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
+            }
+
+            .new__tag {
+                animation: pulse 2s infinite;
+            }
+        </style>
 {% endblock %}
 
 {% block extra_js %}
@@ -162,6 +206,50 @@
                 }
             });
         });
+    });
+
+    function addToCart(watchId) {
+        $.ajax({
+            url: "{% url 'mainapp:add_to_cart' 0 %}".replace('0', watchId),
+            type: 'POST',
+            headers: {'X-CSRFToken': '{{ csrf_token }}'},
+            success: function(data) {
+                if (data.success) {
+                    showCustomAlert('Added to cart!', 'success');
+                } else {
+                    showCustomAlert(data.message, 'error');
+                }
+            },
+            error: function() {
+                showCustomAlert('Error adding to cart', 'error');
+            }
+        });
+    }
+
+    // Initialize Swiper for new arrivals
+    var newSwiper = new Swiper(".new-swiper", {
+        spaceBetween: 24,
+        loop: true,
+        slidesPerView: 'auto',
+        centeredSlides: true,
+        autoplay: {
+            delay: 3000,
+            disableOnInteraction: false,
+        },
+        breakpoints: {
+            640: {
+                slidesPerView: 2,
+                spaceBetween: 20,
+            },
+            768: {
+                slidesPerView: 3,
+                spaceBetween: 40,
+            },
+            1024: {
+                slidesPerView: 4,
+                spaceBetween: 50,
+            },
+        },
     });
 </script>
 {% endblock %}

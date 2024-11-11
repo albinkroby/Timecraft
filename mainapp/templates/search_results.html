@@ -39,7 +39,7 @@
                     <h5>Price Range</h5>
                     <div class="range-slider">
                         <input type="range" min="{{ price_range.min_price }}" max="{{ price_range.max_price }}" value="{{ selected_max_price|default:price_range.max_price }}" class="slider" id="priceRange">
-                        <p>Min: ₹<span id="minPrice">{{ selected_min_price|default:price_range.min_price }}</span> - Max: ₹<span id="maxPrice">{{ selected_max_price|default:price_range.max_price }}</span></p>
+                        <p>Min: ₹<span id="minPrice">{{ selected_min_price|default:price_range.min_price|floatformat:2 }}</span> - Max: ₹<span id="maxPrice">{{ selected_max_price|default:price_range.max_price|floatformat:2 }}</span></p>
                         <input type="hidden" name="min_price" id="minPriceInput" value="{{ selected_min_price|default:price_range.min_price }}">
                         <input type="hidden" name="max_price" id="maxPriceInput" value="{{ selected_max_price|default:price_range.max_price }}">
                     </div>

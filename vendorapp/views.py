@@ -47,6 +47,9 @@ def home(request):
 
 @never_cache
 def vendor_register_step1(request):
+    if request.user.is_authenticated and request.user.role == 'vendor':
+        return redirect('vendorapp:index')
+    
     if request.method == 'POST':
         user_form = VendorRegistrationFormStep1(request.POST)
         if user_form.is_valid():

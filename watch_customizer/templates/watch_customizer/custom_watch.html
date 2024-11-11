@@ -50,7 +50,7 @@
                                     name="{{ customizable_part.part.part_name.name|lower }}_texture"
                                     id="btnCheck{{ option.id }}" 
                                     autocomplete="off" 
-                                    onchange="changeMaterial('{{ option.texture.url }}', '{{ customizable_part.part.model_path }}', {{ option.roughness }}, {{ option.metalness }}, this.checked, '{{ option.id }}')">
+                                    onchange="changeMaterial('{{ option.texture.url }}', '{{ customizable_part.part.model_path }}', this.checked, '{{ option.id }}')">
                                 <label class="btn btn-custom" for="btnCheck{{ option.id }}">
                                     <img src="{{ option.thumbnail.url }}" alt="{{ option.name }} Texture">
                                 </label>
@@ -60,11 +60,11 @@
                 {% endfor %}
             </div>
             <div id="viewSelector" class="btn-group d-flex flex-column align-items-end" role="group" aria-label="View selector">
-                <button type="button" class="btn btn-outline-secondary" onclick="changeView('front')">Front</button>
-                <button type="button" class="btn btn-outline-secondary" onclick="changeView('back')">Back</button>
-                <button type="button" class="btn btn-outline-secondary" onclick="changeView('left')">Left</button>
-                <button type="button" class="btn btn-outline-secondary" onclick="changeView('right')">Right</button>
-                <button type="button" class="btn btn-outline-secondary" onclick="changeView('top')">Top</button>
+                <button type="button" class="btn btn-outline-secondary view-btn" onclick="changeView('front')">Front</button>
+                <button type="button" class="btn btn-outline-secondary view-btn" onclick="changeView('back')">Back</button>
+                <button type="button" class="btn btn-outline-secondary view-btn" onclick="changeView('left')">Left</button>
+                <button type="button" class="btn btn-outline-secondary view-btn" onclick="changeView('right')">Right</button>
+                <button type="button" class="btn btn-outline-secondary view-btn" onclick="changeView('top')">Top</button>
             </div>
         </div>
             
@@ -186,8 +186,8 @@
 
             // Adjust model settings if needed
             model.position.set(0, 0, 0);
-            model.rotation.x = -0.47;  
-            model.rotation.y = -0.38;  
+            //model.rotation.x = -0.47;  
+            //model.rotation.y = -0.38;  
 
             function logHierarchy(object, indent = '') {
                 console.log(indent + object.name + (object.isMesh ? ' (Mesh)' : ''));
@@ -254,7 +254,7 @@
         resetView();
         switch(view) {
             case 'front':
-                model.rotation.set(-0.47, 0, 0);
+                model.rotation.set(-0.47, -0.38, 0);
                 break;
             case 'back':
                 model.rotation.set(-Math.PI / 2, 0, Math.PI);
@@ -276,44 +276,49 @@
         controls.update();
     }
 
-    window.changeMaterial = function (texturePath, partPath, roughness, metalness, isChecked) {
-        // Find the target mesh by searching through all meshes in the model
-        let targetMesh = null;
-        model.traverse((object) => {
-            if (object.isMesh && object.name === partPath.split('>').pop()) {
-                targetMesh = object;
+    window.changeMaterial = function (texturePath, partPath, isChecked) {
+        let partPathArray = partPath.split(',');
+        
+        // Iterate through each part path using forEach or for...of
+        partPathArray.forEach(partName => {
+            let targetMesh = null;
+            
+            // Find the mesh
+            model.traverse((object) => {
+                if (object.isMesh && object.name === partName.trim()) {
+                    targetMesh = object;
+                }
+            });
+
+            if (!targetMesh) {
+                console.error(`Mesh ${partName} not found in the model`);
+                return;
+            }
+
+            if (isChecked) {
+                // Apply new material
+                const textureLoader = new THREE.TextureLoader();
+                textureLoader.load(texturePath, function (texture) {
+                    texture.encoding = THREE.sRGBEncoding;
+                    texture.flipY = false;
+
+                    const newMaterial = new THREE.MeshStandardMaterial({
+                        map: texture
+                    });
+
+                    targetMesh.material = newMaterial;
+                    targetMesh.material.needsUpdate = true;
+                });
+            } else {
+                // Restore original material
+                if (originalMaterials[targetMesh.name]) {
+                    targetMesh.material = originalMaterials[targetMesh.name].clone();
+                } else {
+                    console.warn(`Original material for ${targetMesh.name} not found`);
+                }
+                targetMesh.material.needsUpdate = true;
             }
         });
-
-        if (!targetMesh) {
-            console.error(`Mesh ${partPath} not found in the model`);
-            return;
-        }
-
-        if (isChecked) {
-            // Apply new material
-            const textureLoader = new THREE.TextureLoader();
-            textureLoader.load(texturePath, function (texture) {
-                texture.encoding = THREE.sRGBEncoding;
-                texture.flipY = false;
-
-                const newMaterial = new THREE.MeshStandardMaterial({
-                    map: texture,
-                    roughness: roughness,
-                    metalness: metalness
-                });
-
-                targetMesh.material = newMaterial;
-            });
-        } else {
-            // Restore original material
-            if (originalMaterials[targetMesh.name]) {
-                targetMesh.material = originalMaterials[targetMesh.name].clone();
-            } else {
-                console.warn(`Original material for ${targetMesh.name} not found`);
-            }
-        }
-        targetMesh.material.needsUpdate = true;
     }
 
     window.resetView = function() {
@@ -682,7 +687,7 @@
         color: var(--first-color);
     }
 
-    #viewSelector{
+    #viewSelector {
         position: absolute;
         top: 120px;
         right: 20px;
@@ -692,5 +697,29 @@
         border-radius: 5px;
     }
 
+    #viewSelector .view-btn {
+        width: 100px;  /* Fixed width */
+        height: 40px;  /* Fixed height */
+        margin: 5px 0;  /* Vertical spacing between buttons */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #fff;
+        border: 1px solid #fff;
+        transition: all 0.3s ease;
+    }
+
+    #viewSelector .view-btn:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+        border-color: var(--first-color);
+        color: var(--first-color);
+    }
+
+    #viewSelector .view-btn:active,
+    #viewSelector .view-btn.active {
+        background-color: var(--first-color);
+        border-color: var(--first-color);
+        color: #fff;
+    }
 </style>
 {% endblock %}

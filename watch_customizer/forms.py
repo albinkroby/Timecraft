@@ -94,7 +94,7 @@ class WatchPartForm(forms.ModelForm):
 class WatchPartOptionForm(forms.ModelForm):
     class Meta:
         model = WatchPartOption
-        fields = ['name', 'texture', 'thumbnail', 'price', 'stock', 'roughness', 'metalness']
+        fields = ['name', 'texture', 'thumbnail', 'price', 'stock']
 
 class WatchPartSelectionForm(forms.Form):
     parts = forms.ModelMultipleChoiceField(
