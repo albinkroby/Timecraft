@@ -316,6 +316,13 @@
         });
     </script>
     
+    <script>
+        {% if messages %}
+            {% for message in messages %}
+                showCustomAlert('{{ message }}');
+            {% endfor %}
+        {% endif %}
+    </script>
 
     <!--=============== Extra JS ===============-->
     {% block extra_js %}

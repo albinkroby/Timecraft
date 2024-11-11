@@ -204,7 +204,7 @@
                 data: $(this).serialize(),
                 success: function(response){
                     if(response.success){
-                        location.reload(); // Reload the page to show the new address
+                        window.location.href = "{% url 'mainapp:order_review' %}";
                     } else {
                         // Replace the form with the returned partial (which will show errors)
                         $("#add-address-content").html(response);

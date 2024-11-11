@@ -50,11 +50,22 @@ User = get_user_model()
 
 @never_cache
 def index(request):
-    basewatch = BaseWatch.objects.filter(is_active=True,available_stock__gt=0).order_by('-id')[:15]
+    basewatch = BaseWatch.objects.filter(is_active=True, available_stock__gt=0).order_by('-id')[:15]
     featured_watch = BaseWatch.objects.filter(is_featured=True, is_active=True).first()
+    new_arrivals = BaseWatch.objects.filter(
+        is_active=True, 
+        available_stock__gt=0
+    ).order_by('-id')[:5]  # Fetch latest 5 watches
+    
     if not featured_watch:
         featured_watch = basewatch.first()
-    return render(request, 'index.html', {'basewatch': basewatch, 'featured_watch': featured_watch})
+        
+    context = {
+        'basewatch': basewatch, 
+        'featured_watch': featured_watch,
+        'new_arrivals': new_arrivals
+    }
+    return render(request, 'index.html', context)
 
 @never_cache
 def signin(request):
@@ -225,6 +236,7 @@ def product_detail(request, slug):
 
 @never_cache
 @login_required
+@user_type_required('user')
 def add_to_cart(request, watch_id):
     if request.user.is_authenticated:
         if request.method == 'POST':
@@ -257,6 +269,7 @@ def add_to_cart(request, watch_id):
 
 @login_required
 @never_cache
+@user_type_required('user')
 def cart(request):
     cart, created = Cart.objects.get_or_create(user=request.user)
     items = cart.items.all()
@@ -505,6 +518,7 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 @login_required
 @never_cache
+@user_type_required('user')
 def order_review(request):
     addresses = Address.objects.filter(user=request.user)
     primary_address = addresses.filter(is_primary=True).first()

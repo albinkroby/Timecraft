@@ -9,6 +9,11 @@ def user_type_required(user_type):
             if request.user.is_authenticated and request.user.role == user_type:
                 return view_func(request, *args, **kwargs)
             else:
-                return redirect('mainapp:index')
+                if request.user.role == 'admin':
+                    return redirect('adminapp:index')
+                elif request.user.role == 'vendor':
+                    return redirect('vendorapp:index')
+                else:
+                    return redirect('mainapp:index')
         return _wrapped_view
     return decorator

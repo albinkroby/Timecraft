@@ -693,8 +693,6 @@ def view_customizable_watch(request, watch_id):
                 'name': option.name,
                 'price': option.price,
                 'stock': option.stock,
-                'roughness': option.roughness,
-                'metalness': option.metalness,
                 'texture_url': option.texture.url if option.texture else None,
                 'thumbnail_url': option.thumbnail.url if option.thumbnail else None,
             }
