@@ -248,6 +248,41 @@ class BaseWatch(models.Model):
         
         return False
 
+    @property
+    def is_color_variant(self):
+        return self.is_variant_of.exists()
+
+    @property
+    def parent_watch(self):
+        variant = self.is_variant_of.first()
+        return variant.parent_watch if variant else None
+
+    @property
+    def color_variants(self):
+        return BaseWatch.objects.filter(
+            is_variant_of__parent_watch=self
+        ).select_related('details', 'materials')
+
+    @property
+    def display_name(self):
+        """Returns a formatted display name for the watch"""
+        return f"{self.model_name} - {self.color} ({self.style_code or 'No Style Code'})"
+
+    @property
+    def is_base_product(self):
+        """Returns True if this is a base product (not a color variant)"""
+        return not self.is_variant_of.exists()
+
+    def get_color_variants(self):
+        """Returns all color variants of this product"""
+        return BaseWatch.objects.filter(
+            is_variant_of__parent_watch=self
+        ).select_related('details', 'materials')
+
+    def can_be_parent(self):
+        """Checks if this product can be a parent (is not a variant itself)"""
+        return self.is_base_product
+
 class ImageFeature(models.Model):
     base_watch = models.OneToOneField(BaseWatch, on_delete=models.CASCADE, related_name='image_feature')
     feature_vector = models.BinaryField()
@@ -302,3 +337,14 @@ class WatchMaterials(models.Model):
     strap_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='strap_watches')
     glass_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='glass_watches')
     case_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, related_name='case_watches')
+
+class WatchColorVariant(models.Model):
+    parent_watch = models.ForeignKey(BaseWatch, on_delete=models.CASCADE, related_name='color_variants')
+    variant = models.ForeignKey(BaseWatch, on_delete=models.CASCADE, related_name='is_variant_of')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('parent_watch', 'variant')
+
+    def __str__(self):
+        return f"{self.parent_watch.model_name} - {self.variant.color} variant"

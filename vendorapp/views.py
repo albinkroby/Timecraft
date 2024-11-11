@@ -29,7 +29,7 @@ from django.utils.timezone import make_aware
 from mainapp.decorators import user_type_required
 from mainapp.utils import hash_url
 from mainapp.models import Order, OrderItem
-from adminapp.models import Brand, Category, WatchType, Collection, Material, Feature, BaseWatch, WatchDetails, WatchMaterials, WatchImage, BrandApproval
+from adminapp.models import Brand, Category, WatchType, Collection, Material, Feature, BaseWatch, WatchDetails, WatchMaterials, WatchImage, BrandApproval, WatchColorVariant
 from .forms import (
     VendorAddressForm, VendorProfileEditForm, VendorProfileForm, 
     VendorRegistrationFormStep1, VendorRegistrationFormStep2, 
@@ -410,6 +410,19 @@ def delete_product(request, product_id):
 def edit_product(request, product_id):
     product = get_object_or_404(BaseWatch, id=product_id, vendor=request.user.vendorprofile)
     
+    # Get available parent products (excluding current product and its variants)
+    available_parents = BaseWatch.objects.filter(
+        vendor=request.user.vendorprofile,
+        # Exclude products that are already color variants
+        is_variant_of__isnull=True
+    ).exclude(
+        # Exclude current product
+        id=product_id
+    ).exclude(
+        # Exclude any variants of the current product
+        is_variant_of__parent_watch=product
+    ).distinct()
+    
     if request.method == 'POST':
         base_watch_form = BaseWatchUpdateForm(request.POST, request.FILES, instance=product)
         details_form = WatchDetailsUpdateForm(request.POST, instance=product.details)
@@ -420,6 +433,26 @@ def edit_product(request, product_id):
                 base_watch = base_watch_form.save()
                 details_form.save()
                 materials_form.save()
+                
+                # Handle color variant relationship
+                is_color_variant = request.POST.get('is_color_variant') == 'yes'
+                parent_product_id = request.POST.get('parent_product')
+                
+                # Remove existing variant relationships
+                WatchColorVariant.objects.filter(variant=product).delete()
+                
+                if is_color_variant and parent_product_id:
+                    try:
+                        parent_product = BaseWatch.objects.get(
+                            id=parent_product_id,
+                            vendor=request.user.vendorprofile
+                        )
+                        WatchColorVariant.objects.create(
+                            parent_watch=parent_product,
+                            variant=product
+                        )
+                    except BaseWatch.DoesNotExist:
+                        messages.warning(request, "Selected parent product not found.")
                 
                 # Handle primary image
                 if 'primary_image' in request.FILES:
@@ -458,6 +491,7 @@ def edit_product(request, product_id):
         'details_form': details_form,
         'materials_form': materials_form,
         'product': product,
+        'available_parents': available_parents,
     }
     return render(request, 'vendorapp/edit_product.html', context)
 

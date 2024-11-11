@@ -13,6 +13,36 @@
         <div class="card-body">
             <form method="post" enctype="multipart/form-data" id="edit-product-form" class="needs-validation" novalidate>
                 {% csrf_token %}
+                
+                <!-- Color Variant Section -->
+                <h5 class="text-primary mb-3">Color Variant Options</h5>
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="isColorVariant">Is this a color variant?</label>
+                            <select class="form-control" id="isColorVariant" name="is_color_variant">
+                                <option value="no" {% if not product.is_variant_of.all %}selected{% endif %}>No</option>
+                                <option value="yes" {% if product.is_variant_of.all %}selected{% endif %}>Yes</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6" id="parentProductDiv" style="display: none;">
+                        <div class="form-group">
+                            <label for="parentProduct">Parent Product</label>
+                            <select class="form-control" id="parentProduct" name="parent_product">
+                                <option value="">Select Parent Product</option>
+                                {% for parent in available_parents %}
+                                    <option value="{{ parent.id }}" 
+                                        {% if product.is_variant_of.all.0.parent_watch.id == parent.id %}selected{% endif %}>
+                                        {{ parent.display_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Existing form sections -->
                 <h5 class="text-primary">Base Watch Information</h5>
                 <div class="row">
                     {% for field in base_watch_form %}
@@ -212,6 +242,15 @@
         dropZone.classList.remove('dragover');
         handleFileSelection(e.dataTransfer.files);
     });
+
+    // Show/hide parent product dropdown based on color variant selection
+    document.getElementById('isColorVariant').addEventListener('change', function() {
+        const parentProductDiv = document.getElementById('parentProductDiv');
+        parentProductDiv.style.display = this.value === 'yes' ? 'block' : 'none';
+    });
+
+    // Trigger the change event on page load to set initial state
+    document.getElementById('isColorVariant').dispatchEvent(new Event('change'));
 </script>
 {% endblock %}
 
