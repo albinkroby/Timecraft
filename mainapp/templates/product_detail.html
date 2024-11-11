@@ -70,6 +70,27 @@
             <p class="text-danger">Out of Stock</p>
             {% endif %}
 
+            <!-- Color Variants Section -->
+            {% if color_variants.exists %}
+                <div class="mt-4">
+                    <h5>Available Colors</h5>
+                    <div class="d-flex gap-2 mt-2">
+                        {% for variant in color_variants %}
+                            {% if variant.slug %}
+                                <a href="{% url 'mainapp:product_detail' variant.slug %}" 
+                                   class="color-variant-link {% if variant.id == watch.id %}active{% endif %}">
+                                    <div class="color-variant-item">
+                                        <img src="{{ variant.primary_image.url }}" alt="{{ variant.model_name }}" 
+                                             class="img-fluid rounded" style="width: 60px; height: 60px; object-fit: cover;">
+                                        <span class="color-name">{{ variant.color }}</span>
+                                    </div>
+                                </a>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endif %}
+            
             <!---Product Features-->
             {% if watch.features.all %}
             <div class="mt-4">
@@ -278,7 +299,40 @@
         font-size: 2em;
     }
 
+    .color-variant-link {
+        text-decoration: none;
+        color: inherit;
+    }
 
+    .color-variant-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 5px;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+
+    .color-variant-link:hover .color-variant-item {
+        border-color: #007bff;
+    }
+
+    .color-variant-link.active .color-variant-item {
+        border-color: #007bff;
+        background-color: #f8f9fa;
+    }
+
+    .color-name {
+        font-size: 0.8rem;
+        margin-top: 5px;
+        color: #6c757d;
+    }
+
+    .color-variant-link.active .color-name {
+        color: #007bff;
+        font-weight: 600;
+    }
 </style>
 
 

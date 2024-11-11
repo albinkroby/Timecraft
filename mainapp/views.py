@@ -226,7 +226,31 @@ def product_detail(request, slug):
         ),
         slug=slug
     )
-    context = {'watch': watch}
+    
+    # Get all related color variants including the parent
+    if watch.is_base_product:
+        # If this is a parent watch, get all its variants
+        color_variants = BaseWatch.objects.filter(
+            Q(id=watch.id) |  # Include current watch
+            Q(is_variant_of__parent_watch=watch),
+            is_active=True
+        ).select_related('details', 'materials')
+    else:
+        # If this is a variant, get parent and all siblings
+        parent_watch = watch.parent_watch
+        if parent_watch:
+            color_variants = BaseWatch.objects.filter(
+                Q(id=parent_watch.id) |  # Include parent watch
+                Q(is_variant_of__parent_watch=parent_watch),
+                is_active=True
+            ).select_related('details', 'materials')
+        else:
+            color_variants = BaseWatch.objects.filter(id=watch.id)
+    
+    context = {
+        'watch': watch,
+        'color_variants': color_variants
+    }
     
     if request.user.is_authenticated:
         cart, _ = Cart.objects.get_or_create(user=request.user)
