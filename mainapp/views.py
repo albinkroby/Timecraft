@@ -1,4 +1,5 @@
 from decimal import Decimal
+import os
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse,HttpResponse
 from django.contrib.auth import login, get_user_model,authenticate,logout
@@ -10,9 +11,10 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST, require_http_methods
 from django.urls import reverse
 from django.db import transaction
+from django.utils import timezone
 
 from watch_customizer.models import CustomWatchOrder
-from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem, WatchNotification
+from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem, WatchNotification, ChatMessage, SupportTicket, SupportMessage
 from .forms import SignUpForm
 from userapp.forms import AddressForm
 from social_django.models import UserSocialAuth
@@ -44,6 +46,11 @@ from sklearn.cluster import KMeans
 from django.utils.html import strip_tags
 from adminapp.models import BaseWatch, ImageFeature
 from adminapp.utils import remove_background, extract_features, find_similar_watches
+from openai import OpenAI   
+from .services.chatbot import ChatbotService
+import logging
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 # Create your views here.
@@ -860,3 +867,149 @@ def notify_me(request):
         return JsonResponse({'success': True, 'message': 'You will be notified when this product is back in stock.'})
     else:
         return JsonResponse({'success': False, 'message': 'You are already subscribed to notifications for this product.'})
+
+@login_required
+@require_POST
+def chat_message(request):
+    try:
+        data = json.loads(request.body)
+        user_message = data.get('message', '').strip()
+        context = data.get('context', {})
+        
+        if not user_message:
+            return JsonResponse({'error': 'Message cannot be empty'}, status=400)
+        
+        logger.info(f"Processing chat message for user {request.user.id}")
+        
+        chatbot = ChatbotService(request.user)
+        result = chatbot.process_message(user_message, context)
+        
+        if not result.get('response'):
+            raise ValueError("Empty response from chatbot")
+        
+        return JsonResponse({
+            'response': result['response'],
+            'context': result['context'],
+            'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+        })
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {str(e)}")
+        return JsonResponse({'error': 'Invalid request format'}, status=400)
+    except Exception as e:
+        logger.error(f"Chat message error: {str(e)}")
+        return JsonResponse({'error': 'An error occurred processing your message'}, status=500)
+
+@login_required
+def get_chat_history(request):
+    messages = ChatMessage.objects.filter(user=request.user)[:50]  # Get last 50 messages
+    history = [{
+        'message': msg.message,
+        'response': msg.response,
+        'timestamp': msg.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+    } for msg in messages]
+    return JsonResponse({'history': history})
+
+client = OpenAI(
+    base_url="https://models.inference.ai.azure.com",
+    api_key=settings.OPENAI_API_KEY,
+)
+
+def get_chatbot_response(message, user_id=None, context=None):
+    try:
+        user = User.objects.get(id=user_id) if user_id else None
+        message_lower = message.lower()
+
+        # Handle identity-related queries first
+        if any(phrase in message_lower for phrase in ['who are you', 'what are you', 'your name', 'who is this']):
+            return "I'm Timely, your personal watch assistant at Timely Watches! I'm here to help you with anything related to our watches, orders, shipping, or any other questions you might have about our services. How can I assist you today?"
+        
+        # Rest of your existing order handling code...
+        if 'orders' in message_lower:
+            if user:
+                recent_orders = Order.objects.filter(user=user).order_by('-created_at')[:5]
+                if recent_orders:
+                    order_list = "\n".join([
+                        f"Order #{order.id} - {order.created_at.strftime('%Y-%m-%d')} - {order.status}"
+                        for order in recent_orders
+                    ])
+                    return {
+                        'text': f"Here are your recent orders:\n{order_list}\n\nWhich order would you like to discuss?",
+                        'options': [
+                            {'type': 'order', 'id': order.id, 'text': f"Order #{order.id}"} 
+                            for order in recent_orders
+                        ]
+                    }
+                return "You don't have any orders yet. Would you like to browse our products?"
+            return "Please log in to view your orders."
+
+        # Handle specific order queries
+        if context and context.get('type') == 'order':
+            order_id = context.get('order_id')
+            try:
+                order = Order.objects.get(id=order_id, user=user)
+                return {
+                    'text': f"What would you like to know about Order #{order_id}?",
+                    'options': [
+                        {'type': 'order_action', 'action': 'status', 'order_id': order_id, 'text': "Check Status"},
+                        {'type': 'order_action', 'action': 'support', 'order_id': order_id, 'text': "Need Help"},
+                        {'type': 'order_action', 'action': 'return', 'order_id': order_id, 'text': "Return/Refund"}
+                    ]
+                }
+            except Order.DoesNotExist:
+                return "Sorry, I couldn't find that order."
+
+        # Handle support ticket creation
+        if context and context.get('type') == 'order_action' and context.get('action') == 'support':
+            ticket = SupportTicket.objects.create(
+                user=user,
+                order_id=context.get('order_id'),
+                subject=f"Support for Order #{context.get('order_id')}",
+                description=message
+            )
+            return {
+                'text': f"I've created a support ticket (#{ticket.id}) for you. A customer service representative will contact you soon. Would you like to add any additional details?",
+                'ticket_id': ticket.id
+            }
+
+        # OpenAI with updated system prompt
+        system_prompt = """You are Timely, a customer service assistant for Timecraft Watches luxury watch store. 
+        Your personality traits:
+        - Friendly and professional
+        - Knowledgeable about watches
+        - Always identify yourself as Timely
+        - Passionate about timepieces
+        
+        Only answer questions related to:
+        - Watch products and features
+        - Orders and shipping
+        - Returns and refunds
+        - Payment methods
+        - Watch maintenance and care
+        
+        If asked about anything unrelated to the watch store or these topics, respond with:
+        "As Timely, I can only assist with questions about our watch store, products, and services. Please ask something related to watches or our store services."
+        
+        Store Information:
+        - We sell luxury and smart watches at Timely Watches
+        - Free shipping on orders above ₹999
+        - 7-day return policy
+        - Payment methods: Credit/Debit Cards, UPI, Net Banking
+        - Standard delivery: 5-7 business days
+        - Customer service hours: Mon-Sat, 9AM-6PM
+        
+        Always maintain your identity as Timely and keep responses focused on watch-related information."""
+
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": message}
+            ],
+            temperature=0.5,
+            max_tokens=150
+        )
+        return response.choices[0].message.content
+
+    except Exception as e:
+        print(f"Error in get_chatbot_response: {str(e)}")
+        return "I apologize, but I'm having trouble processing your request. Please try again or contact our support team."
