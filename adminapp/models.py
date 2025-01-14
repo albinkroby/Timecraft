@@ -348,3 +348,25 @@ class WatchColorVariant(models.Model):
 
     def __str__(self):
         return f"{self.parent_watch.model_name} - {self.variant.color} variant"
+
+class StaffMember(models.Model):
+    user = models.OneToOneField('mainapp.User', on_delete=models.CASCADE, related_name='staff_profile')
+    role = models.CharField(max_length=50, choices=[
+        ('support', 'Customer Support'),
+        ('qa', 'Quality Assurance')
+    ])
+    is_active = models.BooleanField(default=True)
+    department = models.CharField(max_length=50, choices=[
+        ('support', 'Customer Support'),
+        ('quality', 'Quality Control')
+    ])
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_modified = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} - {self.role}"
+
+    class Meta:
+        permissions = [
+            ("can_manage_staff", "Can manage staff members"),
+        ]

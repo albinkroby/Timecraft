@@ -26,6 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ['SECRET_KEY']
+OPENAI_API_KEY = os.environ['OPENAI_API_KEY']
 
 PORT = os.environ['PORT']
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -43,6 +44,7 @@ INSTALLED_APPS = [
     'userapp',
     'adminapp',
     'vendorapp',
+    'supportapp',
     'watch_customizer',
     'django.contrib.admin',
     'django.contrib.auth',

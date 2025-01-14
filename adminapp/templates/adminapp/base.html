@@ -156,6 +156,19 @@
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'custom_watch_orders' %}active{% endif %}" href="{% url 'adminapp:custom_watch_orders' %}"><i class='bx bx-dollar'></i>Orders</a>
                         </div>
                     </div>
+                    <a href="#" class="list-group-item list-group-item-action {% if 'staff' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#staffCollapse" aria-expanded="false">
+                        <i class='bx bx-group'></i> Staff Management <i class='bx bx-chevron-down float-end'></i>
+                    </a>
+                    <div class="collapse {% if 'staff' in request.resolver_match.url_name %}show{% endif %}" id="staffCollapse">
+                        <div class="list-group">
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'staff_list' %}active{% endif %}" href="{% url 'adminapp:staff_list' %}">
+                                <i class='bx bx-list-ul'></i> Staff List
+                            </a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'add_staff' %}active{% endif %}" href="{% url 'adminapp:add_staff' %}">
+                                <i class='bx bx-user-plus'></i> Add Staff
+                            </a>
+                        </div>
+                    </div>
                 </div>
                 <div class="sidebar-heading mt-3">
                     PAGES

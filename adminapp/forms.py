@@ -1,5 +1,7 @@
 from django import forms
-from .models import Brand, Category, BaseWatch, Feature, Material
+from .models import Brand, Category, BaseWatch, Feature, Material, StaffMember
+from mainapp.models import User
+from django.contrib.auth.forms import UserCreationForm
 
 class BrandForm(forms.ModelForm):
     class Meta:
@@ -48,4 +50,24 @@ class MaterialForm(forms.ModelForm):
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+class StaffCreationForm(UserCreationForm):
+    class Meta:
+        model = User
+        fields = ('username', 'first_name', 'last_name', 'email', 'password1', 'password2')
+        widgets = {
+            'username': forms.TextInput(attrs={'class': 'form-control'}),
+            'first_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'last_name': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+        }
+
+class StaffProfileForm(forms.ModelForm):
+    class Meta:
+        model = StaffMember
+        fields = ('role', 'department')
+        widgets = {
+            'role': forms.Select(attrs={'class': 'form-control'}),
+            'department': forms.Select(attrs={'class': 'form-control'}),
         }
