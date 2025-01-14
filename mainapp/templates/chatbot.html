@@ -1,0 +1,31 @@
+<div id="chatbot-widget" class="chatbot-widget">
+    <div class="chat-header">
+        <h3>Chat Support</h3>
+        <button id="minimize-chat" class="minimize-btn"><i class='bx bx-minus'></i></button>
+    </div>
+    <div class="chat-messages" id="chat-messages">
+        <!-- Welcome message and quick actions will be added here -->
+    </div>
+    <div class="quick-actions" id="quick-actions">
+        <button class="quick-action-btn" data-action="orders">📦 My Orders</button>
+        <button class="quick-action-btn" data-action="payment">💳 Payment</button>
+        <button class="quick-action-btn" data-action="shipping">🚚 Shipping</button>
+        <button class="quick-action-btn" data-action="returns">↩️ Returns</button>
+        <button class="quick-action-btn" data-action="contact">📞 Contact</button>
+    </div>
+    <div class="chat-input">
+        <input type="text" id="user-message" placeholder="Type your message...">
+        <button id="send-message">Send</button>
+    </div>
+</div>
+
+<!-- Add this loading animation HTML -->
+<div class="typing-indicator">
+    <span></span>
+    <span></span>
+    <span></span>
+</div>
+
+<button id="open-chat" class="chat-trigger">
+    <i class="fas fa-comments"></i>
+</button> 
