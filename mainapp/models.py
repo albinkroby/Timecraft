@@ -154,3 +154,60 @@ class WatchNotification(models.Model):
 
     class Meta:
         unique_together = ('user', 'watch')
+
+from adminapp.models import BaseWatch
+
+class ChatMessage(models.Model):
+    INTENT_CHOICES = (
+        ('general', 'General Inquiry'),
+        ('order', 'Order Related'),
+        ('product', 'Product Information'),
+        ('support', 'Customer Support'),
+        ('shipping', 'Shipping Information'),
+        ('return', 'Return/Refund'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField()
+    response = models.TextField()
+    intent = models.CharField(max_length=20, choices=INTENT_CHOICES, default='general')
+    context = models.JSONField(null=True, blank=True)
+    related_order = models.ForeignKey('Order', null=True, blank=True, on_delete=models.SET_NULL)
+    related_product = models.ForeignKey('adminapp.BaseWatch', null=True, blank=True, on_delete=models.SET_NULL)
+    support_ticket = models.ForeignKey('SupportTicket', null=True, blank=True, on_delete=models.SET_NULL)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+
+class SupportTicket(models.Model):
+    PRIORITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High')
+    ]
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed')
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True)
+    subject = models.CharField(max_length=200)
+    description = models.TextField()
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+
+class SupportMessage(models.Model):
+    ticket = models.ForeignKey(SupportTicket, related_name='messages', on_delete=models.CASCADE)
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_staff_reply = models.BooleanField(default=False)

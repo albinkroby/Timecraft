@@ -32,4 +32,8 @@ urlpatterns = [
     
     path('notify-me/', views.notify_me, name='notify_me'),
     
+    path('chat/message/', views.chat_message, name='chat_message'),
+    path('chat/history/', views.get_chat_history, name='chat_history'),
+    
+    
 ]

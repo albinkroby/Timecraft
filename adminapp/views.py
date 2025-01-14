@@ -4,8 +4,8 @@ from django.shortcuts import render,redirect,get_object_or_404
 from django.contrib.auth.decorators import login_required
 from mainapp.decorators import user_type_required
 from vendorapp.models import VendorProfile
-from .models import Brand, Category, BaseWatch, WatchImage, Feature, Material
-from .forms import BrandForm, CategoryForm, BaseWatchForm, FeatureForm, MaterialForm
+from .models import Brand, Category, BaseWatch, WatchImage, Feature, Material, StaffMember
+from .forms import BrandForm, CategoryForm, BaseWatchForm, FeatureForm, MaterialForm, StaffCreationForm, StaffProfileForm
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
@@ -36,7 +36,6 @@ from datetime import timedelta
 from dateutil.relativedelta import relativedelta
 import json
 import calendar
-
 from django.utils import timezone
 from django.utils.timezone import make_aware
 import pytz
@@ -45,6 +44,8 @@ from django.db import transaction
 from django.http import JsonResponse
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
+from django.contrib.auth.decorators import permission_required
+from django.contrib.auth.models import User, Permission
 # Create your views here.
 User=get_user_model()
 
@@ -198,7 +199,6 @@ def add_product(request):
             product.vendor = VendorProfile.objects.get(user=request.user)
             product.save()
             
-            # Handle image uploads
             images = request.FILES.getlist('product_images')
             for image in images:
                 WatchImage.objects.create(base_watch=product, image=image)
@@ -459,7 +459,6 @@ def download_orders(request):
 @login_required
 @user_type_required('admin')
 def order_detail(request, order_id):
-    # Get order with related data in a single query
     order = get_object_or_404(
         Order.objects.select_related(
             'user',
@@ -1321,4 +1320,84 @@ def update_custom_watch_order_status(request, order_id):
         
     except CustomWatchOrder.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Order not found'})
+
+@permission_required('adminapp.can_manage_staff')
+def staff_list(request):
+    staff_members = StaffMember.objects.select_related('user').all()
+    return render(request, 'adminapp/staff_list.html', {'staff_members': staff_members})
+
+@permission_required('adminapp.can_manage_staff')
+def add_staff(request):
+    if request.method == 'POST':
+        user_form = StaffCreationForm(request.POST)
+        profile_form = StaffProfileForm(request.POST)
+        
+        if user_form.is_valid() and profile_form.is_valid():
+            user = user_form.save(commit=False)
+            user.is_staff = True
+            user.save()
+            
+            profile = profile_form.save(commit=False)
+            profile.user = user
+            profile.save()
+            
+            # Assign permissions based on role
+            assign_role_permissions(user, profile.role)
+            
+            messages.success(request, 'Staff member created successfully')
+            return redirect('adminapp:staff_list')
+    else:
+        user_form = StaffCreationForm()
+        profile_form = StaffProfileForm()
+    
+    return render(request, 'adminapp/add_staff.html', {
+        'user_form': user_form,
+        'profile_form': profile_form
+    })
+
+@permission_required('adminapp.can_manage_staff')
+def toggle_staff_access(request, staff_id):
+    if request.method == 'POST':
+        staff = get_object_or_404(StaffMember, id=staff_id)
+        staff.is_active = not staff.is_active
+        staff.user.is_active = staff.is_active
+        staff.save()
+        staff.user.save()
+        
+        status = 'activated' if staff.is_active else 'deactivated'
+        messages.success(request, f'Staff access {status} successfully')
+        
+        return JsonResponse({'success': True, 'is_active': staff.is_active})
+    return JsonResponse({'success': False}, status=400)
+
+def assign_role_permissions(user, role):
+    """Helper function to assign permissions based on role"""
+    permissions = {
+        'support': [
+            'view_ticket',
+            'add_ticketresponse',
+            'change_ticket',
+            'view_basewatch',
+            'view_category',
+            'view_brand',
+        ],
+        'qa': [
+            'view_basewatch',
+            'change_basewatch',
+            'view_category',
+            'view_brand',
+            'add_feature',
+            'change_feature',
+            'view_feature',
+        ]
+    }
+    
+    # Clear existing permissions
+    user.user_permissions.clear()
+    
+    # Assign new permissions
+    if role in permissions:
+        for perm_codename in permissions[role]:
+            perm = Permission.objects.get(codename=perm_codename)
+            user.user_permissions.add(perm)
 

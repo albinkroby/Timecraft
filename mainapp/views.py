@@ -99,6 +99,8 @@ def signin(request):
                         return redirect('vendorapp:index')
                     elif user.role == 'admin':
                         return redirect('adminapp:index')
+                    elif user.role == 'staff':
+                        return redirect('supportapp:staff_dashboard')
                     else:  # user.role == 'user'
                         return redirect('mainapp:index')
             else:

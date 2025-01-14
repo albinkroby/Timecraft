@@ -73,4 +73,7 @@ urlpatterns = [
     path('custom-watch-order/<int:order_id>/', views.custom_watch_order_detail, name='custom_watch_order_detail'),
     path('custom-watch-order/<int:order_id>/update-status/', views.update_custom_watch_order_status, name='update_custom_watch_order_status'),
     
+    path('staff/', views.staff_list, name='staff_list'),
+    path('staff/add/', views.add_staff, name='add_staff'),
+    path('staff/toggle-access/<int:staff_id>/', views.toggle_staff_access, name='toggle_staff_access'),
 ]
