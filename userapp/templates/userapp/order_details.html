@@ -60,7 +60,7 @@
             <div class="card mb-4">
                 <div class="card-body">
                     <h5 class="card-title">More actions</h5>
-                    <a href="{% url 'userapp:download_invoice' order.order_id %}" class="btn btn-outline-primary btn-block mb-2">Download Invoice</a>
+                    <a href="{% url 'userapp:download_invoice' order.order_id %}" class="btn btn-outline-primary btn-block">Download Invoice</a>
                 </div>
             </div>
 
@@ -70,19 +70,21 @@
                     <table class="table table-borderless">
                         <tr>
                             <td>Subtotal</td>
-                            <td class="text-end">₹{{ order.total_price }}</td>
+                            <td class="text-end">₹{{ order_summary.subtotal|floatformat:2 }}</td>
                         </tr>
                         <tr>
                             <td>Shipping</td>
-                            <td class="text-end">₹{{ order.shipping_cost }}</td>
+                            <td class="text-end">₹{{ order_summary.shipping_cost|floatformat:2 }}</td>
                         </tr>
+                        {% if order_summary.discount > 0 %}
                         <tr>
                             <td>Discount</td>
-                            <td class="text-end">-₹{{ order.discount }}</td>
+                            <td class="text-end text-danger">-₹{{ order_summary.discount|floatformat:2 }}</td>
                         </tr>
+                        {% endif %}
                         <tr>
                             <th>Total</th>
-                            <th class="text-end">₹{{ order.final_price }}</th>
+                            <th class="text-end">₹{{ order_summary.final_price|floatformat:2 }}</th>
                         </tr>
                     </table>
                 </div>
@@ -92,6 +94,9 @@
 </div>
 
 <!-- Include review modals here (similar to my_orders.html) -->
+{% block chat_widget %}
+    {% include 'supportapp/chat_widget.html' %}
+{% endblock %}
 {% endblock %}
 
 {% block extra_js %}
