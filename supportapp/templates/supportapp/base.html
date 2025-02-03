@@ -51,7 +51,7 @@
         <nav class="navbar sticky-top navbar-expand-lg">
             <div class="container-fluid">
                 <div class="navbar-heading">
-                    <a href="{% url 'vendorapp:index' %}" class="nav__logo">
+                    <a href="{% url 'supportapp:staff_dashboard' %}" class="nav__logo">
                     <i class='bx bxs-watch nav__logo-icon'></i> TIME&nbspCRAFT
                     </a>
                 </div>
@@ -99,13 +99,24 @@
                     </div>
                 </div>
                 <div class="sidebar-heading mt-3">
+                    SUPPORT
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{% url 'supportapp:staff_chats' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'staff_chats' %}active{% endif %}">
+                        <i class='bx bxs-message-dots'></i> Support Chats
+                        {% if unread_chats_count > 0 %}
+                        <span class="badge bg-danger float-end">{{ unread_chats_count }}</span>
+                        {% endif %}
+                    </a>
+                </div>
+                <div class="sidebar-heading mt-3">
                     PAGES
                 </div>
                 <div class="list-group list-group-flush">
-                    <a href="" class="list-group-item list-group-item-action ">
+                    <a href="{% url 'supportapp:staff_profile' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'staff_profile' %}active{% endif %}">
                         <i class='bx bxs-user-circle'></i>Profile
                     </a>
-                    <a href="" class="list-group-item list-group-item-action ">
+                    <a href="{% url 'supportapp:change_password' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'change_password' %}active{% endif %}">
                         <i class='bx bxs-key'></i> Change Password
                     </a>    
                 </div>

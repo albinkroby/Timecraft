@@ -259,15 +259,23 @@ def my_orders(request):
 def order_details(request, order_id):
     order = get_object_or_404(Order, order_id=order_id, user=request.user)
     
+    # Calculate order summary
+    subtotal = sum(item.price * item.quantity for item in order.items.all())
+    shipping_cost = order.shipping_cost if hasattr(order, 'shipping_cost') else 0
+    discount = order.discount if hasattr(order, 'discount') else 0
+    final_price = subtotal + shipping_cost - discount
+    
     for item in order.items.all():
-        print(item)
         item.user_review = Review.objects.filter(user=request.user, watch=item.watch).first()
-        print(item.user_review)
-        
-    print(order.items.all())
     
     context = {
         'order': order,
+        'order_summary': {
+            'subtotal': subtotal,
+            'shipping_cost': shipping_cost,
+            'discount': discount,
+            'final_price': final_price
+        }
     }
     return render(request, 'userapp/order_details.html', context)
 
