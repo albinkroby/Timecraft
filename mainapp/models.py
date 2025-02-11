@@ -157,28 +157,25 @@ class WatchNotification(models.Model):
 
 from adminapp.models import BaseWatch
 
-class ChatMessage(models.Model):
-    INTENT_CHOICES = (
-        ('general', 'General Inquiry'),
-        ('order', 'Order Related'),
-        ('product', 'Product Information'),
-        ('support', 'Customer Support'),
-        ('shipping', 'Shipping Information'),
-        ('return', 'Return/Refund'),
-    )
+class ChatSession(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    guest_name = models.CharField(max_length=100, null=True, blank=True)
+    session_id = models.CharField(max_length=100, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_activity = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True)
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    def __str__(self):
+        return f"Chat with {self.user.username if self.user else self.guest_name}"
+
+class ChatMessage(models.Model):
+    session = models.ForeignKey(ChatSession, on_delete=models.CASCADE, related_name='messages',default=True)
+    is_user = models.BooleanField(default=True) 
     message = models.TextField()
-    response = models.TextField()
-    intent = models.CharField(max_length=20, choices=INTENT_CHOICES, default='general')
-    context = models.JSONField(null=True, blank=True)
-    related_order = models.ForeignKey('Order', null=True, blank=True, on_delete=models.SET_NULL)
-    related_product = models.ForeignKey('adminapp.BaseWatch', null=True, blank=True, on_delete=models.SET_NULL)
-    support_ticket = models.ForeignKey('SupportTicket', null=True, blank=True, on_delete=models.SET_NULL)
     timestamp = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
-        ordering = ['-timestamp']
+        ordering = ['timestamp']
 
 class SupportTicket(models.Model):
     PRIORITY_CHOICES = [

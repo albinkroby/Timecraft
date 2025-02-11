@@ -14,7 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from watch_customizer.models import CustomWatchOrder
-from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem, WatchNotification, ChatMessage, SupportTicket, SupportMessage
+from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem, WatchNotification, ChatMessage, SupportTicket, SupportMessage, ChatSession
 from .forms import SignUpForm
 from userapp.forms import AddressForm
 from social_django.models import UserSocialAuth
@@ -49,11 +49,14 @@ from adminapp.utils import remove_background, extract_features, find_similar_wat
 from openai import OpenAI   
 from .services.chatbot import ChatbotService
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
 # Create your views here.
+
+chatbot_service = ChatbotService()
 
 @never_cache
 def index(request):
@@ -870,148 +873,111 @@ def notify_me(request):
     else:
         return JsonResponse({'success': False, 'message': 'You are already subscribed to notifications for this product.'})
 
-@login_required
-@require_POST
-def chat_message(request):
+@require_http_methods(["POST"])
+def chat_view(request):
     try:
         data = json.loads(request.body)
-        user_message = data.get('message', '').strip()
-        context = data.get('context', {})
+        user_message = data.get('message', '')
+        session_id = data.get('session_id')
         
-        if not user_message:
-            return JsonResponse({'error': 'Message cannot be empty'}, status=400)
+        if not session_id:
+            return JsonResponse({'error': 'No session ID provided'}, status=400)
+            
+        try:
+            # Get session
+            session = ChatSession.objects.get(session_id=session_id)
+        except ChatSession.DoesNotExist:
+            return JsonResponse({'error': 'Invalid session'}, status=404)
         
-        logger.info(f"Processing chat message for user {request.user.id}")
+        # Save user message
+        ChatMessage.objects.create(
+            session=session,
+            is_user=True,
+            message=user_message
+        )
         
-        chatbot = ChatbotService(request.user)
-        result = chatbot.process_message(user_message, context)
+        # Get bot response
+        try:
+            bot_response = chatbot_service.get_response(user_message)
+        except Exception as e:
+            print(f"Chatbot error: {str(e)}")
+            return JsonResponse({
+                'error': 'Error generating response',
+                'response': "I'm sorry, I encountered an error. Please try again."
+            })
         
-        if not result.get('response'):
-            raise ValueError("Empty response from chatbot")
+        # Save bot message
+        ChatMessage.objects.create(
+            session=session,
+            is_user=False,
+            message=bot_response if isinstance(bot_response, str) else json.dumps(bot_response)
+        )
+        
+        # Update session last activity
+        session.save()  # This will update last_activity due to auto_now=True
+        
+        return JsonResponse({'response': bot_response})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        print(f"Unexpected error: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_http_methods(["GET"])
+def check_auth(request):
+    return JsonResponse({
+        'is_authenticated': request.user.is_authenticated,
+        'username': request.user.username if request.user.is_authenticated else None
+    })
+
+@require_http_methods(["POST"])
+def create_session(request):
+    try:
+        data = json.loads(request.body)
+        session = ChatSession.objects.create(
+            user=request.user if request.user.is_authenticated else None,
+            guest_name=data.get('guest_name'),
+            session_id=str(uuid.uuid4())
+        )
+        return JsonResponse({'session': {
+            'id': session.session_id,
+            'guest_name': session.guest_name
+        }})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_http_methods(["GET"])
+def get_session(request, session_id):
+    try:
+        session = ChatSession.objects.get(session_id=session_id)
+        # Get page number from query params, default to 1
+        page = int(request.GET.get('page', 1))
+        messages_per_page = 20  # Number of messages to load at once
+        
+        # Get total message count
+        total_messages = session.messages.count()
+        
+        # Get paginated messages, ordered by newest first then reversed
+        messages = session.messages.order_by('-timestamp')[
+            (page-1)*messages_per_page : page*messages_per_page
+        ]
+        
+        # Reverse the messages to show oldest first
+        messages = list(reversed(messages))
         
         return JsonResponse({
-            'response': result['response'],
-            'context': result['context'],
-            'timestamp': timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+            'session': {
+                'id': session.session_id,
+                'guest_name': session.guest_name
+            },
+            'messages': [{
+                'message': msg.message,
+                'is_user': msg.is_user,
+                'timestamp': msg.timestamp.isoformat()
+            } for msg in messages],
+            'has_more': total_messages > page * messages_per_page,
+            'total_pages': (total_messages + messages_per_page - 1) // messages_per_page
         })
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON decode error: {str(e)}")
-        return JsonResponse({'error': 'Invalid request format'}, status=400)
-    except Exception as e:
-        logger.error(f"Chat message error: {str(e)}")
-        return JsonResponse({'error': 'An error occurred processing your message'}, status=500)
-
-@login_required
-def get_chat_history(request):
-    messages = ChatMessage.objects.filter(user=request.user)[:50]  # Get last 50 messages
-    history = [{
-        'message': msg.message,
-        'response': msg.response,
-        'timestamp': msg.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-    } for msg in messages]
-    return JsonResponse({'history': history})
-
-client = OpenAI(
-    base_url="https://models.inference.ai.azure.com",
-    api_key=settings.OPENAI_API_KEY,
-)
-
-def get_chatbot_response(message, user_id=None, context=None):
-    try:
-        user = User.objects.get(id=user_id) if user_id else None
-        message_lower = message.lower()
-
-        # Handle identity-related queries first
-        if any(phrase in message_lower for phrase in ['who are you', 'what are you', 'your name', 'who is this']):
-            return "I'm Timely, your personal watch assistant at Timely Watches! I'm here to help you with anything related to our watches, orders, shipping, or any other questions you might have about our services. How can I assist you today?"
-        
-        # Rest of your existing order handling code...
-        if 'orders' in message_lower:
-            if user:
-                recent_orders = Order.objects.filter(user=user).order_by('-created_at')[:5]
-                if recent_orders:
-                    order_list = "\n".join([
-                        f"Order #{order.id} - {order.created_at.strftime('%Y-%m-%d')} - {order.status}"
-                        for order in recent_orders
-                    ])
-                    return {
-                        'text': f"Here are your recent orders:\n{order_list}\n\nWhich order would you like to discuss?",
-                        'options': [
-                            {'type': 'order', 'id': order.id, 'text': f"Order #{order.id}"} 
-                            for order in recent_orders
-                        ]
-                    }
-                return "You don't have any orders yet. Would you like to browse our products?"
-            return "Please log in to view your orders."
-
-        # Handle specific order queries
-        if context and context.get('type') == 'order':
-            order_id = context.get('order_id')
-            try:
-                order = Order.objects.get(id=order_id, user=user)
-                return {
-                    'text': f"What would you like to know about Order #{order_id}?",
-                    'options': [
-                        {'type': 'order_action', 'action': 'status', 'order_id': order_id, 'text': "Check Status"},
-                        {'type': 'order_action', 'action': 'support', 'order_id': order_id, 'text': "Need Help"},
-                        {'type': 'order_action', 'action': 'return', 'order_id': order_id, 'text': "Return/Refund"}
-                    ]
-                }
-            except Order.DoesNotExist:
-                return "Sorry, I couldn't find that order."
-
-        # Handle support ticket creation
-        if context and context.get('type') == 'order_action' and context.get('action') == 'support':
-            ticket = SupportTicket.objects.create(
-                user=user,
-                order_id=context.get('order_id'),
-                subject=f"Support for Order #{context.get('order_id')}",
-                description=message
-            )
-            return {
-                'text': f"I've created a support ticket (#{ticket.id}) for you. A customer service representative will contact you soon. Would you like to add any additional details?",
-                'ticket_id': ticket.id
-            }
-
-        # OpenAI with updated system prompt
-        system_prompt = """You are Timely, a customer service assistant for Timecraft Watches luxury watch store. 
-        Your personality traits:
-        - Friendly and professional
-        - Knowledgeable about watches
-        - Always identify yourself as Timely
-        - Passionate about timepieces
-        
-        Only answer questions related to:
-        - Watch products and features
-        - Orders and shipping
-        - Returns and refunds
-        - Payment methods
-        - Watch maintenance and care
-        
-        If asked about anything unrelated to the watch store or these topics, respond with:
-        "As Timely, I can only assist with questions about our watch store, products, and services. Please ask something related to watches or our store services."
-        
-        Store Information:
-        - We sell luxury and smart watches at Timely Watches
-        - Free shipping on orders above ₹999
-        - 7-day return policy
-        - Payment methods: Credit/Debit Cards, UPI, Net Banking
-        - Standard delivery: 5-7 business days
-        - Customer service hours: Mon-Sat, 9AM-6PM
-        
-        Always maintain your identity as Timely and keep responses focused on watch-related information."""
-
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": message}
-            ],
-            temperature=0.5,
-            max_tokens=150
-        )
-        return response.choices[0].message.content
-
-    except Exception as e:
-        print(f"Error in get_chatbot_response: {str(e)}")
-        return "I apologize, but I'm having trouble processing your request. Please try again or contact our support team."
+    except ChatSession.DoesNotExist:
+        return JsonResponse({'session': None})
