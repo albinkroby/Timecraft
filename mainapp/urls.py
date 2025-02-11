@@ -32,8 +32,8 @@ urlpatterns = [
     
     path('notify-me/', views.notify_me, name='notify_me'),
     
-    path('chat/message/', views.chat_message, name='chat_message'),
-    path('chat/history/', views.get_chat_history, name='chat_history'),
-    
-    
+    path('chat/', views.chat_view, name='chat'),
+    path('chat/check-auth/', views.check_auth, name='chat_check_auth'),
+    path('chat/session/create/', views.create_session, name='chat_create_session'),
+    path('chat/session/<str:session_id>/', views.get_session, name='chat_get_session'),
 ]

@@ -13,12 +13,12 @@
 }
 
 .chat-header {
-    position: relative;
-    padding: 15px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
+    padding: 10px;
+    background: #007bff;
+    color: white;
+    border-radius: 10px 10px 0 0;
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
 }
 
@@ -73,22 +73,6 @@
 .bot-message {
     background: #f1f1f1;
     margin-right: auto;
-    white-space: pre-line;
-    line-height: 1.5;
-}
-
-.bot-message .list-item {
-    padding: 4px 0;
-    margin-left: 20px;
-}
-
-.bot-message .section-header {
-    font-weight: bold;
-    margin: 8px 0 4px 0;
-}
-
-.bot-message .text-line {
-    margin: 4px 0;
 }
 
 #send-message{
@@ -281,189 +265,4 @@
 .status-resolved {
     background-color: #28a745;
     color: #fff;
-}
-
-.bot-message strong {
-    font-weight: 600;
-    color: #333;
-}
-
-.bot-message .list-item strong {
-    font-weight: 600;
-    color: #333;
-}
-
-.bot-message .text-line strong {
-    font-weight: 600;
-    color: #333;
-}
-
-/* Product Cards Styling */
-.product-cards-container {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-top: 8px;
-}
-
-.product-card {
-    display: flex;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    overflow: hidden;
-    max-width: 300px;
-}
-
-.product-image {
-    width: 100px;
-    height: 100px;
-    overflow: hidden;
-}
-
-.product-image img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.product-info {
-    padding: 10px;
-    flex: 1;
-}
-
-.product-info h4 {
-    margin: 0 0 5px 0;
-    font-size: 14px;
-    color: #333;
-}
-
-.price {
-    color: #007bff;
-    font-weight: bold;
-    margin: 5px 0;
-}
-
-.product-details {
-    font-size: 12px;
-    color: #666;
-}
-
-.product-details p {
-    margin: 2px 0;
-}
-
-.view-product-btn {
-    display: inline-block;
-    padding: 5px 10px;
-    background-color: #007bff;
-    color: white;
-    text-decoration: none;
-    border-radius: 4px;
-    font-size: 12px;
-    margin-top: 5px;
-}
-
-.view-product-btn:hover {
-    background-color: #0056b3;
-}
-
-.intro-text {
-    margin-bottom: 10px;
-    color: #666;
-}
-
-/* New Chat Button */
-.new-chat-btn {
-    background: none;
-    border: none;
-    color: #666;
-    padding: 5px 10px;
-    cursor: pointer;
-    font-size: 16px;
-    position: absolute;
-    right: 50px;
-    top: 50%;
-    transform: translateY(-50%);
-    transition: color 0.3s ease;
-}
-
-.new-chat-btn:hover {
-    color: #007bff;
-}
-
-/* Name Prompt */
-.name-prompt {
-    background: #f8f9fa;
-    padding: 15px;
-    margin: 10px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.name-input-container {
-    display: flex;
-    gap: 10px;
-}
-
-.name-input-container input {
-    flex: 1;
-    padding: 8px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    font-size: 14px;
-}
-
-.name-input-container button {
-    padding: 8px 15px;
-    background: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.name-input-container button:hover {
-    background: #0056b3;
-}
-
-#chat-messages {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    scroll-behavior: smooth;
-}
-
-.message {
-    margin-bottom: 10px;
-    max-width: 80%;
-    word-wrap: break-word;
-}
-
-.messages-loading {
-    text-align: center;
-    padding: 10px;
-    color: #666;
-    font-size: 14px;
-    background: #f8f9fa;
-    border-radius: 4px;
-    margin: 10px;
-}
-
-.load-more-btn {
-    display: block;
-    width: 100%;
-    padding: 8px;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    color: #007bff;
-    cursor: pointer;
-    margin: 10px 0;
-    font-size: 14px;
-}
-
-.load-more-btn:hover {
-    background: #e9ecef;
 }
