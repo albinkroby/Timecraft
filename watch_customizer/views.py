@@ -21,7 +21,8 @@ from userapp.forms import AddressForm
 import json
 from django.db import transaction
 from web3 import Web3
-from blockchain.blockchain_utils import store_certificate_on_blockchain
+from blockchain.blockchain_utils import store_certificate_on_blockchain, verify_certificate_on_blockchain
+from django.views.decorators.csrf import ensure_csrf_cookie
 
 logger = logging.getLogger(__name__)
 
@@ -384,4 +385,65 @@ def verify_certificate(request, certificate_id):
         return JsonResponse({
             'verified': False,
             'error': str(e)
+        }, status=500)
+
+@ensure_csrf_cookie
+def verify_certificate_page(request):
+    """Render the certificate verification page"""
+    return render(request, 'watch_customizer/verify_certificate.html')
+
+@require_POST
+def verify_certificate_public(request):
+    """Public API endpoint for certificate verification"""
+    try:
+        data = json.loads(request.body)
+        order_id = data.get('order_id')
+        certificate_hash = data.get('certificate_hash')
+
+        if not order_id or not certificate_hash:
+            return JsonResponse({
+                'verified': False,
+                'error': 'Order ID and Certificate Hash are required'
+            }, status=400)
+
+        # Try to find the certificate in database
+        try:
+            certificate = WatchCertificate.objects.select_related('order').get(
+                order__order_id=order_id,
+                certificate_hash=certificate_hash
+            )
+        except WatchCertificate.DoesNotExist:
+            return JsonResponse({
+                'verified': False,
+                'error': 'Certificate not found'
+            }, status=404)
+
+        # Verify on blockchain
+        is_verified = verify_certificate_on_blockchain(order_id, certificate_hash)
+
+        if is_verified:
+            return JsonResponse({
+                'verified': True,
+                'certificate': {
+                    'order_id': certificate.order.order_id,
+                    'issue_date': certificate.issued_date.strftime('%B %d, %Y'),
+                    'tx_hash': certificate.blockchain_tx_hash or 'Pending',
+                }
+            })
+        else:
+            return JsonResponse({
+                'verified': False,
+                'error': 'Certificate verification failed'
+            })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'verified': False,
+            'error': 'Invalid request data'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"Certificate verification error: {str(e)}")
+        return JsonResponse({
+            'verified': False,
+            'error': 'An error occurred during verification'
         }, status=500)
