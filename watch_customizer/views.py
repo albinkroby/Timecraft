@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from .models import CustomizableWatch, CustomizableWatchPart, CustomWatchSavedDesign, CustomWatchOrder, CustomWatchOrderPart
+from .models import CustomizableWatch, CustomizableWatchPart, CustomWatchSavedDesign, CustomWatchOrder, CustomWatchOrderPart,WatchCertificate
 from django.db import IntegrityError
 import json
 import logging
@@ -20,6 +20,8 @@ from django.views.decorators.cache import never_cache
 from userapp.forms import AddressForm
 import json
 from django.db import transaction
+from web3 import Web3
+from blockchain.blockchain_utils import store_certificate_on_blockchain
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +199,8 @@ def order_confirmation(request, order_id):
 def custom_payment_success(request):
     session_id = request.GET.get('session_id')
     if not session_id:
-        return render(request, 'watch_customizer/custom_payment_success.html', {'paid': False, 'error': 'No session ID provided.'})
+        return render(request, 'watch_customizer/custom_payment_success.html', 
+                     {'paid': False, 'error': 'No session ID provided.'})
 
     try:
         session = stripe.checkout.Session.retrieve(session_id)
@@ -206,17 +209,17 @@ def custom_payment_success(request):
             if custom_order:
                 # Send order confirmation email
                 send_custom_order_confirmation_email(custom_order, request)
-                return render(request, 'watch_customizer/custom_payment_success.html', {'paid': True, 'order': custom_order})
+                return render(request, 'watch_customizer/custom_payment_success.html', 
+                            {'paid': True, 'order': custom_order})
             else:
-                return render(request, 'watch_customizer/custom_payment_success.html', {'paid': False, 'error': 'Order not found.'})
+                return render(request, 'watch_customizer/custom_payment_success.html', 
+                            {'paid': False, 'error': 'Order not found.'})
         else:
-            return render(request, 'watch_customizer/custom_payment_success.html', {'paid': False, 'error': 'Payment not successful. Please try again or contact support.'})
-    except stripe.error.InvalidRequestError:
-        return render(request, 'watch_customizer/custom_payment_success.html', {'paid': False, 'error': 'Invalid session ID. Please contact support if this persists.'})
-    except stripe.error.StripeError as e:
-        return render(request, 'watch_customizer/custom_payment_success.html', {'paid': False, 'error': f'An error occurred: {str(e)}. Please contact support.'})
+            return render(request, 'watch_customizer/custom_payment_success.html', 
+                        {'paid': False, 'error': 'Payment not successful.'})
     except Exception as e:
-        return render(request, 'watch_customizer/custom_payment_success.html', {'paid': False, 'error': f'An unexpected error occurred: {str(e)}. Please contact support.'})
+        return render(request, 'watch_customizer/custom_payment_success.html', 
+                     {'paid': False, 'error': f'An error occurred: {str(e)}'})
 
 @never_cache 
 @login_required
@@ -290,3 +293,95 @@ def return_custom_watch_order(request, order_id):
         return redirect('userapp:my_orders')
     
     return render(request, 'userapp/return_order.html', {'order': order})
+
+@login_required
+def view_certificate(request, order_id):
+    order = get_object_or_404(CustomWatchOrder, order_id=order_id, user=request.user)
+    
+    # Only allow viewing certificate if order is delivered
+    if order.status != 'delivered':
+        messages.warning(request, 'Certificate will be available after order delivery.')
+        return redirect('watch_customizer:custom_order_details', order_id=order.order_id)
+    
+    # Generate certificate if order is delivered but certificate doesn't exist
+    if not hasattr(order, 'certificate'):
+        try:
+            # Create certificate
+            certificate = WatchCertificate.objects.create(order=order)
+            certificate_hash = certificate.generate_certificate_hash()
+            certificate.certificate_hash = certificate_hash
+            
+            # Store on blockchain using the utility function
+            try:
+                tx_hash = store_certificate_on_blockchain(order.order_id, certificate_hash)
+                certificate.blockchain_tx_hash = tx_hash
+                certificate.is_verified = True
+                certificate.save()
+                
+                # Send notification email
+                send_mail(
+                    'Your Watch Certificate is Ready',
+                    f'Your order #{order.order_id} has been delivered and your certificate of authenticity is now available. '
+                    f'You can view it in your order details.',
+                    settings.DEFAULT_FROM_EMAIL,
+                    [order.user.email],
+                    fail_silently=False,
+                )
+                
+                messages.success(request, 'Certificate has been generated and verified on blockchain.')
+            except Exception as e:
+                logger.error(f"Blockchain error for order {order.order_id}: {str(e)}")
+                messages.warning(request, 'Certificate generated but blockchain verification pending. Please try verifying later.')
+                certificate.save()
+                
+        except Exception as e:
+            logger.error(f"Error generating certificate for order {order.order_id}: {str(e)}")
+            messages.error(request, 'There was an error generating your certificate. Please try again later.')
+            return redirect('watch_customizer:custom_order_details', order_id=order.order_id)
+    
+    # If certificate exists but not verified, try to verify
+    elif not order.certificate.is_verified:
+        try:
+            tx_hash = store_certificate_on_blockchain(order.order_id, order.certificate.certificate_hash)
+            order.certificate.blockchain_tx_hash = tx_hash
+            order.certificate.is_verified = True
+            order.certificate.save()
+            messages.success(request, 'Certificate has been verified on blockchain.')
+        except Exception as e:
+            logger.error(f"Blockchain verification error for order {order.order_id}: {str(e)}")
+            messages.warning(request, 'Blockchain verification pending. Please try again later.')
+    
+    return render(request, 'watch_customizer/certificate_view.html', {'order': order})
+
+@login_required
+def verify_certificate(request, certificate_id):
+    certificate = get_object_or_404(WatchCertificate, id=certificate_id)
+    
+    try:
+        # Connect to Ethereum network
+        w3 = Web3(Web3.HTTPProvider(settings.ETHEREUM_NODE_URL))
+        contract = w3.eth.contract(
+            address=settings.CERTIFICATE_CONTRACT_ADDRESS,
+            abi=settings.CERTIFICATE_CONTRACT_ABI
+        )
+        
+        # Verify certificate on blockchain
+        stored_hash = contract.functions.getCertificate(
+            str(certificate.order.order_id)
+        ).call()
+        
+        # Verify the hash matches
+        is_verified = stored_hash == certificate.certificate_hash
+        certificate.is_verified = is_verified
+        certificate.save()
+        
+        return JsonResponse({
+            'verified': is_verified,
+            'stored_hash': stored_hash,
+            'certificate_hash': certificate.certificate_hash
+        })
+    except Exception as e:
+        return JsonResponse({
+            'verified': False,
+            'error': str(e)
+        }, status=500)

@@ -22,4 +22,6 @@ urlpatterns = [
     path('custom_payment_success/', views.custom_payment_success, name='custom_payment_success'),
     path('custom_payment_cancel/', views.custom_payment_cancel, name='custom_payment_cancel'),
     path('custom_order_details/<str:order_id>/', views.custom_order_details, name='custom_order_details'),
+    path('certificate/<str:order_id>/', views.view_certificate, name='view_certificate'),
+    path('certificate/verify/<int:certificate_id>/', views.verify_certificate, name='verify_certificate'),
 ]

@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.1/ref/settings/
 """
 
+import json
 from pathlib import Path
 import os,dj_database_url
 from re import T
@@ -94,7 +95,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'supportapp.context_processors.support_context',
             ],
             'libraries': {
                 'custom_filters': 'mainapp.templatetags.custom_filters',
@@ -226,3 +226,16 @@ SOCIAL_AUTH_PIPELINE = (
 
 STRIPE_PUBLIC_KEY = os.environ['STRIPE_PUBLIC_KEY']     
 STRIPE_SECRET_KEY = os.environ['STRIPE_SECRET_KEY']
+
+
+# Blockchain settings
+with open('smart contract/contract_data.json', 'r') as f:
+    contract_data = json.load(f)
+
+CERTIFICATE_CONTRACT_ADDRESS = contract_data['address']
+CERTIFICATE_CONTRACT_ABI = contract_data['abi']
+
+
+# For development (Ganache)
+ETHEREUM_NODE_URL = 'http://127.0.0.1:8545'
+ETHEREUM_PRIVATE_KEY = os.environ['ETHEREUM_PRIVATE_KEY']  # Store private key in .env

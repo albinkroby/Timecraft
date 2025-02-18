@@ -60,6 +60,12 @@
                 <div class="card-body">
                     <h5 class="card-title">More actions</h5>
                     <a href="{% url 'userapp:download_invoice' order.order_id %}" class="btn btn-outline-primary btn-block mb-2">Download Invoice</a>
+                    {% if order.status == 'delivered' %}
+                        <a href="{% url 'watch_customizer:view_certificate' order.order_id %}" 
+                           class="btn btn-outline-success btn-block mb-2">
+                            View Certificate
+                        </a>
+                    {% endif %}
                 </div>
             </div>
 
@@ -96,6 +102,15 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Add any additional JavaScript if needed -->
+<!-- Make sure this block is after main.js is loaded in base.html -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        {% if messages %}
+            {% for message in messages %}
+                showCustomAlert("{{ message }}", "{{ message.tags }}");
+            {% endfor %}
+        {% endif %}
+    });
+</script>
 {% endblock %}
 
