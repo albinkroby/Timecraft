@@ -8,6 +8,12 @@ from django.utils import timezone
 import uuid
 from datetime import timedelta
 
+# Add these imports at the top of models.py
+from eth_utils import keccak
+import json
+from django.conf import settings
+from web3 import Web3
+
 # Create your models here.
 
 class WatchPartName(models.Model):
@@ -108,6 +114,20 @@ class CustomWatchOrder(models.Model):
             return True
         return False
 
+    def can_view_certificate(self):
+        """Check if the certificate should be available"""
+        return self.status == 'delivered' and hasattr(self, 'certificate')
+    
+    def certificate_status(self):
+        """Get the current status of the certificate"""
+        if self.status != 'delivered':
+            return 'pending_delivery'
+        elif not hasattr(self, 'certificate'):
+            return 'generating'
+        elif not self.certificate.is_verified:
+            return 'pending_verification'
+        return 'verified'
+
 @receiver(pre_save, sender=CustomWatchOrder)
 def create_order_id(sender, instance, **kwargs):
     if not instance.order_id:
@@ -126,3 +146,30 @@ class CustomWatchOrderPart(models.Model):
 
     def __str__(self):
         return f"{self.order} - {self.part.name}: {self.selected_option.name}"
+
+class WatchCertificate(models.Model):
+    order = models.OneToOneField('CustomWatchOrder', on_delete=models.CASCADE, related_name='certificate')
+    certificate_hash = models.CharField(max_length=66)  # ethereum hash length
+    issued_date = models.DateTimeField(auto_now_add=True)
+    blockchain_tx_hash = models.CharField(max_length=66, blank=True, null=True)
+    is_verified = models.BooleanField(default=False)
+    
+    def generate_certificate_hash(self):
+        """Generate a unique hash for the certificate"""
+        certificate_data = {
+            'order_id': self.order.order_id,
+            'watch_name': self.order.customizable_watch.name,
+            'customer': self.order.user.email,
+            'date': self.issued_date.isoformat(),
+            'customizations': [
+                {
+                    'part': part.part.part_name.name,
+                    'option': part.selected_option.name
+                } for part in self.order.selected_parts.all()
+            ]
+        }
+        
+        # Create a deterministic JSON string
+        json_data = json.dumps(certificate_data, sort_keys=True)
+        # Generate keccak256 hash
+        return '0x' + keccak(text=json_data).hex()

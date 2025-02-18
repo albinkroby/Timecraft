@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="home__container container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Watch Certificate of Authenticity</h4>
+                </div>
+                <div class="card-body">
+                    {% if order.status != 'delivered' %}
+                        <div class="alert alert-info">
+                            <h5>Certificate Not Available Yet</h5>
+                            <p>Your certificate will be generated automatically after your order is delivered.</p>
+                            <p>Current Order Status: {{ order.get_status_display }}</p>
+                            <p>Estimated Delivery Date: {{ order.estimated_delivery_date|date:"F d, Y" }}</p>
+                        </div>
+                    {% elif not order.certificate %}
+                        <div class="alert alert-warning">
+                            <h5>Certificate Generation in Progress</h5>
+                            <p>Your certificate is being generated. Please check back in a few minutes.</p>
+                        </div>
+                    {% else %}
+                        <div class="certificate-details">
+                            <h5>Order Details</h5>
+                            <p><strong>Order ID:</strong> {{ order.order_id }}</p>
+                            <p><strong>Watch Model:</strong> {{ order.customizable_watch.name }}</p>
+                            <p><strong>Issue Date:</strong> {{ order.certificate.issued_date|date:"F d, Y" }}</p>
+                            
+                            <h5 class="mt-4">Customization Details</h5>
+                            <ul>
+                                {% for part in order.selected_parts.all %}
+                                <li>{{ part.part.part_name.name }}: {{ part.selected_option.name }}</li>
+                                {% endfor %}
+                            </ul>
+                            
+                            <h5 class="mt-4">Blockchain Verification</h5>
+                            <p><strong>Certificate Hash:</strong> <code>{{ order.certificate.certificate_hash }}</code></p>
+                            <p><strong>Transaction Hash:</strong> <code>{{ order.certificate.blockchain_tx_hash }}</code></p>
+                            <p><strong>Status:</strong> 
+                                {% if order.certificate.is_verified %}
+                                <span class="badge bg-success">Verified</span>
+                                {% else %}
+                                <span class="badge bg-warning">Pending Verification</span>
+                                {% endif %}
+                            </p>
+                            
+                            <div class="mt-4">
+                                <button class="btn btn-primary" onclick="verifyOnBlockchain()">Verify on Blockchain</button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+async function verifyOnBlockchain() {
+    try {
+        const response = await fetch(`{% url 'watch_customizer:verify_certificate' order.certificate.id %}`);
+        const data = await response.json();
+        if (data.verified) {
+            alert('Certificate verified successfully on blockchain!');
+        } else {
+            alert('Certificate verification failed!');
+        }
+    } catch (error) {
+        alert('Error verifying certificate');
+    }
+}
+</script>
+{% endblock %}

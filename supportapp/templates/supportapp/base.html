@@ -98,17 +98,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="sidebar-heading mt-3">
-                    SUPPORT
-                </div>
-                <div class="list-group list-group-flush">
-                    <a href="{% url 'supportapp:staff_chats' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'staff_chats' %}active{% endif %}">
-                        <i class='bx bxs-message-dots'></i> Support Chats
-                        {% if unread_chats_count > 0 %}
-                        <span class="badge bg-danger float-end">{{ unread_chats_count }}</span>
-                        {% endif %}
-                    </a>
-                </div>
+                
                 <div class="sidebar-heading mt-3">
                     PAGES
                 </div>
