@@ -24,4 +24,6 @@ urlpatterns = [
     path('custom_order_details/<str:order_id>/', views.custom_order_details, name='custom_order_details'),
     path('certificate/<str:order_id>/', views.view_certificate, name='view_certificate'),
     path('certificate/verify/<int:certificate_id>/', views.verify_certificate, name='verify_certificate'),
+    path('verify-certificate/', views.verify_certificate_page, name='verify_certificate_page'),
+    path('api/verify-certificate/', views.verify_certificate_public, name='verify_certificate_public'),
 ]

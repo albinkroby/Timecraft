@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'adminapp',
     'vendorapp',
     'supportapp',
+    'blockchain',
     'watch_customizer',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -228,8 +229,8 @@ STRIPE_PUBLIC_KEY = os.environ['STRIPE_PUBLIC_KEY']
 STRIPE_SECRET_KEY = os.environ['STRIPE_SECRET_KEY']
 
 
-# Blockchain settings
-with open('smart contract/contract_data.json', 'r') as f:
+# Uncomment and modify these lines
+with open(os.path.join(BASE_DIR, 'smart contract', 'contract_data.json'), 'r') as f:
     contract_data = json.load(f)
 
 CERTIFICATE_CONTRACT_ADDRESS = contract_data['address']
