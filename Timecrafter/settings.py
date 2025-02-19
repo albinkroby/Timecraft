@@ -15,6 +15,8 @@ from pathlib import Path
 import os,dj_database_url
 from re import T
 import dotenv
+from web3 import Web3
+
 
 # Load environment variables from .env file
 dotenv.load_dotenv(override=True)
@@ -229,14 +231,25 @@ STRIPE_PUBLIC_KEY = os.environ['STRIPE_PUBLIC_KEY']
 STRIPE_SECRET_KEY = os.environ['STRIPE_SECRET_KEY']
 
 
-# Uncomment and modify these lines
-with open(os.path.join(BASE_DIR, 'smart contract', 'contract_data.json'), 'r') as f:
-    contract_data = json.load(f)
-
-CERTIFICATE_CONTRACT_ADDRESS = contract_data['address']
-CERTIFICATE_CONTRACT_ABI = contract_data['abi']
-
-
-# For development (Ganache)
+# Blockchain settings
 ETHEREUM_NODE_URL = 'http://127.0.0.1:8545'
-ETHEREUM_PRIVATE_KEY = os.environ['ETHEREUM_PRIVATE_KEY']  # Store private key in .env
+ETHEREUM_CHAIN_ID = 1337  # Ganache default chain ID
+
+# Initialize Web3
+w3 = Web3(Web3.HTTPProvider(ETHEREUM_NODE_URL))
+
+# Get the first account from Ganache
+if w3.is_connected():
+    ETHEREUM_ACCOUNT = w3.eth.accounts[0]
+else:
+    ETHEREUM_ACCOUNT = None
+
+# Load contract data
+try:
+    with open(os.path.join(BASE_DIR, 'smart contract', 'contract_data.json'), 'r') as f:
+        contract_data = json.load(f)
+        CERTIFICATE_CONTRACT_ADDRESS = contract_data['address']
+        CERTIFICATE_CONTRACT_ABI = contract_data['abi']
+except:
+    CERTIFICATE_CONTRACT_ADDRESS = '0x47cF0EB181AC1413D445fc2dC6c71b5726812c8e'
+    CERTIFICATE_CONTRACT_ABI = None

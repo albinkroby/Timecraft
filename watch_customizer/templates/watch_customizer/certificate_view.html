@@ -1,53 +1,193 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <div class="home__container container mt-4">
     <div class="row">
-        <div class="col-md-8 mx-auto">
-            <div class="card">
-                <div class="card-header">
-                    <h4>Watch Certificate of Authenticity</h4>
+        <div class="col-md-10 mx-auto">
+            <div class="card certificate-card">
+                <div class="card-header text-center py-4 bg-primary text-white">
+                    <h3 class="mb-0">
+                        <i class='bx bxs-certification me-2'></i>
+                        Certificate of Authenticity
+                    </h3>
+                </div>
+                <div class="timecrafter-logo text-center py-3">
+                    <h1 class="logo-text mb-0">TimeCrafter</h1>
+                    <p class="logo-tagline">Crafting Time, Creating Legacy</p>
                 </div>
                 <div class="card-body">
                     {% if order.status != 'delivered' %}
                         <div class="alert alert-info">
-                            <h5>Certificate Not Available Yet</h5>
+                            <h5><i class='bx bx-info-circle me-2'></i>Certificate Not Available Yet</h5>
                             <p>Your certificate will be generated automatically after your order is delivered.</p>
                             <p>Current Order Status: {{ order.get_status_display }}</p>
                             <p>Estimated Delivery Date: {{ order.estimated_delivery_date|date:"F d, Y" }}</p>
                         </div>
                     {% elif not order.certificate %}
                         <div class="alert alert-warning">
-                            <h5>Certificate Generation in Progress</h5>
+                            <h5><i class='bx bx-loader-circle me-2'></i>Certificate Generation in Progress</h5>
                             <p>Your certificate is being generated. Please check back in a few minutes.</p>
                         </div>
                     {% else %}
                         <div class="certificate-details">
-                            <h5>Order Details</h5>
-                            <p><strong>Order ID:</strong> {{ order.order_id }}</p>
-                            <p><strong>Watch Model:</strong> {{ order.customizable_watch.name }}</p>
-                            <p><strong>Issue Date:</strong> {{ order.certificate.issued_date|date:"F d, Y" }}</p>
-                            
-                            <h5 class="mt-4">Customization Details</h5>
-                            <ul>
-                                {% for part in order.selected_parts.all %}
-                                <li>{{ part.part.part_name.name }}: {{ part.selected_option.name }}</li>
-                                {% endfor %}
-                            </ul>
-                            
-                            <h5 class="mt-4">Blockchain Verification</h5>
-                            <p><strong>Certificate Hash:</strong> <code>{{ order.certificate.certificate_hash }}</code></p>
-                            <p><strong>Transaction Hash:</strong> <code>{{ order.certificate.blockchain_tx_hash }}</code></p>
-                            <p><strong>Status:</strong> 
-                                {% if order.certificate.is_verified %}
-                                <span class="badge bg-success">Verified</span>
-                                {% else %}
-                                <span class="badge bg-warning">Pending Verification</span>
-                                {% endif %}
-                            </p>
-                            
-                            <div class="mt-4">
-                                <button class="btn btn-primary" onclick="verifyOnBlockchain()">Verify on Blockchain</button>
+                            <!-- Owner and Watch Details Section -->
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <div class="owner-details p-3 border rounded">
+                                        <h5 class="text-primary"><i class='bx bxs-user me-2'></i>Owner Details</h5>
+                                        <p class="mb-2"><strong>Name:</strong> {{ order.user.get_full_name }}</p>
+                                        <p class="mb-2"><strong>Issue Date:</strong> {{ order.certificate.issued_date|date:"F d, Y" }}</p>
+                                        <p class="mb-0"><strong>Order ID:</strong> {{ order.order_id }}</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="watch-details p-3 border rounded">
+                                        <h5 class="text-primary"><i class='bx bxs-watch me-2'></i>Watch Details</h5>
+                                        <p class="mb-2"><strong>Model:</strong> {{ order.customizable_watch.name }}</p>
+                                        <p class="mb-0"><strong>Collection:</strong> Custom Design Series</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Customization Details Section -->
+                            <div class="customization-section p-4 bg-light rounded">
+                                <h5 class="text-primary mb-3">
+                                    <i class='bx bxs-cog me-2'></i>Custom Design Specifications
+                                </h5>
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <div class="watch-preview text-center">
+                                            {% if order.customizable_watch.preview_image %}
+                                                <img src="{{ order.customizable_watch.preview_image.url }}" 
+                                                     alt="{{ order.customizable_watch.name }}" 
+                                                     class="img-fluid rounded shadow-sm mb-2"
+                                                     style="max-height: 200px;">
+                                            {% endif %}
+                                            <h6 class="text-muted">Base Model: {{ order.customizable_watch.customizable_watch.name }}</h6>
+                                            <p class="text-primary">Base Price: ₹{{ order.customizable_watch.customizable_watch.base_price }}</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-8">
+                                        <div class="customization-grid">
+                                            {% comment %} {% for part_data in order.customizable_watch.design_data %}
+                                            <div class="part-detail p-3 border rounded bg-white mb-3">
+                                                <div class="row">
+                                                    <div class="col-12">
+                                                        <h6 class="text-primary mb-2">
+                                                            <i class='bx bxs-component me-1'></i>
+                                                            {{ part_data.part_name }}
+                                                        </h6>
+                                                    </div>
+                                                    <div class="col-md-8">
+                                                        <div class="selected-option">
+                                                            <p class="mb-1"><strong>Selected Option:</strong> {{ part_data.option_name }}</p>
+                                                            {% if part_data.description %}
+                                                                <p class="text-muted small mb-2">{{ part_data.description }}</p>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        {% if part_data.thumbnail_url %}
+                                                            <img src="{{ part_data.thumbnail_url }}" 
+                                                                 alt="{{ part_data.option_name }}"
+                                                                 class="img-fluid rounded option-thumbnail">
+                                                        {% endif %}
+                                                    </div>
+                                                    <div class="col-12 mt-2 pt-2 border-top">
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <span class="text-muted small">Part ID: {{ part_data.part_id }}</span>
+                                                            <span class="badge bg-primary">
+                                                                ₹{{ part_data.price }}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {% endfor %} {% endcomment %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Blockchain Verification Section -->
+                            <div class="blockchain-section p-4 bg-light rounded mb-4">
+                                <h5 class="text-primary mb-3">
+                                    <i class='bx bx-link-alt me-2'></i>Blockchain Verification
+                                </h5>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="verification-details">
+                                            <div class="mb-3">
+                                                <h6 class="text-muted mb-2">Certificate Hash</h6>
+                                                <code class="d-block p-2 bg-light border rounded">
+                                                    {{ order.certificate.certificate_hash }}
+                                                </code>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <h6 class="text-muted mb-2">Blockchain Transaction Hash</h6>
+                                                <code class="d-block p-2 bg-light border rounded">
+                                                    {{ order.certificate.blockchain_tx_hash }}
+                                                </code>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <h6 class="text-muted mb-2">Verification Status</h6>
+                                                {% if order.certificate.is_verified %}
+                                                    <div class="alert alert-success mb-0">
+                                                        <i class='bx bx-check-circle me-2'></i>
+                                                        Verified on Blockchain
+                                                    </div>
+                                                {% else %}
+                                                    <div class="alert alert-warning mb-0">
+                                                        <i class='bx bx-time-five me-2'></i>
+                                                        Pending Verification
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+
+                                            {% if not order.certificate.is_verified %}
+                                                <button class="btn btn-primary" onclick="verifyOnBlockchain()">
+                                                    <i class='bx bx-check-shield me-2'></i>
+                                                    Verify on Blockchain
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Sharing Section -->
+                            <div class="sharing-section p-4 bg-white rounded mb-4">
+                                <h5 class="text-primary mb-3">
+                                    <i class='bx bx-share-alt me-2'></i>Share Certificate
+                                </h5>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="d-flex gap-2 mb-3">
+                                            <button class="btn btn-primary" onclick="downloadCertificate()">
+                                                <i class='bx bx-download me-2'></i>Download Certificate
+                                            </button>
+                                            <button class="btn btn-success" onclick="shareCertificate()">
+                                                <i class='bx bx-share me-2'></i>Share Certificate
+                                            </button>
+                                        </div>
+                                        <div class="public-link mt-3">
+                                            <p class="mb-2"><strong>Public Verification Link:</strong></p>
+                                            <div class="input-group">
+                                                <input type="text" 
+                                                       class="form-control" 
+                                                       value="{{ request.scheme }}://{{ request.get_host }}{% url 'watch_customizer:verify_certificate_page' %}?order_id={{ order.order_id }}&hash={{ order.certificate.certificate_hash }}" 
+                                                       id="publicLink" 
+                                                       readonly>
+                                                <button class="btn btn-outline-primary" onclick="copyLink()">
+                                                    <i class='bx bx-copy'></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     {% endif %}
@@ -57,20 +197,313 @@
     </div>
 </div>
 {% endblock %}
+
+{% block extra_css %}
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<style>
+    .certificate-card {
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .certificate-details {
+        position: relative;
+    }
+    .owner-details, .watch-details {
+        height: 100%;
+        background-color: #fff;
+    }
+    .part-detail {
+        transition: all 0.3s ease;
+    }
+    .part-detail:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .blockchain-section {
+        background-color: #f8f9fa;
+    }
+    code {
+        word-break: break-all;
+        display: inline-block;
+        max-width: 100%;
+    }
+    .verification-details {
+        background-color: white;
+        padding: 1.5rem;
+        border-radius: 0.25rem;
+    }
+    .watch-preview img {
+        border: 1px solid #eee;
+        padding: 10px;
+        background: white;
+        transition: transform 0.3s ease;
+    }
+    
+    .watch-preview img:hover {
+        transform: scale(1.05);
+    }
+    
+    .customization-grid {
+        max-height: 400px;
+        overflow-y: auto;
+        padding-right: 10px;
+    }
+    
+    .customization-grid::-webkit-scrollbar {
+        width: 5px;
+    }
+    
+    .customization-grid::-webkit-scrollbar-track {
+        background: #f1f1f1;
+    }
+    
+    .customization-grid::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 5px;
+    }
+    
+    .part-detail {
+        transition: all 0.3s ease;
+        border-left: 3px solid #007bff !important;
+    }
+    
+    .part-detail:hover {
+        transform: translateX(5px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .option-thumbnail {
+        max-height: 80px;
+        object-fit: cover;
+        border: 1px solid #eee;
+    }
+    
+    .selected-option {
+        min-height: 80px;
+    }
+    
+    .total-price-section {
+        background-color: #f8f9fa;
+        border-left: 3px solid #28a745 !important;
+    }
+    
+    .timecrafter-logo {
+        background: linear-gradient(135deg, #1a1a1a 0%, #333 100%);
+        color: white;
+        padding: 1.5rem;
+        margin: -1px -1px 1rem -1px;
+        border-radius: 0 0 4px 4px;
+    }
+    
+    .logo-text {
+        font-family: 'Playfair Display', serif;
+        font-size: 2.5rem;
+        font-weight: 700;
+        letter-spacing: 2px;
+        background: linear-gradient(45deg, #fff, #e6e6e6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    .logo-tagline {
+        font-size: 1rem;
+        letter-spacing: 1px;
+        opacity: 0.8;
+    }
+    
+    .sharing-section {
+        border: 1px solid #dee2e6;
+    }
+    
+    .public-link {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+    }
+    
+    @media print {
+        /* Hide non-certificate elements */
+        header, footer, nav, .navbar, .footer, .sharing-section, .no-print {
+            display: none !important;
+        }
+        
+        /* Reset body and container styles for printing */
+        body {
+            margin: 0;
+            padding: 0;
+            background: white;
+        }
+        
+        .container {
+            max-width: 100% !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        /* Adjust certificate card for printing */
+        .certificate-card {
+            box-shadow: none !important;
+            border: 2px solid #000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            page-break-inside: avoid;
+        }
+        
+        /* Ensure logo prints with background */
+        .timecrafter-logo {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+            background: #1a1a1a !important;
+            padding: 1rem !important;
+        }
+        
+        .logo-text {
+            color: #fff !important;
+            -webkit-text-fill-color: #fff !important;
+        }
+        
+        /* Adjust content spacing for single page */
+        .card-body {
+            padding: 1rem !important;
+        }
+        
+        .customization-section {
+            margin-top: 0 !important;    
+            padding-top: 0 !important;
+       
+        }
+        
+        .part-detail {
+            padding: 0 !important;
+            margin-bottom: 0 !important;
+        }
+        
+        /* Ensure proper page size */
+        @page {
+            size: A4;
+            margin: 0.5cm;
+        }
+        
+        /* Make text black for better printing */
+        .text-primary {
+            color: #000 !important;
+        }
+        
+        /* Adjust image sizes for print */
+        .watch-preview img {
+            max-height: 150px !important;
+        }
+        
+        .option-thumbnail {
+            max-height: 0 !important;
+        }
+        
+        .blockchain-section {
+            page-break-inside: avoid;
+        }
+        
+        .blockchain-section button {
+            display: none !important;
+        }
+        
+        code {
+            background-color: #f8f9fa !important;
+            border: 1px solid #dee2e6 !important;
+            color: #000 !important;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block extra_js %}
 <script>
 async function verifyOnBlockchain() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    
     try {
+        button.disabled = true;
+        button.innerHTML = '<i class="bx bx-loader-alt bx-spin me-2"></i>Verifying...';
+        
         const response = await fetch(`{% url 'watch_customizer:verify_certificate' order.certificate.id %}`);
         const data = await response.json();
+        
         if (data.verified) {
-            alert('Certificate verified successfully on blockchain!');
+            Swal.fire({
+                icon: 'success',
+                title: 'Verification Successful',
+                text: 'Certificate verified successfully on blockchain!',
+                confirmButtonColor: '#28a745'
+            });
+            location.reload();
         } else {
-            alert('Certificate verification failed!');
+            Swal.fire({
+                icon: 'error',
+                title: 'Verification Failed',
+                text: data.error || 'Could not verify certificate',
+                confirmButtonColor: '#dc3545'
+            });
         }
     } catch (error) {
-        alert('Error verifying certificate');
+        Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: 'An error occurred during verification',
+            confirmButtonColor: '#dc3545'
+        });
+    } finally {
+        button.disabled = false;
+        button.innerHTML = originalText;
     }
+}
+
+function downloadCertificate() {
+    // Add a temporary class to body for print styling
+    document.body.classList.add('printing-certificate');
+    
+    // Print the document
+    window.print();
+    
+    // Remove the temporary class
+    document.body.classList.remove('printing-certificate');
+}
+
+async function shareCertificate() {
+    const shareData = {
+        title: 'Watch Certificate of Authenticity',
+        text: `View and verify the certificate of authenticity for Watch Order #${document.querySelector('[data-order-id]').dataset.orderId}`,
+        url: document.getElementById('publicLink').value
+    };
+
+    try {
+        if (navigator.share) {
+            await navigator.share(shareData);
+        } else {
+            copyLink();
+            Swal.fire({
+                icon: 'success',
+                title: 'Link Copied!',
+                text: 'The certificate link has been copied to your clipboard.',
+                confirmButtonColor: '#28a745'
+            });
+        }
+    } catch (err) {
+        console.error('Error sharing:', err);
+    }
+}
+
+function copyLink() {
+    const linkInput = document.getElementById('publicLink');
+    linkInput.select();
+    document.execCommand('copy');
+    
+    const copyBtn = event.target.closest('button');
+    const originalHTML = copyBtn.innerHTML;
+    copyBtn.innerHTML = '<i class="bx bx-check"></i>';
+    setTimeout(() => {
+        copyBtn.innerHTML = originalHTML;
+    }, 2000);
 }
 </script>
 {% endblock %}
