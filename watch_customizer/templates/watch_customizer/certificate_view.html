@@ -134,7 +134,7 @@
 
                                             <div class="mb-3">
                                                 <h6 class="text-muted mb-2">Verification Status</h6>
-                                                {% if order.certificate.is_verified %}
+                                                {% if order.certificate.is_verified and order.certificate.is_metamask_verified %}
                                                     <div class="alert alert-success mb-0">
                                                         <i class='bx bx-check-circle me-2'></i>
                                                         Verified on Blockchain
@@ -147,12 +147,14 @@
                                                 {% endif %}
                                             </div>
 
-                                            {% if not order.certificate.is_verified %}
-                                                <button class="btn btn-primary" onclick="verifyOnBlockchain()">
-                                                    <i class='bx bx-check-shield me-2'></i>
-                                                    Verify on Blockchain
+                                            <div id="verificationButtons" {% if order.certificate.is_verified and order.certificate.is_metamask_verified %} style="display: none;"{% endif %}>
+                                                <button id="connectWalletBtn" class="btn btn-outline-primary" onclick="connectWallet()">
+                                                    <i class='bx bx-wallet me-2'></i>Connect MetaMask
                                                 </button>
-                                            {% endif %}
+                                                <button id="verifyButton" class="btn btn-primary" onclick="verifyOnBlockchain()" disabled>
+                                                    <i class='bx bx-check-shield me-2'></i>Verify with MetaMask
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -417,46 +419,234 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/web3@1.5.2/dist/web3.min.js"></script>
 <script>
+let web3;
+let userAccount;
+
+async function connectWallet() {
+    if (typeof window.ethereum !== 'undefined') {
+        try {
+            // Request account access
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            userAccount = accounts[0];
+
+            // Add event listeners for account and network changes
+            window.ethereum.on('accountsChanged', handleAccountsChanged);
+            window.ethereum.on('chainChanged', handleChainChanged);
+            window.ethereum.on('disconnect', handleDisconnect);
+            
+            // Add Ganache network if not exists
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: '0x539', // 1337 in hex
+                        chainName: 'Ganache Local',
+                        nativeCurrency: {
+                            name: 'ETH',
+                            symbol: 'ETH',
+                            decimals: 18
+                        },
+                        rpcUrls: ['http://127.0.0.1:8545'],
+                    }]
+                });
+            } catch (error) {
+                console.log("Network might already be added");
+            }
+            
+            // Switch to Ganache network
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: '0x539' }],
+            });
+            
+            web3 = new Web3(window.ethereum);
+            
+            // Update verify button
+            document.getElementById('verifyButton').disabled = false;
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Wallet Connected',
+                text: 'MetaMask wallet connected successfully!',
+                confirmButtonColor: '#28a745'
+            });
+            
+        } catch (error) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Connection Failed',
+                text: error.message || 'Could not connect to MetaMask',
+                confirmButtonColor: '#dc3545'
+            });
+        }
+    } else {
+        Swal.fire({
+            icon: 'warning',
+            title: 'MetaMask Not Found',
+            text: 'Please install MetaMask to verify certificates.',
+            footer: '<a href="https://metamask.io" target="_blank">Install MetaMask</a>',
+            confirmButtonColor: '#ffc107'
+        });
+    }
+}
+
+
+// Add these new event handler functions
+function handleAccountsChanged(accounts) {
+    if (accounts.length === 0) {
+        // MetaMask is locked or the user has not connected any accounts
+        console.log('Please connect to MetaMask.');
+        userAccount = null;
+        document.getElementById('verifyButton').disabled = true;
+    } else if (accounts[0] !== userAccount) {
+        userAccount = accounts[0];
+        // Handle account change if needed
+    }
+}
+
+function handleChainChanged(chainId) {
+    // Handle chain change - reload page as recommended by MetaMask
+    window.location.reload();
+}
+
+function handleDisconnect() {
+    console.log('MetaMask disconnected');
+    userAccount = null;
+    document.getElementById('verifyButton').disabled = true;
+    
+    Swal.fire({
+        icon: 'warning',
+        title: 'Wallet Disconnected',
+        text: 'Your MetaMask wallet has been disconnected.',
+        confirmButtonColor: '#ffc107'
+    });
+}
+
+// Clean up function to remove event listeners
+function cleanupWalletListeners() {
+    if (window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+        window.ethereum.removeListener('disconnect', handleDisconnect);
+    }
+}
+
+// Add cleanup on page unload
+window.addEventListener('unload', cleanupWalletListeners);
+
+
 async function verifyOnBlockchain() {
+    if (!web3 || !userAccount) {
+        await connectWallet();
+        if (!web3 || !userAccount) return;
+    }
+    
     const button = event.target;
     const originalText = button.innerHTML;
+    const verificationButtons = document.getElementById('verificationButtons');
+    const verificationDetails = document.querySelector('.verification-details');
     
     try {
         button.disabled = true;
         button.innerHTML = '<i class="bx bx-loader-alt bx-spin me-2"></i>Verifying...';
         
-        const response = await fetch(`{% url 'watch_customizer:verify_certificate' order.certificate.id %}`);
-        const data = await response.json();
+        const contract = new web3.eth.Contract(
+            {{ contract_abi|safe }},
+            '{{ contract_address }}'
+        );
         
-        if (data.verified) {
+        const orderId = '{{ order.order_id }}';
+        const certificateHash = '{{ order.certificate.certificate_hash }}';
+        
+        const storedHash = await contract.methods.getCertificate(orderId).call();
+        
+        if (storedHash === certificateHash) {
+            // Update verification status in database
+            await fetch(`{% url 'watch_customizer:update_verification_status' order.order_id %}`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            // Update UI only if elements exist
+            if (verificationDetails && verificationButtons) {
+                verificationDetails.innerHTML = `
+                    <h5 class="mb-3">Verification Details</h5>
+                    <p><strong>Status:</strong> <span class="badge bg-success">Verified</span></p>
+                    <p><strong>Certificate Hash:</strong><br>
+                       <small class="text-muted">{{ order.certificate.certificate_hash }}</small></p>
+                    <p><strong>Blockchain Transaction:</strong><br>
+                       <small class="text-muted">{{ order.certificate.blockchain_tx_hash }}</small></p>
+                `;
+                
+                verificationButtons.style.display = 'none';
+            }
+            
             Swal.fire({
                 icon: 'success',
-                title: 'Verification Successful',
-                text: 'Certificate verified successfully on blockchain!',
+                title: 'Certificate Verified!',
+                text: 'Certificate has been verified on the blockchain.',
                 confirmButtonColor: '#28a745'
             });
-            location.reload();
         } else {
             Swal.fire({
                 icon: 'error',
                 title: 'Verification Failed',
-                text: data.error || 'Could not verify certificate',
+                text: 'Certificate data does not match blockchain records.',
                 confirmButtonColor: '#dc3545'
             });
         }
     } catch (error) {
+        console.error('Verification error:', error);
         Swal.fire({
             icon: 'error',
-            title: 'Error',
-            text: 'An error occurred during verification',
+            title: 'Verification Error',
+            text: error.message || 'An error occurred during verification',
             confirmButtonColor: '#dc3545'
         });
     } finally {
-        button.disabled = false;
-        button.innerHTML = originalText;
+        if (button && !button.isConnected) {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
     }
 }
+
+// On page load, check both verification statuses
+document.addEventListener('DOMContentLoaded', function() {
+    const isVerified = {{ is_verified|yesno:"true,false" }};
+    const isMetamaskVerified = {{ is_metamask_verified|yesno:"true,false" }};
+    const verificationButtons = document.getElementById('verificationButtons');
+    const verificationDetails = document.querySelector('.verification-details');
+    
+    console.log('Verification status:', isVerified, isMetamaskVerified);
+    
+    // Check if elements exist before trying to access them
+    if (verificationButtons && verificationDetails) {
+        if (isVerified && isMetamaskVerified) {
+            verificationButtons.style.display = 'none';
+            // Show verified status
+            verificationDetails.innerHTML = `
+                <h5 class="mb-3">Verification Details</h5>
+                <p><strong>Status:</strong> <span class="badge bg-success">Verified</span></p>
+                <p><strong>Certificate Hash:</strong><br>
+                   <small class="text-muted">{{ order.certificate.certificate_hash }}</small></p>
+                <p><strong>Blockchain Transaction:</strong><br>
+                   <small class="text-muted">{{ order.certificate.blockchain_tx_hash }}</small></p>
+            `;
+        }
+    }
+
+    // Check for MetaMask and verify button
+    const verifyButton = document.getElementById('verifyButton');
+    if (verifyButton && typeof window.ethereum !== 'undefined') {
+        verifyButton.disabled = true;
+    }
+});
 
 function downloadCertificate() {
     // Add a temporary class to body for print styling

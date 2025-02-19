@@ -299,12 +299,7 @@ def return_custom_watch_order(request, order_id):
 def view_certificate(request, order_id):
     order = get_object_or_404(CustomWatchOrder, order_id=order_id, user=request.user)
     
-    # Only allow viewing certificate if order is delivered
-    if order.status != 'delivered':
-        messages.warning(request, 'Certificate will be available after order delivery.')
-        return redirect('watch_customizer:custom_order_details', order_id=order.order_id)
-    
-    # Generate certificate if order is delivered but certificate doesn't exist
+    # Generate certificate if it doesn't exist
     if not hasattr(order, 'certificate'):
         try:
             # Create certificate
@@ -312,47 +307,70 @@ def view_certificate(request, order_id):
             certificate_hash = certificate.generate_certificate_hash()
             certificate.certificate_hash = certificate_hash
             
-            # Store on blockchain using the utility function
-            try:
-                tx_hash = store_certificate_on_blockchain(order.order_id, certificate_hash)
-                certificate.blockchain_tx_hash = tx_hash
-                certificate.is_verified = True
-                certificate.save()
-                
-                # Send notification email
-                send_mail(
-                    'Your Watch Certificate is Ready',
-                    f'Your order #{order.order_id} has been delivered and your certificate of authenticity is now available. '
-                    f'You can view it in your order details.',
-                    settings.DEFAULT_FROM_EMAIL,
-                    [order.user.email],
-                    fail_silently=False,
-                )
-                
-                messages.success(request, 'Certificate has been generated and verified on blockchain.')
-            except Exception as e:
-                logger.error(f"Blockchain error for order {order.order_id}: {str(e)}")
-                messages.warning(request, 'Certificate generated but blockchain verification pending. Please try verifying later.')
-                certificate.save()
-                
+            # Connect to blockchain and store the hash
+            w3 = Web3(Web3.HTTPProvider(settings.ETHEREUM_NODE_URL))
+            contract = w3.eth.contract(
+                address=settings.CERTIFICATE_CONTRACT_ADDRESS,
+                abi=settings.CERTIFICATE_CONTRACT_ABI
+            )
+            
+            # Store hash on blockchain
+            tx_hash = contract.functions.storeCertificate(
+                str(order.order_id),
+                certificate_hash
+            ).transact({'from': w3.eth.accounts[0]})
+            
+            # Wait for transaction to be mined
+            tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+            
+            certificate.blockchain_tx_hash = tx_receipt['transactionHash'].hex()
+            certificate.is_verified = True  # Mark as verified since we just stored it
+            certificate.save()
+            
+            messages.success(request, 'Certificate has been generated and stored on blockchain.')
+            
         except Exception as e:
             logger.error(f"Error generating certificate for order {order.order_id}: {str(e)}")
             messages.error(request, 'There was an error generating your certificate. Please try again later.')
             return redirect('watch_customizer:custom_order_details', order_id=order.order_id)
     
-    # If certificate exists but not verified, try to verify
+    # If certificate exists but not verified, verify it
     elif not order.certificate.is_verified:
         try:
-            tx_hash = store_certificate_on_blockchain(order.order_id, order.certificate.certificate_hash)
-            order.certificate.blockchain_tx_hash = tx_hash
-            order.certificate.is_verified = True
-            order.certificate.save()
-            messages.success(request, 'Certificate has been verified on blockchain.')
+            w3 = Web3(Web3.HTTPProvider(settings.ETHEREUM_NODE_URL))
+            contract = w3.eth.contract(
+                address=settings.CERTIFICATE_CONTRACT_ADDRESS,
+                abi=settings.CERTIFICATE_CONTRACT_ABI
+            )
+            
+            # Check if hash matches on blockchain
+            stored_hash = contract.functions.getCertificate(str(order.order_id)).call()
+            if stored_hash == order.certificate.certificate_hash:
+                order.certificate.is_verified = True
+                order.certificate.save()
         except Exception as e:
-            logger.error(f"Blockchain verification error for order {order.order_id}: {str(e)}")
-            messages.warning(request, 'Blockchain verification pending. Please try again later.')
+            logger.error(f"Error verifying certificate: {str(e)}")
     
-    return render(request, 'watch_customizer/certificate_view.html', {'order': order})
+    context = {
+        'order': order,
+        'contract_address': settings.CERTIFICATE_CONTRACT_ADDRESS,
+        'contract_abi': json.dumps(settings.CERTIFICATE_CONTRACT_ABI),
+        'is_verified': order.certificate.is_verified if hasattr(order, 'certificate') else False,
+        'is_metamask_verified': order.certificate.is_metamask_verified if hasattr(order, 'certificate') else False,
+    }
+    
+    return render(request, 'watch_customizer/certificate_view.html', context)
+
+@require_POST
+def update_verification_status(request, order_id):
+    try:
+        order = get_object_or_404(CustomWatchOrder, order_id=order_id)
+        if hasattr(order, 'certificate'):
+            order.certificate.is_metamask_verified = True
+            order.certificate.save()
+            return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 @login_required
 def verify_certificate(request, certificate_id):
@@ -442,6 +460,9 @@ def verify_certificate_public(request):
             stored_hash = contract.functions.getCertificate(str(order_id)).call()
             
             is_verified = stored_hash == certificate_hash
+            if certificate.is_metamask_verified == False:
+                is_verified = False
+            print(is_verified)
 
             return JsonResponse({
                 'verified': is_verified,
