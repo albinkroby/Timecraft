@@ -81,9 +81,9 @@ async function verifyNow() {
             Swal.fire({
                 icon: 'warning',
                 title: 'Blockchain Unavailable',
-                text: 'Please ensure your local blockchain (Ganache) is running and try again.',
+                text: 'Please ensure your local blockchain service is running and try again.',
                 confirmButtonColor: '#ffc107',
-                footer: '<small>Check if Ganache is running on port 8545</small>'
+                footer: '<small>Check if blockchain service is running</small>'
             });
             return;
         }

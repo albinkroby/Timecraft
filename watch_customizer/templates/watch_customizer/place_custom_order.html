@@ -78,12 +78,12 @@
                             <h6>₹{{ total }}</h6>
                         </div>
                     </div>
-                    <h6>Selected Parts:</h6>
+                    {% comment %} <h6>Selected Parts:</h6>
                     <ul>
                         {% for part in design.design_data %}
                         <li>{{ part.part_name }}: {{ part.option_name }} (₹{{ part.price }})</li>
                         {% endfor %}
-                    </ul>
+                    </ul> {% endcomment %}
                     <hr>
                 </div>
             </div>

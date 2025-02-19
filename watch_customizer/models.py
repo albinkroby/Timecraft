@@ -153,6 +153,7 @@ class WatchCertificate(models.Model):
     issued_date = models.DateTimeField(auto_now_add=True)
     blockchain_tx_hash = models.CharField(max_length=66, blank=True, null=True)
     is_verified = models.BooleanField(default=False)
+    is_metamask_verified = models.BooleanField(default=False)
     
     def generate_certificate_hash(self):
         """Generate a unique hash for the certificate"""
