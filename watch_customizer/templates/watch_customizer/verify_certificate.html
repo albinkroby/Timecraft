@@ -1,62 +1,38 @@
 {% extends 'base.html' %}
 {% load static %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/@sweetalert2/theme-material-ui@4/material-ui.css" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
 <div class="home__container container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-8">
             <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0 text-center">
+                        <i class='bx bx-check-shield me-2'></i>
+                        Certificate Verification
+                    </h4>
+                </div>
                 <div class="card-body">
-                    <!-- Logo and Header -->
-                    <div class="text-center mb-4">
-                        <a href="{% url 'mainapp:index' %}" class="nav__logo">
-                            <i class='bx bxs-watch nav__logo-icon'></i> TIME&nbspCRAFT
-                        </a>
-                        <h2 class="mt-3">Check if a watch is registered in Watch Certificate™</h2>
-                        <p class="text-muted">Find out if a watch already has a certificate of authenticity</p>
-                    </div>
-
-                    <!-- Verification Form -->
-                    <form id="verificationForm" class="mt-4">
-                        {% csrf_token %}
-                        
-                        <!-- Order ID Field -->
-                        <div class="mb-4">
+                    <div class="verification-form">
+                        <div class="mb-3">
                             <label for="orderId" class="form-label">Order ID</label>
-                            <span class="text-danger">*</span>
-                            <input type="text" 
-                                   class="form-control" 
-                                   id="orderId" 
-                                   name="orderId" 
-                                   required>
+                            <input type="text" class="form-control" id="orderId" value="{{ order_id }}" readonly>
                         </div>
-
-                        <!-- Certificate Hash Field -->
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label for="certificateHash" class="form-label">Certificate Hash</label>
-                            <span class="text-danger">*</span>
-                            <input type="text" 
-                                   class="form-control" 
-                                   id="certificateHash" 
-                                   name="certificateHash" 
-                                   required>
+                            <input type="text" class="form-control" id="certificateHash" value="{{ hash }}" readonly>
                         </div>
-
-                        <!-- Verify Button -->
-                        <button type="submit" 
-                                class="btn btn-primary w-100 py-2"
-                                id="verifyButton">
-                            VERIFY
-                        </button>
-                    </form>
-
-                    <!-- Verification Result -->
+                        <div class="text-center">
+                            <button class="btn btn-primary" onclick="verifyNow()">
+                                <i class='bx bx-check-circle me-2'></i>Verify Now
+                            </button>
+                        </div>
+                    </div>
                     <div id="verificationResult" class="mt-4" style="display: none;">
-                        <div class="alert" role="alert">
-                            <h5 class="alert-heading" id="resultTitle"></h5>
-                            <p id="resultMessage"></p>
-                            <hr>
-                            <div id="certificateDetails"></div>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -66,27 +42,32 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-document.getElementById('verificationForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const button = document.getElementById('verifyButton');
-    const resultDiv = document.getElementById('verificationResult');
-    const resultAlert = resultDiv.querySelector('.alert');
-    const resultTitle = document.getElementById('resultTitle');
-    const resultMessage = document.getElementById('resultMessage');
-    const certificateDetails = document.getElementById('certificateDetails');
-    
-    // Show loading state
-    button.disabled = true;
-    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Verifying...';
+async function verifyNow() {
+    const button = event.target;
+    const originalText = button.innerHTML;
     
     try {
-        const response = await fetch('{% url "watch_customizer:verify_certificate_public" %}', {
+        button.disabled = true;
+        button.innerHTML = '<i class="bx bx-loader-alt bx-spin me-2"></i>Verifying...';
+        
+        Swal.fire({
+            title: 'Verifying Certificate',
+            text: 'Connecting to blockchain...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            showConfirmButton: false,
+            willOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const response = await fetch("{% url 'watch_customizer:verify_certificate_public' %}", {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                'X-CSRFToken': '{{ csrf_token }}'
             },
             body: JSON.stringify({
                 order_id: document.getElementById('orderId').value,
@@ -96,35 +77,61 @@ document.getElementById('verificationForm').addEventListener('submit', async fun
         
         const data = await response.json();
         
-        resultDiv.style.display = 'block';
+        if (response.status === 503) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Blockchain Unavailable',
+                text: 'Please ensure your local blockchain (Ganache) is running and try again.',
+                confirmButtonColor: '#ffc107',
+                footer: '<small>Check if Ganache is running on port 8545</small>'
+            });
+            return;
+        }
         
         if (data.verified) {
-            resultAlert.className = 'alert alert-success';
-            resultTitle.textContent = 'Certificate Verified!';
-            resultMessage.textContent = 'This watch certificate is authentic and registered on the blockchain.';
-            
-            // Display certificate details
-            certificateDetails.innerHTML = `
-                <h6>Certificate Details:</h6>
-                <p><strong>Order ID:</strong> ${data.certificate.order_id}</p>
-                <p><strong>Issue Date:</strong> ${data.certificate.issue_date}</p>
-                <p><strong>Blockchain Transaction:</strong> ${data.certificate.tx_hash}</p>
-            `;
+            Swal.fire({
+                icon: 'success',
+                title: 'Certificate Verified!',
+                html: `
+                    <div class="text-start">
+                        <p>This certificate is authentic and has been verified on the blockchain.</p>
+                        <hr>
+                        <p><strong>Order ID:</strong> ${data.certificate.order_id}</p>
+                        <p><strong>Issue Date:</strong> ${data.certificate.issue_date}</p>
+                        <p><strong>Blockchain Transaction:</strong><br>
+                           <small class="text-muted">${data.certificate.tx_hash}</small>
+                        </p>
+                    </div>
+                `,
+                confirmButtonColor: '#28a745'
+            });
         } else {
-            resultAlert.className = 'alert alert-danger';
-            resultTitle.textContent = 'Verification Failed';
-            resultMessage.textContent = data.error || 'Could not verify this certificate.';
-            certificateDetails.innerHTML = '';
+            Swal.fire({
+                icon: 'error',
+                title: 'Verification Failed',
+                text: data.error || 'Could not verify certificate authenticity.',
+                confirmButtonColor: '#dc3545'
+            });
         }
     } catch (error) {
-        resultDiv.style.display = 'block';
-        resultAlert.className = 'alert alert-danger';
-        resultTitle.textContent = 'Error';
-        resultMessage.textContent = 'An error occurred during verification. Please try again.';
-        certificateDetails.innerHTML = '';
+        Swal.fire({
+            icon: 'error',
+            title: 'Connection Error',
+            text: 'Could not connect to the verification service. Please try again later.',
+            confirmButtonColor: '#dc3545'
+        });
     } finally {
         button.disabled = false;
-        button.textContent = 'VERIFY';
+        button.innerHTML = originalText;
+    }
+}
+
+// Auto-verify if both parameters are present
+document.addEventListener('DOMContentLoaded', function() {
+    const orderId = document.getElementById('orderId').value;
+    const certificateHash = document.getElementById('certificateHash').value;
+    if (orderId && certificateHash) {
+        verifyNow();
     }
 });
 </script>

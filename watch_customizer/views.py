@@ -389,8 +389,13 @@ def verify_certificate(request, certificate_id):
 
 @ensure_csrf_cookie
 def verify_certificate_page(request):
-    """Render the certificate verification page"""
-    return render(request, 'watch_customizer/verify_certificate.html')
+    order_id = request.GET.get('order_id')
+    hash_value = request.GET.get('hash')
+    
+    return render(request, 'watch_customizer/verify_certificate.html', {
+        'order_id': order_id,
+        'hash': hash_value
+    })
 
 @require_POST
 def verify_certificate_public(request):
@@ -418,23 +423,42 @@ def verify_certificate_public(request):
                 'error': 'Certificate not found'
             }, status=404)
 
-        # Verify on blockchain
-        is_verified = verify_certificate_on_blockchain(order_id, certificate_hash)
+        try:
+            # Connect to local blockchain
+            w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))  # Local Ganache URL
+            
+            if not w3.is_connected():
+                return JsonResponse({
+                    'verified': False,
+                    'error': 'Blockchain network is currently unavailable'
+                }, status=503)
 
-        if is_verified:
+            # Get the stored hash from blockchain
+            contract = w3.eth.contract(
+                address=settings.CERTIFICATE_CONTRACT_ADDRESS,
+                abi=settings.CERTIFICATE_CONTRACT_ABI
+            )
+            
+            stored_hash = contract.functions.getCertificate(str(order_id)).call()
+            
+            is_verified = stored_hash == certificate_hash
+
             return JsonResponse({
-                'verified': True,
+                'verified': is_verified,
                 'certificate': {
                     'order_id': certificate.order.order_id,
                     'issue_date': certificate.issued_date.strftime('%B %d, %Y'),
                     'tx_hash': certificate.blockchain_tx_hash or 'Pending',
+                    'stored_hash': stored_hash
                 }
             })
-        else:
+
+        except Exception as e:
+            logger.error(f"Blockchain verification error: {str(e)}")
             return JsonResponse({
                 'verified': False,
-                'error': 'Certificate verification failed'
-            })
+                'error': 'Unable to verify on blockchain. Please ensure local blockchain is running.'
+            }, status=503)
 
     except json.JSONDecodeError:
         return JsonResponse({
@@ -445,5 +469,5 @@ def verify_certificate_public(request):
         logger.error(f"Certificate verification error: {str(e)}")
         return JsonResponse({
             'verified': False,
-            'error': 'An error occurred during verification'
+            'error': str(e)
         }, status=500)

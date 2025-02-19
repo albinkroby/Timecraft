@@ -8,12 +8,16 @@ from decimal import Decimal
 logger = logging.getLogger(__name__)
 
 def get_ethereum_account():
-    """Get or create Ethereum account from private key"""
-    try:
-        return Account.from_key(settings.ETHEREUM_PRIVATE_KEY)
-    except Exception as e:
-        logger.error(f"Error getting Ethereum account: {str(e)}")
-        raise
+    """Get the Ethereum account for transactions"""
+    w3 = get_web3_connection()
+    if not w3.is_connected():
+        raise Exception("Could not connect to Ethereum network")
+    
+    # Use the first account from Ganache
+    if not w3.eth.accounts:
+        raise Exception("No accounts available in Ganache")
+    
+    return w3.eth.accounts[0]
 
 def get_web3_connection():
     """Establish Web3 connection with retry logic"""
@@ -120,9 +124,26 @@ def store_certificate_with_retry(order_id, certificate_hash, max_retries=3):
                 raise last_error
 
 def store_certificate_on_blockchain(order_id, certificate_hash):
-    """Store certificate hash on blockchain with retry mechanism"""
+    """Store certificate hash on blockchain"""
     try:
-        return store_certificate_with_retry(order_id, certificate_hash)
+        w3 = get_web3_connection()
+        account = get_ethereum_account()
+        
+        contract = w3.eth.contract(
+            address=settings.CERTIFICATE_CONTRACT_ADDRESS,
+            abi=settings.CERTIFICATE_CONTRACT_ABI
+        )
+        
+        # Store hash on blockchain
+        tx_hash = contract.functions.storeCertificate(
+            str(order_id),
+            certificate_hash
+        ).transact({'from': account})
+        
+        # Wait for transaction receipt
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+        return receipt['transactionHash'].hex()
+        
     except Exception as e:
         logger.error(f"Error storing certificate on blockchain: {str(e)}")
         raise
