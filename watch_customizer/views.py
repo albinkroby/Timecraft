@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from .models import CustomizableWatch, CustomizableWatchPart, CustomWatchSavedDesign, CustomWatchOrder, CustomWatchOrderPart,WatchCertificate
+from .models import CustomizableWatch, CustomizableWatchPart, CustomWatchSavedDesign, CustomWatchOrder, CustomWatchOrderPart,WatchCertificate, WatchPart, WatchPartOption
 from django.db import IntegrityError
 import json
 import logging
@@ -23,6 +23,7 @@ from django.db import transaction
 from web3 import Web3
 from blockchain.blockchain_utils import store_certificate_on_blockchain, verify_certificate_on_blockchain
 from django.views.decorators.csrf import ensure_csrf_cookie
+from decimal import Decimal
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +146,7 @@ def place_custom_order(request):
     form = AddressForm()
 
     # Calculate total price
-    total_price = design.customizable_watch.base_price
+    total_price = design.customizable_watch.base_price  # This is already Decimal
     
     if isinstance(design.design_data, str):
         try:
@@ -155,11 +156,25 @@ def place_custom_order(request):
     else:
         design_data = design.design_data
 
-    for part_data in design_data:
-        if isinstance(part_data, dict) and 'price' in part_data:
-            total_price += float(part_data['price'])
+    # Process the design data to get part details
+    processed_parts = []
+    for part_name, option_id in design_data.items():
+        try:
+            part = WatchPart.objects.get(part_name__name__iexact=part_name)
+            option = WatchPartOption.objects.get(id=option_id.replace('btnCheck', ''))
+            processed_parts.append({
+                'part_name': part.part_name.name,
+                'option_name': option.name,
+                'price': option.price,  # Keep as Decimal
+                'part_id': part.id,
+                'option_id': option.id
+            })
+            total_price += option.price  # Add Decimal to Decimal
+        except (WatchPart.DoesNotExist, WatchPartOption.DoesNotExist) as e:
+            logger.error(f"Error processing part {part_name}: {str(e)}")
+            continue
 
-    # Create CustomWatchOrder
+    # Create CustomWatchOrder with existing code...
     with transaction.atomic():
         custom_order = CustomWatchOrder.objects.create(
             user=request.user,
@@ -168,13 +183,13 @@ def place_custom_order(request):
             total_price=total_price,
             status='pending'
         )
-        for part_data in design_data:
-            if isinstance(part_data, dict) and 'part_id' in part_data and 'option_id' in part_data:
-                CustomWatchOrderPart.objects.create(
-                    order=custom_order,
-                    part_id=part_data['part_id'],
-                    selected_option_id=part_data['option_id']
-                )
+        # Create order parts with the processed data
+        for part_data in processed_parts:
+            CustomWatchOrderPart.objects.create(
+                order=custom_order,
+                part_id=part_data['part_id'],
+                selected_option_id=part_data['option_id']
+            )
 
     context = {
         'design': design,
@@ -183,10 +198,10 @@ def place_custom_order(request):
         'stripe_publishable_key': settings.STRIPE_PUBLIC_KEY,
         'form': form,
         'total': total_price,
-        'final_total': total_price,
-        'total_savings': 0,
-        'design_data': design_data,
-        'custom_order_id': custom_order.id,
+        'final_total': total_price,  # Keep the same as total since delivery is free
+        'total_savings': Decimal('30'),  # Add delivery charge as savings
+        'processed_parts': processed_parts,
+        'custom_order_id': custom_order.id if 'custom_order' in locals() else None,
     }
     return render(request, 'watch_customizer/place_custom_order.html', context)
 

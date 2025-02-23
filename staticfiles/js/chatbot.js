@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function() {
         quickActionsDiv.classList.add('quick-actions');
         
         const actions = [
-            'How to use TimeCraft?',
+            'What is TimeCraft?',
             'Product Information',
             'Pricing Details',
             'Contact Support'
