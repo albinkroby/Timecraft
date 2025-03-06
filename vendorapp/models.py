@@ -1,10 +1,10 @@
 from django.db import models
-from mainapp.models import User
+from django.conf import settings
 # Create your models here.
 
 #Vendor Profiles
 class VendorProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True)
     company_name = models.CharField(max_length=100,unique=True)
     description = models.TextField(null=True, blank=True)
     gst_number = models.CharField(max_length=20, null=False, blank=False)
@@ -33,4 +33,3 @@ class VendorAddress(models.Model):
 
     def __str__(self):
         return f"{self.address_line1}, {self.city}, {self.state}, {self.postal_code}"
-    

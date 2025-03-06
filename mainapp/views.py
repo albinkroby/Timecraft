@@ -25,7 +25,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import default_token_generator
 from .utils import hash_url, verify_hashed_url
-from django.db.models import Q,Count, F
+from django.db.models import Q,Count, F ,Min, Max
 from adminapp.models import BaseWatch, WatchImage, Brand, Category, ImageFeature, Material
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -223,51 +223,49 @@ def check_email(request):
     is_available = not User.objects.filter(email=email).exists()
     return JsonResponse({'available': is_available})
 
+from adminapp.utils import find_similar_watches
+import numpy as np
+
 @never_cache
 def product_detail(request, slug):
-    watch = get_object_or_404(
-        BaseWatch.objects.select_related(
-            'brand', 'collection', 'watch_type', 'details', 'materials',
-        ).prefetch_related('additional_images', 'reviews__images', 'reviews__user__profile')
-        .annotate(
-            rating_5=Count('reviews', filter=Q(reviews__rating=5)),
-            rating_4=Count('reviews', filter=Q(reviews__rating=4)),
-            rating_3=Count('reviews', filter=Q(reviews__rating=3)),
-            rating_2=Count('reviews', filter=Q(reviews__rating=2)),
-            rating_1=Count('reviews', filter=Q(reviews__rating=1)),
-        ),
-        slug=slug
-    )
+    watch = get_object_or_404(BaseWatch, slug=slug, is_active=True)
     
-    # Get all related color variants including the parent
-    if watch.is_base_product:
-        # If this is a parent watch, get all its variants
-        color_variants = BaseWatch.objects.filter(
-            Q(id=watch.id) |  # Include current watch
-            Q(is_variant_of__parent_watch=watch),
-            is_active=True
-        ).select_related('details', 'materials')
-    else:
-        # If this is a variant, get parent and all siblings
-        parent_watch = watch.parent_watch
-        if parent_watch:
-            color_variants = BaseWatch.objects.filter(
-                Q(id=parent_watch.id) |  # Include parent watch
-                Q(is_variant_of__parent_watch=parent_watch),
-                is_active=True
-            ).select_related('details', 'materials')
-        else:
-            color_variants = BaseWatch.objects.filter(id=watch.id)
+    # Get similar watches based on visual features
+    try:
+        # Get the feature vector for this watch
+        from adminapp.models import ImageFeature
+        watch_feature = ImageFeature.objects.get(base_watch=watch)
+        feature_vector = np.frombuffer(watch_feature.feature_vector, dtype=np.float32)
+        
+        # Get features for other watches
+        all_features = []
+        for feature in ImageFeature.objects.exclude(base_watch=watch):
+            try:
+                other_vector = np.frombuffer(feature.feature_vector, dtype=np.float32)
+                # Check that vectors have the same shape
+                if other_vector.shape == feature_vector.shape:
+                    all_features.append((feature.base_watch, other_vector))
+            except Exception as e:
+                print(f"Error processing feature for watch {feature.base_watch.id}: {str(e)}")
+        
+        # Find similar watches with lower threshold to ensure we get results
+        similar_watches = find_similar_watches(
+            feature_vector, 
+            all_features,
+            similarity_threshold=0.5,  # Lower threshold to get more matches
+            min_results=4
+        )
+    except (ImageFeature.DoesNotExist, Exception) as e:
+        print(f"Error finding similar watches: {str(e)}")
+        similar_watches = []
+    
+    # Rest of your existing view code...
     
     context = {
         'watch': watch,
-        'color_variants': color_variants
+        'similar_watches': similar_watches,
+        # Other context variables...
     }
-    
-    if request.user.is_authenticated:
-        cart, _ = Cart.objects.get_or_create(user=request.user)
-        context['cart_items'] = cart.items.all()
-    
     return render(request, 'product_detail.html', context)
 
 @never_cache
@@ -981,3 +979,37 @@ def get_session(request, session_id):
         })
     except ChatSession.DoesNotExist:
         return JsonResponse({'session': None})
+
+@never_cache
+def get_recommended_products(request):
+    """Generate personalized product recommendations based on browsing history"""
+    from mainapp.models import ProductView
+    
+    user = request.user
+    # Track products viewed in session if user is not logged in
+    viewed_products = request.session.get('viewed_products', [])
+    
+    if user.is_authenticated:
+        # Get user's view history from database
+        user_views = ProductView.objects.filter(user=user).order_by('-timestamp')[:10]
+        viewed_product_ids = [view.product.id for view in user_views]
+    else:
+        viewed_product_ids = viewed_products
+    
+    if viewed_product_ids:
+        # Get viewed products' attributes to find similar ones
+        viewed_products = BaseWatch.objects.filter(id__in=viewed_product_ids)
+        brands = viewed_products.values_list('brand', flat=True).distinct()
+        price_range = (viewed_products.aggregate(Min('base_price'))['base_price__min'],
+                      viewed_products.aggregate(Max('base_price'))['base_price__max'])
+                      
+        # Find similar products
+        recommendations = BaseWatch.objects.filter(
+            Q(brand__in=brands) |
+            Q(base_price__range=price_range)
+        ).exclude(id__in=viewed_product_ids).distinct()[:8]
+        
+        return recommendations
+    else:
+        # Fall back to popular products
+        return BaseWatch.objects.filter(is_active=True).order_by('-view_count')[:8]

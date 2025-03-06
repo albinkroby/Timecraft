@@ -1,11 +1,17 @@
 from django import template
-from mainapp.models import CartItem
 
 register = template.Library()
 
 @register.filter(name='multiply')
 def multiply(value, arg):
     return value * arg
+
+@register.filter(name='div')
+def div(value, arg):
+    try:
+        return float(value) / float(arg) if float(arg) != 0 else 0
+    except (ValueError, TypeError):
+        return 0
 
 @register.filter(name='range')
 def range_filter(value):

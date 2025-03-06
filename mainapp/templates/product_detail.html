@@ -277,6 +277,41 @@
             </div>
             {%endif%}
         </div>
+        <div class="col-12">
+            {% if similar_watches %}
+            <div class="mt-5 similar-watches-section">
+                <h3>Similar Watches</h3>
+                <div class="similar-watches-container">
+                    <div class="similar-watches-scroll">
+                        {% for similar_watch, similarity in similar_watches %}
+                        <div class="similar-watch-card">
+                            <div class="card-img-container">
+                                <a href="{% url 'mainapp:product_detail' slug=similar_watch.slug %}">
+                                    <img src="{{ similar_watch.primary_image.url }}" class="card-img-top" 
+                                          alt="{{ similar_watch.model_name }}">
+                                </a>
+                                <div class="quick-actions">
+                                    <button class="quick-action-btn add-to-cart-btn" data-watch-id="{{ similar_watch.id }}" title="Add to cart">
+                                        <i class='bx bx-shopping-bag'></i>
+                                    </button>
+                                    <button class="quick-action-btn compare-btn" data-watch-id="{{ similar_watch.id }}" title="Compare">
+                                        <i class='bx bx-git-compare'></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <h5 class="card-title text-truncate">{{ similar_watch.model_name }}</h5>
+                                <p class="card-text">₹{{ similar_watch.base_price }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button class="scroll-nav scroll-left" aria-label="Scroll left"><i class='bx bx-chevron-left'></i></button>
+                    <button class="scroll-nav scroll-right" aria-label="Scroll right"><i class='bx bx-chevron-right'></i></button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 <style>
@@ -333,6 +368,170 @@
         color: #007bff;
         font-weight: 600;
     }
+
+    /* Similar watches styling */
+    .similar-watches-section {
+        margin-top: 3rem;
+        margin-bottom: 3rem;
+        position: relative;
+    }
+
+    .similar-watches-section h3 {
+        position: relative;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .similar-watches-section h3::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 80px;
+        height: 3px;
+        background-color: var(--first-color);
+    }
+
+    .similar-watches-container {
+        position: relative;
+        padding: 0 30px;
+    }
+
+    .similar-watches-scroll {
+        display: flex;
+        overflow-x: auto;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+        gap: 20px;
+        padding: 15px 5px;
+    }
+
+    .similar-watches-scroll::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Edge */
+    }
+
+    .similar-watch-card {
+        min-width: 220px;
+        max-width: 220px;
+        flex: 0 0 auto;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #eee;
+        background-color: white;
+    }
+
+    .similar-watch-card:hover {
+        transform: translateY(-10px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .similar-watch-card:hover {
+        opacity: 1;
+    }
+
+    .similar-watch-card .card-img-container {
+        height: 180px;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .similar-watch-card img {
+        transition: transform 0.5s ease;
+        height: 100%;
+        object-fit: contain;
+        width: 100%;
+    }
+
+    .similar-watch-card:hover img {
+        transform: scale(1.05);
+    }
+
+    .similar-watch-card .quick-actions {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        opacity: 0;
+        transform: translateX(-10px);
+        transition: all 0.3s ease;
+        z-index: 2;
+    }
+
+    .similar-watch-card:hover .quick-actions {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    .similar-watch-card .quick-action-btn {
+        background: rgba(255, 255, 255, 0.9);
+        border: none;
+        color: #333;
+        font-size: 1.2rem;
+        cursor: pointer;
+        width: 35px;
+        height: 35px;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        transition: all 0.2s ease;
+    }
+
+    .similar-watch-card .quick-action-btn:hover {
+        color: var(--first-color);
+        transform: scale(1.1);
+    }
+
+    .similar-watch-card .card-body {
+        padding: 15px;
+    }
+
+    .scroll-nav {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 40px;
+        height: 40px;
+        background-color: white;
+        border: 1px solid #eee;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        z-index: 3;
+        font-size: 1.5rem;
+        transition: all 0.3s ease;
+    }
+
+    .scroll-nav:hover {
+        background-color: var(--first-color);
+        color: white;
+    }
+
+    .scroll-left {
+        left: 0;
+    }
+
+    .scroll-right {
+        right: 0;
+    }
+
+    @media (max-width: 768px) {
+        .similar-watch-card {
+            min-width: 180px;
+        }
+        
+        .similar-watches-container {
+            padding: 0 20px;
+        }
+    }
 </style>
 
 
@@ -353,13 +552,13 @@
                 shortDetails.style.display = 'none';
                 fullDetails.style.display = 'table-row-group';
                 if (smartwatchFeatures) smartwatchFeatures.style.display = 'block';
-                if (premiumFeatures) premiumFeatures.style.display = 'block';
+                if (premiumFeatures) smartwatchFeatures.style.display = 'block';
                 toggleButton.textContent = 'Show Less';
             } else {
                 shortDetails.style.display = 'table-row-group';
                 fullDetails.style.display = 'none';
                 if (smartwatchFeatures) smartwatchFeatures.style.display = 'none';
-                if (premiumFeatures) premiumFeatures.style.display = 'none';
+                if (premiumFeatures) smartwatchFeatures.style.display = 'none';
                 toggleButton.textContent = 'Show More';
             }
         });
@@ -431,6 +630,99 @@
                     console.error('Error:', error);
                 }
             });
+        });
+    });
+
+    // Similar watches interaction
+    $(document).ready(function() {
+        // Add to cart functionality for similar watches
+        $('.similar-watch-card .add-to-cart-btn').click(function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            var watchId = $(this).data('watch-id');
+            var button = $(this);
+            
+            $.ajax({
+                url: '{% url "mainapp:add_to_cart" watch_id=0 %}'.replace('0', watchId),
+                type: 'POST',
+                data: {
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    if (response.success) {
+                        button.html('<i class="bx bx-check"></i>');
+                        button.addClass('text-success');
+                        setTimeout(function() {
+                            button.html('<i class="bx bx-shopping-bag"></i>');
+                            button.removeClass('text-success');
+                        }, 2000);
+                        showCustomAlert(response.message, 'success');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error(error);
+                    showCustomAlert('An error occurred. Please try again.', 'error');
+                }
+            });
+        });
+        
+        // Compare functionality for similar watches
+        $('.similar-watch-card .compare-btn').click(function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            var watchId = $(this).data('watch-id');
+            var currentWatchId = {{ watch.id }};
+            
+            // Open comparison in a modal or redirect to comparison page
+            showCustomAlert('Compare feature will be available soon!', 'info');
+            
+            // Uncomment when you have a compare URL:
+            // window.location.href = '/compare?products=' + currentWatchId + ',' + watchId;
+        });
+    });
+
+    // Horizontal scroll navigation for similar watches
+    $(document).ready(function() {
+        const scrollContainer = $('.similar-watches-scroll');
+        const scrollLeftBtn = $('.scroll-left');
+        const scrollRightBtn = $('.scroll-right');
+        const cardWidth = 240; // Card width + gap
+        
+        // Show/hide scroll buttons based on scroll position
+        function updateScrollButtons() {
+            const scrollLeft = scrollContainer.scrollLeft();
+            const maxScrollLeft = scrollContainer[0].scrollWidth - scrollContainer[0].clientWidth;
+            
+            scrollLeftBtn.css('opacity', scrollLeft > 0 ? '1' : '0.5');
+            scrollRightBtn.css('opacity', scrollLeft < maxScrollLeft ? '1' : '0.5');
+        }
+        
+        // Initialize button states
+        updateScrollButtons();
+        
+        // Scroll left button click
+        scrollLeftBtn.click(function() {
+            scrollContainer.animate({
+                scrollLeft: '-=' + cardWidth
+            }, 300, function() {
+                updateScrollButtons();
+            });
+        });
+        
+        // Scroll right button click
+        scrollRightBtn.click(function() {
+            scrollContainer.animate({
+                scrollLeft: '+=' + cardWidth
+            }, 300, function() {
+                updateScrollButtons();
+            });
+        });
+        
+        // Update buttons when scrolling manually
+        scrollContainer.on('scroll', function() {
+            updateScrollButtons();
         });
     });
 </script>

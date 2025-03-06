@@ -88,13 +88,32 @@
                     <a href="{% url 'supportapp:staff_dashboard' %}" class="list-group-item list-group-item-action ">
                         <i class='bx bxs-dashboard'></i> Dashboard
                     </a>
-                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#productsCollapse" aria-expanded="false" aria-controls="productsCollapse">
-                        <i class='bx bxs-package'></i> Products <i class='bx bx-chevron-down float-end'></i>
+                    <!-- Tickets Section -->
+                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#ticketsCollapse" aria-expanded="false" aria-controls="ticketsCollapse">
+                        <i class='bx bxs-message-dots'></i> Tickets <i class='bx bx-chevron-down float-end'></i>
                     </a>
-                    <div class="collapse" id="productsCollapse">
+                    <div class="collapse {% if 'ticket' in request.resolver_match.url_name %}show{% endif %}" id="ticketsCollapse">
                         <div class="list-group">
-                            <a class="ps-5 list-group-item list-group-item-action" href=""><i class='bx bx-plus'></i> Add Product</a>
-                            <a class="ps-5 list-group-item list-group-item-action" href=""><i class='bx bx-show'></i> View Products</a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'ticket_list' %}active{% endif %}" 
+                                href="{% url 'supportapp:ticket_list' %}">
+                                <i class='bx bx-list-ul'></i> All Tickets
+                            </a>
+                        </div>
+                    </div>
+                    <!-- Reports Section -->
+                    <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#reportsCollapse" aria-expanded="false" aria-controls="reportsCollapse">
+                        <i class='bx bxs-report'></i> Reports <i class='bx bx-chevron-down float-end'></i>
+                    </a>
+                    <div class="collapse {% if 'reports' in request.resolver_match.url_name or 'customer_feedback' in request.resolver_match.url_name %}show{% endif %}" id="reportsCollapse">
+                        <div class="list-group">
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'support_reports' %}active{% endif %}" 
+                            href="{% url 'supportapp:support_reports' %}">
+                                <i class='bx bx-line-chart'></i> Support Metrics
+                            </a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'customer_feedback' %}active{% endif %}" 
+                            href="{% url 'supportapp:customer_feedback' %}">
+                                <i class='bx bx-star'></i> Customer Feedback
+                            </a>
                         </div>
                     </div>
                 </div>
