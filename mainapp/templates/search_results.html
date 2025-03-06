@@ -252,5 +252,33 @@
             document.getElementById('search-input').placeholder = 'Image selected for search';
         }
     });
+
+    // Implement dynamic filter updates in search_results.html
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add filter collapse functionality for mobile
+        const filterHeaders = document.querySelectorAll('.filter-section h5');
+        filterHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                const content = this.nextElementSibling;
+                content.classList.toggle('collapsed');
+            });
+        });
+        
+        // Add price range with dual sliders
+        const priceSlider = document.getElementById('price-range');
+        if (priceSlider) {
+            noUiSlider.create(priceSlider, {
+                start: [minPrice, maxPrice],
+                connect: true,
+                range: {
+                    'min': [0],
+                    'max': [maxPrice]
+                },
+                format: wNumb({
+                    decimals: 0
+                })
+            });
+        }
+    });
 </script>
 {% endblock %}

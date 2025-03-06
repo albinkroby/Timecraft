@@ -4,6 +4,7 @@ from PIL import Image
 from rembg import remove
 from django.core.files.uploadedfile import InMemoryUploadedFile
 from scipy.spatial.distance import cosine
+from django.shortcuts import render, get_object_or_404
 
 # Global variables
 global_model = None
@@ -83,3 +84,42 @@ def find_similar_watches(search_features, image_features, similarity_threshold=0
     
     print(f"Found {len(similar_watches)} similar watches")
     return similar_watches
+
+def enhance_product_detail_view(request, slug):
+    """Add visual similarity search directly on product pages"""
+    # Import here instead of at the module level
+    from .models import BaseWatch, ImageFeature
+    from mainapp.models import ProductView
+    
+    watch = get_object_or_404(BaseWatch, slug=slug)
+    
+    # Track this view
+    if request.user.is_authenticated:
+        ProductView.objects.create(user=request.user, product=watch)
+    else:
+        viewed_products = request.session.get('viewed_products', [])
+        if watch.id not in viewed_products:
+            viewed_products.append(watch.id)
+            request.session['viewed_products'] = viewed_products
+    
+    # Get visual features for current watch
+    try:
+        watch_features = ImageFeature.objects.get(base_watch=watch).feature_vector
+        watch_features_array = np.frombuffer(watch_features, dtype=np.float32)
+        
+        # Get all image features from database
+        all_features = [(feature.base_watch, np.frombuffer(feature.feature_vector, dtype=np.float32)) 
+                      for feature in ImageFeature.objects.exclude(base_watch=watch)]
+        
+        # Find similar watches
+        similar_watches = find_similar_watches(watch_features_array, all_features, 
+                                              similarity_threshold=0.6, min_results=4)
+    except ImageFeature.DoesNotExist:
+        similar_watches = []
+    
+    context = {
+        'watch': watch,
+        'similar_watches': similar_watches
+    }
+    
+    return render(request, 'product_detail.html', context)

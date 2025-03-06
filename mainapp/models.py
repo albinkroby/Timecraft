@@ -4,7 +4,9 @@ from django.db.models.signals import pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 import uuid
+import random
 from datetime import timedelta
+from django.conf import settings
 
 class User(AbstractUser):
     ROLE_CHOICES = (
@@ -19,17 +21,17 @@ class User(AbstractUser):
     last_login = models.DateTimeField(auto_now=True)
     is_staff = models.BooleanField(default=False)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='user')
-    # Use email as the unique identifier instead of username
     email = models.EmailField(unique=True)
     is_verified = models.BooleanField(default=False)
     email_verification_token = models.UUIDField(default=uuid.uuid4, editable=False, blank=True,null=True)
 
-    # If you want to use email for login instead of username
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'fullname']
 
     def __str__(self):
         return self.email
+
+from adminapp.models import BaseWatch, Brand, Category
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -59,8 +61,6 @@ class Address(models.Model):
 
     def __str__(self):
         return f"{self.flat_house_no}, {self.area_street}, {self.town_city}, {self.state}, {self.pincode}"
-
-from adminapp.models import BaseWatch
 
 class Cart(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -155,8 +155,6 @@ class WatchNotification(models.Model):
     class Meta:
         unique_together = ('user', 'watch')
 
-from adminapp.models import BaseWatch
-
 class ChatSession(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     guest_name = models.CharField(max_length=100, null=True, blank=True)
@@ -177,28 +175,58 @@ class ChatMessage(models.Model):
     class Meta:
         ordering = ['timestamp']
 
+
 class SupportTicket(models.Model):
     PRIORITY_CHOICES = [
         ('low', 'Low'),
         ('medium', 'Medium'),
-        ('high', 'High')
+        ('high', 'High'),
+        ('urgent', 'Urgent')
     ]
+    
     STATUS_CHOICES = [
         ('open', 'Open'),
+        ('assigned', 'Assigned'),
         ('in_progress', 'In Progress'),
+        ('pending', 'Pending Customer Response'),
         ('resolved', 'Resolved'),
         ('closed', 'Closed')
     ]
     
+    TICKET_TYPES = [
+        ('order_issue', 'Order Related'),
+        ('payment_issue', 'Payment Related'),
+        ('product_inquiry', 'Product Inquiry'),
+        ('return_refund', 'Return/Refund'),
+        ('vendor_support', 'Vendor Support'),
+        ('technical_issue', 'Technical Issue'),
+        ('other', 'Other')
+    ]
+
+    ticket_id = models.CharField(max_length=10, unique=True, blank=True, null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     order = models.ForeignKey(Order, on_delete=models.SET_NULL, null=True, blank=True)
     subject = models.CharField(max_length=200)
     description = models.TextField()
+    ticket_type = models.CharField(max_length=20, choices=TICKET_TYPES,null=True, blank=True)
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='medium')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    assigned_to = models.ForeignKey(
+        'adminapp.StaffMember',  # Use string reference instead of direct model
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    resolution = models.TextField(blank=True, null=True)
+    customer_feedback = models.IntegerField(null=True, blank=True)
     
+    def save(self, *args, **kwargs):
+        if not self.ticket_id:
+            self.ticket_id = f"TKT{timezone.now().strftime('%y%m%d')}{random.randint(1000,9999)}"
+        super().save(*args, **kwargs)
+
     class Meta:
         ordering = ['-created_at']
 
@@ -208,3 +236,22 @@ class SupportMessage(models.Model):
     message = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
     is_staff_reply = models.BooleanField(default=False)
+
+class ProductView(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    product = models.ForeignKey(BaseWatch, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user', '-timestamp']),
+        ]
+
+class UserPreference(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    favorite_brands = models.ManyToManyField(Brand, blank=True)
+    favorite_categories = models.ManyToManyField(Category, blank=True)
+    preferred_price_range = models.CharField(max_length=100, blank=True)
+    
+    def __str__(self):
+        return f"Preferences for {self.user.username}"

@@ -1,6 +1,8 @@
 {% extends 'supportapp/base.html' %}
 {% load static %}
 
+{% block title %}Support Dashboard{% endblock %}
+
 {% block staff_content %}
 <div class="container-fluid py-4">
     <!-- Statistics Cards -->
@@ -13,79 +15,111 @@
                             <div class="numbers">
                                 <p class="text-sm mb-0 text-uppercase font-weight-bold">Total Tickets</p>
                                 <h5 class="font-weight-bolder">{{ total_tickets }}</h5>
+                                <p class="mb-0 text-sm">
+                                    <span class="text-success text-sm font-weight-bolder">+{{ ticket_increase }}%</span>
+                                    since last month
+                                </p>
                             </div>
                         </div>
                         <div class="col-4 text-end">
                             <div class="icon icon-shape bg-gradient-primary shadow-primary text-center rounded-circle">
-                                <i class="ni ni-money-coins text-lg opacity-10" aria-hidden="true"></i>
+                                <i class='bx bxs-message-dots'></i>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-sm-6 mb-4">
+        <!-- Similar cards for other stats -->
+    </div>
+
+    <div class="row mt-4">
+        <!-- Recent Tickets -->
+        <div class="col-lg-7 mb-4">
             <div class="card">
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-8">
-                            <div class="numbers">
-                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Open Tickets</p>
-                                <h5 class="font-weight-bolder">{{ open_tickets }}</h5>
-                            </div>
-                        </div>
-                        <div class="col-4 text-end">
-                            <div class="icon icon-shape bg-gradient-danger shadow-danger text-center rounded-circle">
-                                <i class="ni ni-world text-lg opacity-10" aria-hidden="true"></i>
-                            </div>
-                        </div>
+                <div class="card-header pb-0">
+                    <h6>Recent Tickets</h6>
+                </div>
+                <div class="card-body px-0 pt-0 pb-2">
+                    <div class="table-responsive p-0">
+                        <table class="table align-items-center mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Ticket ID</th>
+                                    <th>Customer</th>
+                                    <th>Subject</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ticket in recent_tickets %}
+                                <tr>
+                                    <td>#{{ ticket.ticket_id }}</td>
+                                    <td>{{ ticket.user.fullname }}</td>
+                                    <td>{{ ticket.subject }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ ticket.status|lower }}">
+                                            {{ ticket.get_status_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'supportapp:ticket_detail' ticket.ticket_id %}" 
+                                           class="btn btn-sm btn-primary">View</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-xl-3 col-sm-6 mb-4">
+
+        <!-- Performance Metrics -->
+        <div class="col-lg-5">
             <div class="card">
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-8">
-                            <div class="numbers">
-                                <p class="text-sm mb-0 text-uppercase font-weight-bold">In Progress</p>
-                                <h5 class="font-weight-bolder">{{ in_progress_tickets }}</h5>
-                            </div>
-                        </div>
-                        <div class="col-4 text-end">
-                            <div class="icon icon-shape bg-gradient-success shadow-success text-center rounded-circle">
-                                <i class="ni ni-paper-diploma text-lg opacity-10" aria-hidden="true"></i>
-                            </div>
-                        </div>
-                    </div>
+                <div class="card-header pb-0">
+                    <h6>Your Performance</h6>
                 </div>
-            </div>
-        </div>
-        <div class="col-xl-3 col-sm-6 mb-4">
-            <div class="card">
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-8">
-                            <div class="numbers">
-                                <p class="text-sm mb-0 text-uppercase font-weight-bold">Today's Tickets</p>
-                                <h5 class="font-weight-bolder">{{ today_tickets }}</h5>
-                            </div>
-                        </div>
-                        <div class="col-4 text-end">
-                            <div class="icon icon-shape bg-gradient-warning shadow-warning text-center rounded-circle">
-                                <i class="ni ni-cart text-lg opacity-10" aria-hidden="true"></i>
-                            </div>
-                        </div>
-                    </div>
+                    <canvas id="performanceChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
-
 </div>
 {% endblock %}
 
 {% block extra_js %}
-
-{% endblock %} 
+<script>
+// Performance Chart
+const ctx = document.getElementById('performanceChart').getContext('2d');
+new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Resolved', 'In Progress', 'Pending'],
+        datasets: [{
+            data: [
+                {{ resolved_tickets }}, 
+                {{ in_progress_tickets }}, 
+                {{ pending_tickets }}
+            ],
+            backgroundColor: [
+                'rgba(75, 192, 192, 0.8)',
+                'rgba(54, 162, 235, 0.8)',
+                'rgba(255, 206, 86, 0.8)'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

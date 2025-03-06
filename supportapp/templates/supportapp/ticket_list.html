@@ -1,0 +1,117 @@
+{% extends 'supportapp/base.html' %}
+{% load static %}
+
+{% block title %}Support Tickets{% endblock %}
+
+{% block staff_content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">All Support Tickets</h5>
+        <div>
+            <select class="form-select form-select-sm d-inline-block w-auto me-2" id="statusFilter">
+                <option value="">All Status</option>
+                <option value="open">Open</option>
+                <option value="in_progress">In Progress</option>
+                <option value="resolved">Resolved</option>
+            </select>
+            <select class="form-select form-select-sm d-inline-block w-auto" id="priorityFilter">
+                <option value="">All Priority</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+            </select>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover" id="ticketTable">
+                <thead>
+                    <tr>
+                        <th>Ticket ID</th>
+                        <th>Customer</th>
+                        <th>Subject</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in tickets %}
+                    <tr>
+                        <td>#{{ ticket.ticket_id }}</td>
+                        <td>{{ ticket.user.fullname }}</td>
+                        <td>{{ ticket.subject }}</td>
+                        <td>
+                            <span class="badge bg-{{ ticket.status|lower }}">
+                                {{ ticket.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ ticket.priority|lower }}">
+                                {{ ticket.get_priority_display }}
+                            </span>
+                        </td>
+                        <td>{{ ticket.created_at|date:"M d, Y H:i" }}</td>
+                        <td>
+                            <a href="{% url 'supportapp:ticket_detail' ticket.ticket_id %}" 
+                               class="btn btn-sm btn-primary">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<style>
+    /* Status badges */
+    .badge.bg-open {
+        background-color: #28a745 !important;
+    }
+    .badge.bg-in_progress {
+        background-color: #ffc107 !important;
+        color: #000;
+    }
+    .badge.bg-resolved {
+        background-color: #6c757d !important;
+    }
+
+    /* Priority badges */
+    .badge.bg-high {
+        background-color: #dc3545 !important;
+    }
+    .badge.bg-medium {
+        background-color: #fd7e14 !important;
+    }
+    .badge.bg-low {
+        background-color: #17a2b8 !important;
+    }
+
+    .badge {
+        font-size: 0.85em;
+        padding: 0.35em 0.65em;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const table = $('#ticketTable').DataTable({
+        "pageLength": 10,
+        "ordering": true,
+        "responsive": true
+    });
+
+    $('#statusFilter, #priorityFilter').on('change', function() {
+        const status = $('#statusFilter').val();
+        const priority = $('#priorityFilter').val();
+        
+        table.columns(3).search(status);
+        table.columns(4).search(priority);
+        table.draw();
+    });
+});
+</script>
+{% endblock %}

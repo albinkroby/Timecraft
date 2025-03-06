@@ -116,6 +116,36 @@
                 </div>
             </section>
 
+            <!--==================== RECOMMENDATIONS ====================-->
+            {% if recommended_watches %}
+            <section class="recommendations section container" id="recommendations">
+                <h2 class="section__title">
+                    Recommended For You
+                </h2>
+                <div class="container-fluid">
+                    <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+                        {% for watch in recommended_watches %}
+                        <div class="col">
+                            <article class="products__card h-100">
+                                <a href="{% url 'mainapp:product_detail' slug=watch.slug %}">
+                                    <img src="{{ watch.primary_image.url }}" alt="{{ watch.model_name }}" class="products__img">
+                                    <h3 class="products__title">{{ watch.model_name|truncatechars:18 }}</h3>
+                                    <span class="products__price">₹{{ watch.base_price }}</span>
+                                </a>
+                                <button class="products__button" onclick="addToCart('{{ watch.id }}')">
+                                    <i class='bx bx-shopping-bag'></i>
+                                </button>
+                            </article>
+                        </div>
+                        {% empty %}
+                        <div class="col-12 text-center">
+                            <p>Browse more watches to get personalized recommendations!</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </section>
+            {% endif %}
         </main>
 
         <style>

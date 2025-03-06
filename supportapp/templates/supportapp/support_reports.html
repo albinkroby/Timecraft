@@ -1,0 +1,155 @@
+{% extends 'supportapp/base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block title %}Support Metrics{% endblock %}
+
+{% block staff_content %}
+<div class="container-fluid">
+    <!-- Date Range Selector -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form class="row g-3 align-items-center">
+                <div class="col-auto">
+                    <label class="col-form-label">Date Range</label>
+                </div>
+                <div class="col-auto">
+                    <input type="date" class="form-control" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
+                </div>
+                <div class="col-auto">
+                    <span class="col-form-label">to</span>
+                </div>
+                <div class="col-auto">
+                    <input type="date" class="form-control" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Overview Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Total Tickets</h6>
+                    <h2 class="card-title mb-0">{{ total_tickets }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Resolution Rate</h6>
+                    <h2 class="card-title mb-0">{{ resolution_rate|floatformat:1 }}%</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-subtitle mb-2 text-muted">Avg Resolution Time</h6>
+                    <h2 class="card-title mb-0">{{ avg_resolution_time|default:"N/A" }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Tickets by Priority</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="priorityChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Tickets by Type</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="typeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staff Performance Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Staff Performance</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Staff Member</th>
+                            <th>Total Assigned</th>
+                            <th>Resolved</th>
+                            <th>Resolution Rate</th>
+                            <th>Avg Resolution Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for staff in staff_performance %}
+                        <tr>
+                            <td>{{ staff.assigned_to__user__username }}</td>
+                            <td>{{ staff.total_assigned }}</td>
+                            <td>{{ staff.resolved }}</td>
+                            <td>{{ staff.resolved|div:staff.total_assigned|multiply:100|floatformat:1 }}%</td>
+                            <td>{{ staff.avg_resolution_time|default:"N/A" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Priority Distribution Chart
+new Chart(document.getElementById('priorityChart'), {
+    type: 'pie',
+    data: {
+        labels: {{ priority_distribution|safe }},
+        datasets: [{
+            data: {{ priority_counts|safe }},
+            backgroundColor: [
+                '#dc3545', '#ffc107', '#28a745'
+            ]
+        }]
+    }
+});
+
+// Type Distribution Chart
+new Chart(document.getElementById('typeChart'), {
+    type: 'bar',
+    data: {
+        labels: {{ type_distribution|safe }},
+        datasets: [{
+            label: 'Number of Tickets',
+            data: {{ type_counts|safe }},
+            backgroundColor: '#0d6efd'
+        }]
+    },
+    options: {
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+});
+</script>
+{% endblock %}
