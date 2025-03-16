@@ -1,0 +1,218 @@
+<div class="ar-button-container">
+    <button id="ar-try-on-btn" class="btn w-100 mt-3 ar-button">
+        <i class='bx bx-glasses me-2'></i> Try on Your Wrist
+    </button>
+
+    <div id="ar-compatibility-check" class="mt-2 text-center" style="display: none;">
+        <small class="text-muted">Checking AR compatibility...</small>
+    </div>
+</div>
+
+<!-- Remove problematic script tags that were causing 404 errors -->
+
+<style>
+.ar-button {
+    background: linear-gradient(135deg, #6c5ce7, #4834d4);
+    color: white;
+    border: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+}
+
+.ar-button::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: all 0.4s ease;
+    z-index: -1;
+}
+
+.ar-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(108, 92, 231, 0.3);
+    color: white;
+    background: linear-gradient(135deg, #5b4dc7, #372bb3);
+}
+
+.ar-button:hover::before {
+    left: 100%;
+}
+
+.ar-button i {
+    font-size: 1.2em;
+}
+
+/* Pulse animation for AR button */
+.pulse-animation {
+    animation: pulse-border 2s infinite;
+}
+
+@keyframes pulse-border {
+    0% {
+        box-shadow: 0 0 0 0 rgba(108, 92, 231, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 8px rgba(108, 92, 231, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(108, 92, 231, 0);
+    }
+}
+
+.ar-button.disabled {
+    background: linear-gradient(135deg, #b2bec3, #95a5a6);
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+.ar-button.disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.ar-compatibility-tooltip {
+    position: absolute;
+    top: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.ar-button-container {
+    position: relative;
+}
+
+.ar-button.disabled:hover + .ar-compatibility-tooltip {
+    opacity: 1;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const arButton = document.getElementById('ar-try-on-btn');
+    const compatCheck = document.getElementById('ar-compatibility-check');
+    
+    // Show checking message
+    compatCheck.style.display = 'block';
+    
+    /**
+     * Comprehensive AR support detection
+     */
+    async function checkARSupport() {
+        try {
+            // Check if we're on a mobile device first
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (!isMobile) {
+                console.log("Not a mobile device, AR unlikely to be supported");
+                return { supported: false, reason: "AR requires a mobile device" };
+            }
+            
+            // Check for WebXR Support (most reliable API check)
+            if (navigator.xr && navigator.xr.isSessionSupported) {
+                try {
+                    const supported = await navigator.xr.isSessionSupported('immersive-ar');
+                    if (supported) {
+                        console.log("WebXR immersive-ar supported");
+                        return { supported: true, type: "webxr" };
+                    }
+                } catch (err) {
+                    console.log('WebXR AR check error:', err);
+                }
+            }
+            
+            // Android-specific check for Chrome
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            const isChrome = /Chrome/i.test(navigator.userAgent) && !/Edge|EdgiOS|EdgA/i.test(navigator.userAgent);
+            
+            if (isAndroid && isChrome) {
+                console.log("Android Chrome detected, likely supports AR");
+                return { supported: true, type: "marker" };
+            }
+            
+            // iOS-specific check
+            const isIOS = /iPad|iPhone|iPod/i.test(navigator.userAgent) && !window.MSStream;
+            if (isIOS) {
+                // iOS 12+ supports AR Quick Look with Safari
+                try {
+                    const iOSVersion = parseInt((navigator.appVersion).match(/OS (\d+)_/)[1], 10);
+                    const isSafari = /Safari/i.test(navigator.userAgent) && !/Chrome/i.test(navigator.userAgent);
+                    
+                    if (iOSVersion >= 12 && isSafari) {
+                        console.log("iOS Safari 12+ detected, supports AR");
+                        return { supported: true, type: "quicklook" };
+                    } else if (iOSVersion >= 12) {
+                        console.log("iOS 12+ detected but not Safari, AR might work");
+                        return { supported: true, type: "marker" };
+                    }
+                } catch (e) {
+                    console.log("iOS version detection failed:", e);
+                }
+            }
+            
+            // Special case for Samsung Internet which may support AR but not report WebXR
+            if (/SamsungBrowser/i.test(navigator.userAgent) && isAndroid) {
+                console.log("Samsung browser on Android, may support AR");
+                return { supported: true, type: "marker" };
+            }
+            
+            console.log("No AR support detected");
+            return { 
+                supported: false, 
+                reason: isIOS ? "Use Safari browser on iOS" : "Use Chrome browser on Android" 
+            };
+        } catch (error) {
+            console.error("Error during AR support check:", error);
+            return { supported: false, reason: "Error checking AR support" };
+        }
+    }
+    
+    // Initialize button based on AR support
+    checkARSupport().then(result => {
+        compatCheck.style.display = 'none';
+        
+        if (!result.supported) {
+            arButton.classList.add('disabled');
+            
+            // Add tooltip with reason
+            const tooltip = document.createElement('div');
+            tooltip.className = 'ar-compatibility-tooltip';
+            tooltip.textContent = result.reason;
+            arButton.parentNode.appendChild(tooltip);
+            
+            arButton.title = 'AR not supported on this device/browser';
+            arButton.innerHTML = '<i class="bx bx-glasses me-2"></i> AR Not Available';
+        } else {
+            arButton.addEventListener('click', function() {
+                // Navigate to AR experience view
+                window.location.href = "{% url 'ar_tryout:ar_viewer' slug=watch.slug %}";
+            });
+            
+            // Add pulsing effect to indicate it's special
+            arButton.classList.add('pulse-animation');
+        }
+    }).catch(error => {
+        console.error("Error checking AR support:", error);
+        // Default to enabled on error, but with warning
+        compatCheck.style.display = 'none';
+        arButton.addEventListener('click', function() {
+            window.location.href = "{% url 'ar_tryout:ar_viewer' slug=watch.slug %}";
+        });
+    });
+});
+</script>

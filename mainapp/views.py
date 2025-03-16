@@ -54,9 +54,15 @@ import uuid
 logger = logging.getLogger(__name__)
 
 User = get_user_model()
-# Create your views here.
 
-chatbot_service = ChatbotService()
+# Replace direct initialization with a lazy-loaded singleton
+_chatbot_service = None
+
+def get_chatbot_service():
+    global _chatbot_service
+    if _chatbot_service is None:
+        _chatbot_service = ChatbotService()
+    return _chatbot_service
 
 @never_cache
 def index(request):
@@ -896,7 +902,7 @@ def chat_view(request):
         
         # Get bot response
         try:
-            bot_response = chatbot_service.get_response(user_message)
+            bot_response = get_chatbot_service().get_response(user_message)
         except Exception as e:
             print(f"Chatbot error: {str(e)}")
             return JsonResponse({

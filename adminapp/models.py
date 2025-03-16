@@ -152,6 +152,7 @@ class BaseWatch(models.Model):
     
     net_quantity = models.IntegerField(default=1)
     function_display = models.CharField(max_length=100, blank=True, null=True)
+    model_file = models.FileField(upload_to='watch_models/', null=True, blank=True, help_text="3D model file for AR view (.glb or .gltf format)")
     
 
     primary_image = models.ImageField(upload_to='Watch/primary/', null=True, blank=True)

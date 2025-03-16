@@ -35,7 +35,7 @@ PORT = os.environ['PORT']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ['DEBUG']
 
-ALLOWED_HOSTS = ['127.0.0.1','.onrender.com','timecraft-dbto.onrender.com']
+ALLOWED_HOSTS = ['127.0.0.1','.onrender.com','timecraft-dbto.onrender.com','localhost']
 
 
 # Application definition
@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'vendorapp',
     'supportapp',
     'blockchain',
+    'ar_tryout',
     'watch_customizer',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -59,7 +60,7 @@ INSTALLED_APPS = [
     'django.contrib.sites',
     'social_django',
     'widget_tweaks',
-    
+    'corsheaders',  # Add CORS app
 ]
 
 
@@ -72,6 +73,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',  # Add CORS support
 ]
 
 # Maximum size of the entire request body (in bytes)
@@ -253,3 +255,23 @@ try:
 except:
     CERTIFICATE_CONTRACT_ADDRESS = '0x69F922Eb0F1aCD5600E0846dA3Bb53B2A50F568B'
     CERTIFICATE_CONTRACT_ABI = None
+    
+# Add this to your existing settings.py
+import mimetypes
+mimetypes.add_type("model/gltf-binary", ".glb")
+
+# Add MIME types for 3D model files
+mimetypes.add_type('model/gltf+json', '.gltf')
+mimetypes.add_type('model/gltf-binary', '.glb')
+
+# CORS settings
+CORS_ALLOW_ALL_ORIGINS = True  # For development only
+CORS_URLS_REGEX = r'^/media/.*$|^/static/.*$'
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+
+# Security headers
+SECURE_CROSS_ORIGIN_OPENER_POLICY = None  # Required for AR
+X_FRAME_OPTIONS = 'SAMEORIGIN'  # Allow iframe embedding for AR
