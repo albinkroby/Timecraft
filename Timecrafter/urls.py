@@ -28,6 +28,7 @@ urlpatterns = [
     path('custom-watch/', include('watch_customizer.urls')),
     path('oauth/', include('social_django.urls', namespace='social')),
     path('support/', include('supportapp.urls')),
+    path('ar/', include('ar_tryout.urls', namespace='ar_tryout')),
     
     re_path(r'^media/(?P<path>.*)$', serve, {
         'document_root': settings.MEDIA_ROOT,
