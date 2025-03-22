@@ -1,0 +1,213 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}Edit Delivery Agent - {{ agent.fullname }}{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'adminapp:index' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'adminapp:delivery_agents_list' %}">Delivery Agents</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'adminapp:view_delivery_agent' agent.id %}">{{ agent.fullname }}</a></li>
+        <li class="breadcrumb-item active">Edit</li>
+    </ol>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class='bx bxs-user-detail me-1'></i>
+                    Edit Delivery Agent Details
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <h5>Account Information</h5>
+                                <hr>
+                            </div>
+                        </div>
+                        
+                        {% if user_form.errors %}
+                        <div class="alert alert-danger">
+                            <ul>
+                                {% for field in user_form %}
+                                    {% for error in field.errors %}
+                                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in user_form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ user_form.fullname.id_for_label }}">Full Name</label>
+                                    {{ user_form.fullname }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ user_form.email.id_for_label }}">Email</label>
+                                    {{ user_form.email }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ user_form.username.id_for_label }}">Username</label>
+                                    {{ user_form.username }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="changePasswordCheck">
+                                    <label class="form-check-label" for="changePasswordCheck">
+                                        <i class='bx bx-lock-alt'></i> Change Password
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="passwordFields" style="display: none;">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="{{ user_form.password1.id_for_label }}">New Password</label>
+                                        {{ user_form.password1 }}
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group mb-3">
+                                        <label for="{{ user_form.password2.id_for_label }}">Confirm New Password</label>
+                                        {{ user_form.password2 }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <h5>Delivery Information</h5>
+                                <hr>
+                            </div>
+                        </div>
+                        
+                        {% if profile_form.errors %}
+                        <div class="alert alert-danger">
+                            <ul>
+                                {% for field in profile_form %}
+                                    {% for error in field.errors %}
+                                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in profile_form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ profile_form.phone.id_for_label }}">Phone Number</label>
+                                    {{ profile_form.phone }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ profile_form.vehicle_type.id_for_label }}">Vehicle Type</label>
+                                    {{ profile_form.vehicle_type }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ profile_form.vehicle_number.id_for_label }}">Vehicle Number</label>
+                                    {{ profile_form.vehicle_number }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ profile_form.profile_image.id_for_label }}">Profile Image</label>
+                                    {% if profile.profile_image %}
+                                        <div class="mb-2">
+                                            <img src="{{ profile.profile_image.url }}" alt="Current profile image" style="max-width: 100px; max-height: 100px;">
+                                            <p class="small text-muted">Current image</p>
+                                        </div>
+                                    {% endif %}
+                                    {{ profile_form.profile_image }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 mb-0">
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-save'></i> Update Delivery Agent
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class='bx bx-info-circle me-1'></i>
+                    Information
+                </div>
+                <div class="card-body">
+                    <p>When updating a delivery agent:</p>
+                    <ul>
+                        <li>You can change basic account information</li>
+                        <li>Passwords are only updated if the "Change Password" option is selected</li>
+                        <li>Vehicle information can be updated as needed</li>
+                        <li>Uploading a new profile image will replace the current one</li>
+                    </ul>
+                    <div class="alert alert-warning mt-3">
+                        <i class='bx bx-bell me-2'></i>
+                        Account changes will take effect immediately.
+                    </div>
+                    <a href="{% url 'adminapp:view_delivery_agent' agent.id %}" class="btn btn-secondary">
+                        <i class='bx bx-arrow-back me-1'></i> Back to Agent Profile
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Add Bootstrap's form-control class to all input fields
+        $('input:not(.form-check-input), select, textarea').addClass('form-control');
+        
+        // Handle password change checkbox
+        $('#changePasswordCheck').on('change', function() {
+            if($(this).is(':checked')) {
+                $('#passwordFields').show();
+                $('#id_password1, #id_password2').prop('required', true);
+            } else {
+                $('#passwordFields').hide();
+                $('#id_password1, #id_password2').prop('required', false);
+            }
+        });
+    });
+</script>
+{% endblock %}

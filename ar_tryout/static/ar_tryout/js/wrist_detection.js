@@ -43,50 +43,99 @@ class WristTracker {
     }
     
     async initialize(options = {}) {
-        const {
-            modelUrl,
-            onWristDetected,
-            onWristLost,
-            onVideoReady,
-            onHandDetected,
-            debug = false
-        } = options || {};
-        
-        this.onWristDetected = onWristDetected;
-        this.onWristLost = onWristLost;
-        this.onVideoReady = onVideoReady;
-        this.onHandDetected = onHandDetected;
-        this.debugMode = debug;
-        
         try {
-            // Check if required libraries are available
-            if (!window.handpose) {
-                throw new Error('Handpose library not available');
+            // Store options
+            this.modelUrl = options.modelUrl;
+            this.onWristDetected = options.onWristDetected;
+            this.onWristLost = options.onWristLost;
+            this.onVideoReady = options.onVideoReady;
+            this.onHandDetected = options.onHandDetected;
+            this.debugMode = options.debug || false;
+            
+            // Setup scene first (in case video fails, we still have a 3D scene)
+            await this.setupScene();
+            
+            // Load model
+            if (this.modelUrl) {
+                try {
+                    await this.loadWatchModel(this.modelUrl);
+                } catch (modelError) {
+                    console.error('Error loading watch model:', modelError);
+                    // Continue even if model fails to load - we'll show an error later
+                }
             }
             
-            if (!window.THREE) {
-                throw new Error('THREE.js not available');
+            // Setup video with error handling
+            try {
+                await this.setupVideo();
+            } catch (videoError) {
+                console.error('Camera access error:', videoError);
+                
+                // Show fallback message
+                const fallbackMessage = document.getElementById('fallback-message');
+                if (fallbackMessage) {
+                    fallbackMessage.innerHTML = `
+                        <h3>Camera Access Required</h3>
+                        <p>We couldn't access your camera. This feature requires camera access to work.</p>
+                        <p>Please check your camera permissions and ensure no other app is using your camera.</p>
+                        <div class="fallback-buttons">
+                            <button onclick="window.location.reload()" class="fallback-btn">
+                                <i class='bx bx-refresh'></i> Try Again
+                            </button>
+                            <button id="view-model-btn-error" class="fallback-btn">
+                                <i class='bx bx-cube'></i> View 3D Model
+                            </button>
+                        </div>
+                    `;
+                    fallbackMessage.style.display = 'block';
+                    
+                    // Add event listener for the 3D model button
+                    setTimeout(() => {
+                        const viewModelBtn = document.getElementById('view-model-btn-error');
+                        if (viewModelBtn) {
+                            viewModelBtn.addEventListener('click', () => {
+                                // Hide fallback message
+                                fallbackMessage.style.display = 'none';
+                                
+                                // Trigger fallback mode
+                                const fallbackFn = window.initializeFallbackDirectly || window.initializeFallback;
+                                if (typeof fallbackFn === 'function') {
+                                    fallbackFn();
+                                } else {
+                                    // If fallback function not available, redirect to fallback URL
+                                    const currentUrl = window.location.href;
+                                    const fallbackUrl = new URL(currentUrl);
+                                    fallbackUrl.searchParams.set('mode', 'fallback');
+                                    window.location.href = fallbackUrl.toString();
+                                }
+                            });
+                        }
+                    }, 0);
+                }
+                
+                // Hide loading screen
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.style.display = 'none';
+                }
+                
+                // Return false to indicate initialization failed
+                return false;
             }
             
-            // Setup video first
-            await this.setupVideo();
-            
-            // Setup debug overlay if in debug mode
+            // Setup debug canvas if debug mode is enabled
             if (this.debugMode) {
                 this.setupDebugOverlay();
             }
             
             // Load handpose model
-            console.log('Loading handpose model...');
-            this.handposeModel = await handpose.load();
-            console.log('Handpose model loaded');
-            
-            // Setup THREE.js scene
-            this.setupScene();
-            
-            // Load watch model if URL provided
-            if (modelUrl) {
-                await this.loadWatchModel(modelUrl);
+            try {
+                console.log('Loading handpose model...');
+                this.handposeModel = await handpose.load();
+                console.log('Handpose model loaded');
+            } catch (handposeError) {
+                console.error('Error loading handpose model:', handposeError);
+                throw new Error('Failed to load handpose model: ' + handposeError.message);
             }
             
             // Start tracking
@@ -186,20 +235,25 @@ class WristTracker {
         
         // Create a new canvas element
         const canvas = document.createElement('canvas');
+        canvas.style.position = 'absolute';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
         canvas.style.width = '100%';
         canvas.style.height = '100%';
+        canvas.style.zIndex = '1'; // Above the video
         this.container.appendChild(canvas);
         
         // Setup renderer with improved settings
         try {
             this.renderer = new THREE.WebGLRenderer({ 
                 antialias: true,
-                alpha: true,
+                alpha: true, // Transparent background to see the video
                 canvas: canvas,
                 preserveDrawingBuffer: true // Enable screenshot capability
             });
             this.renderer.setSize(width, height);
             this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit pixel ratio for better performance
+            this.renderer.setClearColor(0x000000, 0); // Transparent background
         } catch (error) {
             console.error('Error creating WebGL renderer:', error);
             throw new Error('Error creating WebGL context: ' + error.message);
@@ -244,11 +298,27 @@ class WristTracker {
                         this.watchModel = gltf.scene;
                         
                         // Increase initial scale for better visibility on mobile
-                        const scale = 2.0; // Increased from 0.5 to 2.0
+                        const scale = 1.5; // Adjusted for better AR experience
                         this.watchModel.scale.set(scale, scale, scale);
                         
                         // Hide model initially
                         this.watchModel.visible = false;
+                        
+                        // Add shadow casting for better realism
+                        this.watchModel.traverse((node) => {
+                            if (node.isMesh) {
+                                node.castShadow = true;
+                                node.receiveShadow = true;
+                                
+                                // Improve material quality if possible
+                                if (node.material) {
+                                    node.material.needsUpdate = true;
+                                    if (node.material.map) {
+                                        node.material.map.anisotropy = 16;
+                                    }
+                                }
+                            }
+                        });
                         
                         this.scene.add(this.watchModel);
                         resolve();
@@ -272,34 +342,98 @@ class WristTracker {
         try {
             // Create video element
             this.video = document.createElement('video');
-            this.video.style.display = 'none';
+            this.video.style.position = 'absolute';
+            this.video.style.top = '0';
+            this.video.style.left = '0';
+            this.video.style.width = '100%';
+            this.video.style.height = '100%';
+            this.video.style.objectFit = 'cover';
+            this.video.style.zIndex = '0'; // Behind the canvas
             this.video.autoplay = true;
             this.video.playsInline = true;
-            document.body.appendChild(this.video);
+            this.video.muted = true;
             
-            // Get camera stream
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: 'environment',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
+            // Add video to container instead of body
+            this.container.appendChild(this.video);
+            
+            // Try to get camera stream with progressive fallbacks
+            let stream = null;
+            const constraints = [
+                // First try: High resolution rear camera
+                {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                },
+                // Second try: Medium resolution rear camera
+                {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    }
+                },
+                // Third try: Any rear camera
+                {
+                    video: {
+                        facingMode: 'environment'
+                    }
+                },
+                // Fourth try: Any camera (including front camera)
+                {
+                    video: true
                 }
-            });
+            ];
+            
+            // Try each constraint set until one works
+            for (let i = 0; i < constraints.length; i++) {
+                try {
+                    console.log(`Attempting to access camera with constraints set ${i+1}:`, constraints[i]);
+                    stream = await navigator.mediaDevices.getUserMedia(constraints[i]);
+                    console.log(`Successfully accessed camera with constraints set ${i+1}`);
+                    break; // Exit the loop if successful
+                } catch (err) {
+                    console.warn(`Failed to access camera with constraints set ${i+1}:`, err);
+                    // Continue to next constraint set unless this is the last one
+                    if (i === constraints.length - 1) {
+                        throw new Error(`Could not access any camera: ${err.message}`);
+                    }
+                }
+            }
+            
+            if (!stream) {
+                throw new Error('Failed to access camera after trying all fallback options');
+            }
             
             this.video.srcObject = stream;
             
             // Wait for video to be ready
             await new Promise((resolve, reject) => {
+                const timeoutId = setTimeout(() => {
+                    reject(new Error('Video loading timeout after 10 seconds'));
+                }, 10000); // 10 second timeout
+                
                 this.video.onloadedmetadata = () => {
+                    clearTimeout(timeoutId);
                     this.video.play().then(() => {
                         // Notify that video is ready
                         if (this.onVideoReady) {
                             this.onVideoReady(this.video);
                         }
+                        console.log(`Video ready: ${this.video.videoWidth}x${this.video.videoHeight}`);
                         resolve();
-                    }).catch(reject);
+                    }).catch(err => {
+                        clearTimeout(timeoutId);
+                        reject(new Error(`Failed to play video: ${err.message}`));
+                    });
                 };
-                this.video.onerror = () => reject(new Error('Failed to load video'));
+                
+                this.video.onerror = (err) => {
+                    clearTimeout(timeoutId);
+                    reject(new Error(`Video error: ${err}`));
+                };
             });
             
             // Log video dimensions for debugging
@@ -307,6 +441,28 @@ class WristTracker {
             
         } catch (error) {
             console.error('Error setting up video:', error);
+            
+            // Show user-friendly error message
+            const statusMessage = document.getElementById('status-message');
+            if (statusMessage) {
+                statusMessage.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h4>Camera Access Error</h4>
+                        <p>We couldn't access your camera. This feature requires camera access to work.</p>
+                        <p>Please check that:</p>
+                        <ul>
+                            <li>You've granted camera permission to this site</li>
+                            <li>No other app is currently using your camera</li>
+                            <li>Your device has a working camera</li>
+                        </ul>
+                        <button onclick="window.location.reload()" class="btn btn-primary mt-2">
+                            <i class='bx bx-refresh'></i> Try Again
+                        </button>
+                    </div>
+                `;
+                statusMessage.style.display = 'block';
+            }
+            
             throw new Error('Failed to setup video: ' + error.message);
         }
     }
@@ -490,9 +646,10 @@ class WristTracker {
                 const videoHeight = this.video.videoHeight || this.video.height;
                 
                 // Adjust position scaling factors for better visibility
-                const wristX = ((wrist[0] / videoWidth) * 2 - 1) * 1.5;  // Reduced from 2 to 1.5
-                const wristY = -((wrist[1] / videoHeight) * 2 - 1) * 1.2; // Reduced from 1.5 to 1.2
-                const wristZ = -wrist[2] / 300; // Adjusted from 200 to 300 for better depth
+                // Map from video coordinates to normalized device coordinates (-1 to 1)
+                const wristX = ((wrist[0] / videoWidth) * 2 - 1) * 1.2;
+                const wristY = -((wrist[1] / videoHeight) * 2 - 1) * 1.0;
+                const wristZ = -wrist[2] / 400; // Adjusted for better depth perception
                 
                 // Update watch model position
                 if (this.watchModel) {
@@ -514,7 +671,7 @@ class WristTracker {
                         
                         // Add a slight tilt for better visibility
                         this.watchModel.rotation.z = angle;
-                        this.watchModel.rotation.x = Math.PI * 0.1; // Add slight tilt
+                        this.watchModel.rotation.x = Math.PI * 0.15; // Increased tilt for better AR appearance
                     }
                 }
                 
@@ -602,7 +759,7 @@ class WristTracker {
                 this.isTracking = false;
                 
                 // Call callback with null to indicate tracking failure
-            if (this.onWristLost) {
+                if (this.onWristLost) {
                     this.onWristLost('tracking_failed');
                 }
             }
@@ -747,12 +904,36 @@ window.initWristTracking = async function(options = {}) {
             throw new Error('Container element is required');
         }
         
+        // Create tracker instance
         const tracker = new WristTracker(container);
-        const success = await tracker.initialize({
-            ...options,
-            debug: true // Enable debug mode for troubleshooting
-        });
-        return success ? tracker : null;
+        
+        // Initialize with options
+        try {
+            const success = await tracker.initialize({
+                ...options,
+                debug: false // Disable debug mode by default to avoid errors
+            });
+            
+            if (!success) {
+                console.warn('Wrist tracker initialization returned false');
+                return null;
+            }
+            
+            return tracker;
+        } catch (initError) {
+            console.error('Error during wrist tracker initialization:', initError);
+            
+            // Clean up resources if initialization failed
+            try {
+                if (tracker && typeof tracker.dispose === 'function') {
+                    tracker.dispose();
+                }
+            } catch (disposeError) {
+                console.warn('Error disposing tracker after failed initialization:', disposeError);
+            }
+            
+            throw initError;
+        }
     } catch (error) {
         console.error('Failed to initialize wrist tracking:', error);
         return null;

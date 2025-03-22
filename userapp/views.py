@@ -119,6 +119,8 @@ def edit_address(request, address_id):
             'state': address.state,
             'country': address.country,
             'address_type': address.address_type,
+            'latitude': float(address.latitude) if address.latitude else None,
+            'longitude': float(address.longitude) if address.longitude else None,
         })
     
     return render(request, 'userapp/address.html', {'form': form, 'edit_address': address})

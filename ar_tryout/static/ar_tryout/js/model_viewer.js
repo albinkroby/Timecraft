@@ -80,8 +80,12 @@ class ModelViewer {
         
         // Create a new canvas element
         const canvas = document.createElement('canvas');
+        canvas.style.position = 'absolute';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
         canvas.style.width = '100%';
         canvas.style.height = '100%';
+        canvas.style.zIndex = '1';
         this.container.appendChild(canvas);
         
         // Setup renderer
@@ -476,8 +480,12 @@ window.initModelViewer = async function(options) {
             
             // Create a new canvas element
             const canvas = document.createElement('canvas');
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
             canvas.style.width = '100%';
             canvas.style.height = '100%';
+            canvas.style.zIndex = '1';
             this.container.appendChild(canvas);
             
             // Setup renderer

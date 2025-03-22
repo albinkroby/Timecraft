@@ -22,6 +22,7 @@ from django.views.static import serve
 urlpatterns = [
     path('superuser/', admin.site.urls),
     path('',include('mainapp.urls')),
+    path('i18n/', include('django.conf.urls.i18n')),
     path('admin/',include('adminapp.urls')),
     path('vendor/',include('vendorapp.urls')),
     path('account/',include('userapp.urls')),
@@ -29,6 +30,8 @@ urlpatterns = [
     path('oauth/', include('social_django.urls', namespace='social')),
     path('support/', include('supportapp.urls')),
     path('ar/', include('ar_tryout.urls', namespace='ar_tryout')),
+    path('delivery/', include('deliveryapp.urls')),
+    # path('blockchain/', include('blockchain.urls')),
     
     re_path(r'^media/(?P<path>.*)$', serve, {
         'document_root': settings.MEDIA_ROOT,

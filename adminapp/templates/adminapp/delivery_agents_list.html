@@ -1,0 +1,182 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}Delivery Agents{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'adminapp:index' %}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Delivery Agents</li>
+    </ol>
+    
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div>
+                <i class='bx bxs-truck me-1'></i>
+                Delivery Agents
+            </div>
+            <a href="{% url 'adminapp:create_delivery_agent' %}" class="btn btn-primary">
+                <i class='bx bx-user-plus'></i> Add Delivery Agent
+            </a>
+        </div>
+        <div class="card-body">
+            {% if delivery_agents %}
+                <div class="table-responsive">
+                    <table class="table table-bordered" id="deliveryAgentsTable" width="100%" cellspacing="0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Vehicle</th>
+                                <th>Status</th>
+                                <th>Deliveries</th>
+                                <th>Rating</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for agent in delivery_agents %}
+                            <tr>
+                                <td>
+                                    {% if agent.profile.profile_image %}
+                                        <img src="{{ agent.profile.profile_image.url }}" alt="{{ agent.fullname }}" class="rounded-circle me-2" style="width: 30px; height: 30px; object-fit: cover;">
+                                    {% else %}
+                                        <i class='bx bxs-user-circle me-2' style="font-size: 1.5rem;"></i>
+                                    {% endif %}
+                                    {{ agent.fullname }}
+                                </td>
+                                <td>{{ agent.email }}</td>
+                                <td>{{ agent.profile.phone }}</td>
+                                <td>
+                                    {% if agent.profile.vehicle_type %}
+                                        {{ agent.profile.vehicle_type }}
+                                        {% if agent.profile.vehicle_number %}
+                                            ({{ agent.profile.vehicle_number }})
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">Not specified</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if agent.profile.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Inactive</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ agent.profile.total_deliveries|default:"0" }}</td>
+                                <td>
+                                    {% if agent.profile.avg_rating %}
+                                        <div class="small text-warning">
+                                            {{ agent.profile.avg_rating|floatformat:1 }}
+                                            {% for i in "12345" %}
+                                                {% if forloop.counter <= agent.profile.avg_rating|floatformat:0|add:"0" %}
+                                                    <i class='bx bxs-star'></i>
+                                                {% elif forloop.counter <= agent.profile.avg_rating|add:"0.5" %}
+                                                    <i class='bx bxs-star-half'></i>
+                                                {% else %}
+                                                    <i class='bx bx-star'></i>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        <span class="text-muted">Not rated</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{% url 'adminapp:view_delivery_agent' agent.id %}" class="btn btn-sm btn-primary">
+                                            <i class='bx bx-show'></i>
+                                        </a>
+                                        <a href="{% url 'adminapp:edit_delivery_agent' agent.id %}" class="btn btn-sm btn-info">
+                                            <i class='bx bxs-edit'></i>
+                                        </a>
+                                        <button class="btn btn-sm {% if agent.profile.is_active %}btn-danger{% else %}btn-success{% endif %} toggle-status" 
+                                                data-user-id="{{ agent.id }}" data-current-status="{{ agent.profile.is_active|lower }}">
+                                            {% if agent.profile.is_active %}
+                                                <i class='bx bx-power-off'></i>
+                                            {% else %}
+                                                <i class='bx bx-power-off'></i>
+                                            {% endif %}
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class='bx bx-info-circle me-2'></i>
+                    No delivery agents found. <a href="{% url 'adminapp:create_delivery_agent' %}" class="alert-link">Add a delivery agent</a> to get started.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize DataTable
+        $('#deliveryAgentsTable').DataTable({
+            responsive: true,
+            order: [[0, 'asc']]
+        });
+        
+        // Toggle status functionality
+        $('.toggle-status').on('click', function() {
+            var userId = $(this).data('user-id');
+            var currentStatus = $(this).data('current-status') === 'true';
+            var btn = $(this);
+            var row = btn.closest('tr');
+            
+            console.log("Toggle clicked for user ID:", userId, "Current status:", currentStatus);
+            
+            $.ajax({
+                url: "{% url 'adminapp:toggle_delivery_agent' 0 %}".replace('0', userId),
+                type: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    console.log("Response received:", response);
+                    if (response.success) {
+                        // Get the new status from the response
+                        var newStatus = response.is_active;
+                        console.log("New status from server:", newStatus);
+                        
+                        // Update button appearance and data attribute based on the response
+                        if (newStatus) {
+                            btn.removeClass('btn-success').addClass('btn-danger');
+                            row.find('.badge').removeClass('bg-danger').addClass('bg-success').text('Active');
+                            btn.html('<i class="bx bx-power-off"></i>');
+                        } else {
+                            btn.removeClass('btn-danger').addClass('btn-success');
+                            row.find('.badge').removeClass('bg-success').addClass('bg-danger').text('Inactive');
+                            btn.html('<i class="bx bx-power-off"></i>');
+                        }
+                        
+                        // Update the data attribute to reflect new status
+                        btn.attr('data-current-status', newStatus);
+                        btn.data('current-status', newStatus);
+                        
+                        // Show success message
+                        showCustomAlert('Delivery agent status updated successfully! New status: ' + (newStatus ? 'Active' : 'Inactive'));
+                    } else {
+                        showCustomAlert('Failed to update status: ' + (response.error || 'Unknown error'));
+                        console.error("Error updating status:", response.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("AJAX error:", status, error);
+                    showCustomAlert('An error occurred while updating the status.');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 

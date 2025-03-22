@@ -1,0 +1,185 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}Add Delivery Agent{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'adminapp:index' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'adminapp:delivery_agents_list' %}">Delivery Agents</a></li>
+        <li class="breadcrumb-item active">Add Delivery Agent</li>
+    </ol>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class='bx bx-user-plus me-1'></i>
+                    New Delivery Agent Details
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <h5>Account Information</h5>
+                                <hr>
+                            </div>
+                        </div>
+                        
+                        {% if user_form.errors %}
+                        <div class="alert alert-danger">
+                            <ul>
+                                {% for field in user_form %}
+                                    {% for error in field.errors %}
+                                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in user_form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ user_form.fullname.id_for_label }}">Full Name</label>
+                                    {{ user_form.fullname }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ user_form.email.id_for_label }}">Email</label>
+                                    {{ user_form.email }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ user_form.username.id_for_label }}">Username</label>
+                                    {{ user_form.username }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ user_form.password1.id_for_label }}">Password</label>
+                                    {{ user_form.password1 }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ user_form.password2.id_for_label }}">Confirm Password</label>
+                                    {{ user_form.password2 }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <h5>Delivery Information</h5>
+                                <hr>
+                            </div>
+                        </div>
+                        
+                        {% if profile_form.errors %}
+                        <div class="alert alert-danger">
+                            <ul>
+                                {% for field in profile_form %}
+                                    {% for error in field.errors %}
+                                        <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in profile_form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ profile_form.phone.id_for_label }}">Phone Number</label>
+                                    {{ profile_form.phone }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ profile_form.vehicle_type.id_for_label }}">Vehicle Type</label>
+                                    {{ profile_form.vehicle_type }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ profile_form.vehicle_number.id_for_label }}">Vehicle Number</label>
+                                    {{ profile_form.vehicle_number }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group mb-3">
+                                    <label for="{{ profile_form.profile_image.id_for_label }}">Profile Image</label>
+                                    {{ profile_form.profile_image }}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 mb-0">
+                            <button type="submit" class="btn btn-primary">
+                                <i class='bx bx-save'></i> Create Delivery Agent
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class='bx bx-info-circle me-1'></i>
+                    Information
+                </div>
+                <div class="card-body">
+                    <p>Creating a delivery agent will:</p>
+                    <ul>
+                        <li>Create a new user account with the 'delivery' role</li>
+                        <li>Create a delivery profile with the provided information</li>
+                        <li>Initialize delivery metrics</li>
+                    </ul>
+                    <p>The delivery agent will be able to:</p>
+                    <ul>
+                        <li>View assigned orders</li>
+                        <li>Update order status</li>
+                        <li>Verify deliveries with OTP</li>
+                        <li>Track their delivery history and metrics</li>
+                    </ul>
+                    <div class="alert alert-info mt-3">
+                        <i class='bx bx-bell me-2'></i>
+                        Make sure to provide the delivery agent with their login credentials after creation.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Add Bootstrap's form-control class to all input fields
+        $('input, select, textarea').addClass('form-control');
+    });
+</script>
+{% endblock %} 

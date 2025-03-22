@@ -14,6 +14,7 @@ class User(AbstractUser):
         ('user', 'User'),
         ('staff', 'Staff'),
         ('vendor', 'Vendor'),
+        ('delivery', 'Delivery'),
     )
     
     fullname = models.CharField(max_length=255)
@@ -52,6 +53,8 @@ class Address(models.Model):
     country = models.CharField(max_length=100)
     address_type = models.CharField(max_length=10, choices=ADDRESS_TYPE_CHOICES, default='home')
     is_primary = models.BooleanField(default=False)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if self.is_primary:
@@ -84,6 +87,10 @@ class CartItem(models.Model):
 
 class Order(models.Model):
     STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('assigned_to_delivery', 'Assigned to Delivery'),
+        ('out_for_delivery', 'Out for Delivery'),
         ('on_the_way', 'On the way'),
         ('delivered', 'Delivered'),
         ('cancelled', 'Cancelled'),
@@ -93,7 +100,7 @@ class Order(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='on_the_way')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     stripe_session_id = models.CharField(max_length=200, blank=True, null=True)
@@ -101,6 +108,9 @@ class Order(models.Model):
     delivery_date = models.DateField(null=True, blank=True)
     cancellation_reason = models.TextField(blank=True, null=True)
     return_reason = models.TextField(blank=True, null=True)
+    delivery_otp = models.CharField(max_length=6, blank=True, null=True)
+    otp_created_at = models.DateTimeField(null=True, blank=True)
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_orders')
 
     def __str__(self):
         return f"Order {self.order_id} by {self.user.email}"

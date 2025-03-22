@@ -28,7 +28,7 @@ class CustomSetPasswordForm(SetPasswordForm):
 class AddressForm(forms.ModelForm):
     class Meta:
         model = Address
-        fields = ['flat_house_no', 'area_street', 'landmark', 'pincode', 'town_city', 'state', 'country','address_type']
+        fields = ['flat_house_no', 'area_street', 'landmark', 'pincode', 'town_city', 'state', 'country','address_type', 'latitude', 'longitude']
         widgets = {
             'flat_house_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Flat/House No:/Building/Company/Apartment'}),
             'area_street': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Area/Street/Sector/Village'}),
@@ -38,6 +38,8 @@ class AddressForm(forms.ModelForm):
             'state': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'State'}),
             'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Country'}),
             'address_type': forms.Select(attrs={'class': 'form-control'}),
+            'latitude': forms.HiddenInput(),
+            'longitude': forms.HiddenInput(),
         }
     
 

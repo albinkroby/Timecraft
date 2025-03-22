@@ -1,0 +1,162 @@
+{% extends 'deliveryapp/base.html' %}
+
+{% block delivery_content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'deliveryapp:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'deliveryapp:assigned_orders' %}">Assigned Orders</a></li>
+                    <li class="breadcrumb-item active">Order {{ order.order_id }}</li>
+                </ol>
+            </nav>
+            
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Order #{{ order.order_id }}</h4>
+                    <span class="badge {% if order.status == 'assigned_to_delivery' %}bg-warning
+                        {% elif order.status == 'out_for_delivery' %}bg-info
+                        {% elif order.status == 'delivered' %}bg-success{% endif %}">
+                        {{ order.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Customer Information</h5>
+                            <p><strong>Name:</strong> {{ order.user.fullname }}</p>
+                            <p><strong>Email:</strong> {{ order.user.email }}</p>
+                            <p><strong>Order Date:</strong> {{ order.created_at|date:"F d, Y" }}</p>
+                            <p><strong>Total Amount:</strong> ₹{{ order.total_amount }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Delivery Address</h5>
+                            <address>
+                                {{ order.address.flat_house_no }}<br>
+                                {{ order.address.area_street }}<br>
+                                {{ order.address.town_city }}, {{ order.address.state }} - {{ order.address.pincode }}<br>
+                                {% if order.address.landmark %}
+                                <strong>Landmark:</strong> {{ order.address.landmark }}
+                                {% endif %}
+                            </address>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h5>Order Items</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order_items %}
+                                <tr>
+                                    <td>{{ item.watch.model_name }}</td>
+                                    <td>₹{{ item.price }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>₹{{ item.total_price }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="3" class="text-end">Total:</th>
+                                    <th>₹{{ order.total_amount }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Update Delivery Status</h5>
+                            {% if order.status != 'delivered' %}
+                            <form method="post">
+                                {% csrf_token %}
+                                <div class="mb-3">
+                                    {{ form.status.label_tag }}
+                                    {{ form.status }}
+                                </div>
+                                <div class="mb-3">
+                                    {{ form.notes.label_tag }}
+                                    {{ form.notes }}
+                                </div>
+                                <button type="submit" class="btn btn-primary">Update Status</button>
+                            </form>
+                            {% else %}
+                            <div class="alert alert-success">
+                                This order has been delivered on {{ order.delivery_date|date:"F d, Y" }}.
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            {% if order.status == 'out_for_delivery' %}
+                            <div class="card border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <h5 class="mb-0">Delivery Verification</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>Enter the OTP provided by the customer to complete the delivery.</p>
+                                    <form method="post" action="{% url 'deliveryapp:verify_otp' order.order_id %}">
+                                        {% csrf_token %}
+                                        <div class="mb-3 text-center">
+                                            {{ otp_form.otp }}
+                                        </div>
+                                        <div class="d-grid">
+                                            <button type="submit" class="btn btn-success btn-lg">Verify & Complete Delivery</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            {% elif order.status == 'assigned_to_delivery' %}
+                            <div class="card border-warning">
+                                <div class="card-header bg-warning text-dark">
+                                    <h5 class="mb-0">Start Delivery</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p>Update the status to "Out for Delivery" when you are on your way to deliver this order.</p>
+                                    <p>An OTP will be sent to the customer for verification upon delivery.</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <h5>Delivery History</h5>
+                    {% if delivery_history %}
+                    <div class="list-group">
+                        {% for update in delivery_history %}
+                        <div class="list-group-item">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ update.status|title }}</h6>
+                                <small>{{ update.timestamp|date:"M d, Y H:i" }}</small>
+                            </div>
+                            {% if update.notes %}
+                            <p class="mb-1">{{ update.notes }}</p>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        No delivery updates yet.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,346 @@
+{% extends 'adminapp/base.html' %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2 class="h3 mb-0">Assign Delivery Agent</h2>
+            <a href="{% url 'adminapp:order_detail' order.order_id %}" class="btn btn-secondary">
+                <i class='bx bx-arrow-back'></i> Back to Order
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-5">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Order Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <p class="text-muted mb-1">Order ID</p>
+                            <p class="fw-bold">{{ order.order_id }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="text-muted mb-1">Order Date</p>
+                            <p>{{ order.created_at|date:"M d, Y" }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p class="text-muted mb-1">Status</p>
+                            <p>
+                                <span class="badge {% if order.status == 'pending' %}bg-warning
+                                        {% elif order.status == 'processing' %}bg-info
+                                        {% else %}bg-secondary{% endif %}">
+                                    {{ order.get_status_display }}
+                                </span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold">Customer Details</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Name</p>
+                            <p>{{ order.user.fullname }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Email</p>
+                            <p>{{ order.user.email }}</p>
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold">Delivery Address</h6>
+                    <div class="mb-3">
+                        <p>{{ order.shipping_address.address_line1 }},
+                            {% if order.shipping_address.address_line2 %}{{ order.shipping_address.address_line2 }}, {% endif %}
+                            {{ order.shipping_address.city }}, {{ order.shipping_address.state }}, {{ order.shipping_address.pincode }}
+                        </p>
+                    </div>
+
+                    <h6 class="fw-bold">Order Summary</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Total Items</p>
+                            <p>{{ order.items.count }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="text-muted mb-1">Total Amount</p>
+                            <p class="fw-bold">₹{{ order.total|floatformat:2 }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Assign Delivery Agent</h5>
+                </div>
+                <div class="card-body">
+                    {% if available_personnel %}
+                        <form method="post">
+                            {% csrf_token %}
+                            
+                            <div class="mb-3">
+                                <label for="{{ form.delivery_person.id_for_label }}" class="form-label">Select Delivery Agent</label>
+                                {{ form.delivery_person }}
+                                {% if form.delivery_person.errors %}
+                                    <div class="text-danger mt-1">
+                                        {{ form.delivery_person.errors }}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class='bx bx-check-circle'></i> Assign Order
+                                </button>
+                                <button type="button" id="autoAssignBtn" class="btn btn-outline-success">
+                                    <i class='bx bx-current-location'></i> Auto-assign to Nearest
+                                </button>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class='bx bx-error-circle me-2'></i>
+                            No delivery agents are currently available. Please try again later or activate more delivery agents.
+                        </div>
+                        
+                        <a href="{% url 'adminapp:delivery_agents_list' %}" class="btn btn-outline-primary">
+                            <i class='bx bx-group'></i> Manage Delivery Agents
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-7">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Delivery Location Map</h5>
+                </div>
+                <div class="card-body">
+                    <div id="deliveryMap" style="height: 400px; width: 100%;"></div>
+                    <div class="mt-3">
+                        <h6>Map Legend:</h6>
+                        <div class="d-flex flex-wrap">
+                            <div class="me-3 mb-2">
+                                <span class="badge bg-danger p-2"><i class='bx bx-map-pin'></i></span> Delivery Address
+                            </div>
+                            <div class="me-3 mb-2">
+                                <span class="badge bg-primary p-2"><i class='bx bx-cycling'></i></span> Available Agents
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Available Delivery Agents</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Agent</th>
+                                    <th>Vehicle</th>
+                                    <th>Status</th>
+                                    <th>Current Load</th>
+                                    <th>Distance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for agent in available_personnel %}
+                                <tr class="agent-row" data-agent-id="{{ agent.id }}">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if agent.delivery_profile.profile_image %}
+                                                <img src="{{ agent.delivery_profile.profile_image.url }}" alt="{{ agent.fullname }}" class="rounded-circle me-2" width="40" height="40">
+                                            {% else %}
+                                                <div class="rounded-circle bg-light d-flex align-items-center justify-content-center me-2" style="width: 40px; height: 40px;">
+                                                    <i class='bx bxs-user' style="font-size: 1.5rem; color: #ccc;"></i>
+                                                </div>
+                                            {% endif %}
+                                            <div>
+                                                <p class="mb-0">{{ agent.fullname }}</p>
+                                                <small class="text-muted">{{ agent.email }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ agent.delivery_profile.vehicle_type }}</td>
+                                    <td>
+                                        <span class="badge bg-success">Active</span>
+                                    </td>
+                                    <td>
+                                        {% with active_count=agent.assigned_orders.count %}
+                                        <div class="progress" style="height: 8px; width: 80px;">
+                                            <div class="progress-bar {% if active_count < 2 %}bg-success{% elif active_count < 4 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                                 role="progressbar" 
+                                                 style="width: {% widthratio active_count|default:0 5 100 %}%;" 
+                                                 aria-valuenow="{{ active_count|default:0 }}" 
+                                                 aria-valuemin="0" 
+                                                 aria-valuemax="5">
+                                            </div>
+                                        </div>
+                                        <small>{{ active_count|default:0 }}/5 orders</small>
+                                        {% endwith %}
+                                    </td>
+                                    <td>
+                                        <span class="distance-value">
+                                            {% if agent.delivery_profile.current_latitude %}
+                                                <span class="badge bg-light text-dark distance-badge" 
+                                                      data-lat="{{ agent.delivery_profile.current_latitude }}" 
+                                                      data-lng="{{ agent.delivery_profile.current_longitude }}">
+                                                    Calculating...
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">Unknown</span>
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet.js CSS and JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+<script>
+    $(document).ready(function() {
+        // Initialize map
+        const deliveryMap = L.map('deliveryMap');
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(deliveryMap);
+        
+        // Customer delivery address marker
+        {% if order.address.latitude and order.address.longitude %}
+            const deliveryLat = {{ order.address.latitude }};
+            const deliveryLng = {{ order.address.longitude }};
+            
+            // Create a red marker for the delivery address
+            const deliveryIcon = L.divIcon({
+                html: '<i class="bx bx-map-pin" style="font-size: 2rem; color: #dc3545;"></i>',
+                className: 'delivery-marker',
+                iconSize: [30, 42],
+                iconAnchor: [15, 42]
+            });
+            
+            L.marker([deliveryLat, deliveryLng], { icon: deliveryIcon }).addTo(deliveryMap)
+                .bindPopup("<strong>Delivery Location</strong><br>{{ order.shipping_address.address_line1 }}");
+            
+            // Set the view to the delivery address
+            deliveryMap.setView([deliveryLat, deliveryLng], 13);
+            
+            // Add available delivery agents to the map
+            {% for agent in available_personnel %}
+                {% if agent.delivery_profile.current_latitude and agent.delivery_profile.current_longitude %}
+                    const agentLat = {{ agent.delivery_profile.current_latitude }};
+                    const agentLng = {{ agent.delivery_profile.current_longitude }};
+                    
+                    // Create a blue marker for each agent
+                    const agentIcon = L.divIcon({
+                        html: '<i class="bx bx-cycling" style="font-size: 2rem; color: #0d6efd;"></i>',
+                        className: 'agent-marker',
+                        iconSize: [30, 30],
+                        iconAnchor: [15, 30]
+                    });
+                    
+                    L.marker([agentLat, agentLng], { icon: agentIcon }).addTo(deliveryMap)
+                        .bindPopup("<strong>{{ agent.fullname }}</strong><br>{{ agent.delivery_profile.vehicle_type }}");
+                    
+                    // Calculate distance
+                    const distance = calculateDistance(
+                        deliveryLat, deliveryLng,
+                        agentLat, agentLng
+                    );
+                    
+                    // Update distance in the table
+                    $('.distance-badge[data-lat="' + agentLat + '"][data-lng="' + agentLng + '"]')
+                        .text(distance.toFixed(2) + ' km');
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            deliveryMap.setView([20.5937, 78.9629], 5); // Default to India center
+            
+            // Show message that delivery location is not set
+            $('#deliveryMap').html(
+                '<div class="alert alert-warning text-center mt-5">' +
+                '<i class="bx bx-error-circle fs-1"></i>' +
+                '<p class="mt-3">Delivery location coordinates not available.</p>' +
+                '<p>The customer did not set their exact location on the map.</p>' +
+                '</div>'
+            );
+        {% endif %}
+        
+        // Click handler for auto-assign button
+        $('#autoAssignBtn').click(function() {
+            // Find the agent with the shortest distance
+            let minDistance = Infinity;
+            let closestAgentId = null;
+            
+            $('.distance-badge').each(function() {
+                const distanceText = $(this).text();
+                if (distanceText !== 'Calculating...') {
+                    const distance = parseFloat(distanceText.replace(' km', ''));
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestAgentId = $(this).closest('tr').data('agent-id');
+                    }
+                }
+            });
+            
+            if (closestAgentId) {
+                // Set the select dropdown to the closest agent
+                $('#id_delivery_person').val(closestAgentId);
+                
+                // Highlight the selected row
+                $('.agent-row').removeClass('table-primary');
+                $('.agent-row[data-agent-id="' + closestAgentId + '"]').addClass('table-primary');
+            }
+        });
+        
+        // Row click handler
+        $('.agent-row').click(function() {
+            const agentId = $(this).data('agent-id');
+            $('#id_delivery_person').val(agentId);
+            
+            // Highlight the selected row
+            $('.agent-row').removeClass('table-primary');
+            $(this).addClass('table-primary');
+        });
+    });
+    
+    // Haversine formula to calculate distance between two points
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Earth radius in km
+        const dLat = deg2rad(lat2 - lat1);
+        const dLon = deg2rad(lon2 - lon1);
+        const a = 
+            Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+            Math.sin(dLon/2) * Math.sin(dLon/2); 
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+        const distance = R * c; // Distance in km
+        return distance;
+    }
+    
+    function deg2rad(deg) {
+        return deg * (Math.PI/180);
+    }
+</script>
+{% endblock %} 

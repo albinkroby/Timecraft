@@ -1,0 +1,262 @@
+{% extends 'deliveryapp/base.html' %}
+
+{% block title %}Profile{% endblock %}
+
+{% block delivery_content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h3 class="mb-0"><i class='bx bx-user-circle me-2'></i>Your Profile</h3>
+        </div>
+        <p class="text-muted">Manage your personal and delivery information</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-xl-4 mb-4">
+        <!-- Profile details card -->
+        <div class="card custom-card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class='bx bx-user me-2'></i>Profile Details</h5>
+            </div>
+            <div class="card-body text-center py-5">
+                {% if profile and profile.profile_image %}
+                    <img src="{{ profile.profile_image.url }}" alt="{{ request.user.fullname }}" class="rounded-circle img-thumbnail mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+                {% else %}
+                    <div class="rounded-circle bg-light d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 150px; height: 150px;">
+                        <i class='bx bxs-user' style="font-size: 5rem; color: #ccc;"></i>
+                    </div>
+                {% endif %}
+                
+                <h4 class="mb-0">{{ request.user.fullname }}</h4>
+                <p class="text-muted mb-3">{{ request.user.email }}</p>
+                
+                <div class="d-flex justify-content-center">
+                    <span class="badge {% if profile.is_active %}bg-success{% else %}bg-danger{% endif %} px-3 py-2 mx-1">
+                        {% if profile.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                    <span class="badge bg-info px-3 py-2 mx-1">Delivery Agent</span>
+                </div>
+                
+                {% if profile %}
+                <div class="mt-4">
+                    <div class="small text-muted">ACCOUNT INFORMATION</div>
+                    <hr class="my-2">
+                    
+                    <div class="row">
+                        <div class="col text-start">
+                            <div class="small text-muted mb-1">Username</div>
+                            <div class="mb-3">{{ request.user.username }}</div>
+                            
+                            <div class="small text-muted mb-1">Phone</div>
+                            <div class="mb-3">{{ profile.phone }}</div>
+                            
+                            <div class="small text-muted mb-1">Joined On</div>
+                            <div class="mb-3">{{ request.user.date_joined|date:"M d, Y" }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="small text-muted">VEHICLE DETAILS</div>
+                    <hr class="my-2">
+                    
+                    <div class="row">
+                        <div class="col text-start">
+                            <div class="small text-muted mb-1">Vehicle Type</div>
+                            <div class="mb-3">{{ profile.vehicle_type|default:"Not specified" }}</div>
+                            
+                            <div class="small text-muted mb-1">Vehicle Number</div>
+                            <div>{{ profile.vehicle_number|default:"Not specified" }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if metrics %}
+        <div class="card custom-card mt-4">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class='bx bx-line-chart me-2'></i>Performance</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class='bx bx-package me-2'></i>Total Deliveries</span>
+                        <span class="fw-bold">{{ metrics.total_deliveries }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class='bx bx-time-five me-2'></i>On-time Deliveries</span>
+                        <span class="fw-bold">{{ metrics.on_time_deliveries }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class='bx bx-star me-2'></i>Average Rating</span>
+                        <span class="fw-bold">
+                            {{ metrics.avg_rating|floatformat:1 }}
+                            <span class="text-warning">
+                                {% for i in "12345" %}
+                                    {% if forloop.counter <= metrics.avg_rating|floatformat:0|add:"0" %}
+                                        <i class='bx bxs-star'></i>
+                                    {% elif forloop.counter <= metrics.avg_rating|add:"0.5" %}
+                                        <i class='bx bxs-star-half'></i>
+                                    {% else %}
+                                        <i class='bx bx-star'></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </span>
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <span><i class='bx bx-map me-2'></i>Total Distance</span>
+                        <span class="fw-bold">{{ metrics.total_distance|floatformat:1 }} km</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-xl-8">
+        <div class="card custom-card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0"><i class='bx bx-edit me-2'></i>Update Profile</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <h5>Account Information</h5>
+                            <hr>
+                        </div>
+                    </div>
+                    
+                    {% if user_form.errors %}
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            {% for field in user_form %}
+                                {% for error in field.errors %}
+                                    <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in user_form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="{{ user_form.fullname.id_for_label }}">Full Name</label>
+                                {{ user_form.fullname }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="{{ user_form.email.id_for_label }}">Email</label>
+                                {{ user_form.email }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="{{ user_form.username.id_for_label }}">Username</label>
+                                {{ user_form.username }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <h5>Delivery Information</h5>
+                            <hr>
+                        </div>
+                    </div>
+                    
+                    {% if profile_form.errors %}
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            {% for field in profile_form %}
+                                {% for error in field.errors %}
+                                    <li><strong>{{ field.label }}:</strong> {{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in profile_form.non_field_errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="{{ profile_form.phone.id_for_label }}">Phone Number</label>
+                                {{ profile_form.phone }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="{{ profile_form.vehicle_type.id_for_label }}">Vehicle Type</label>
+                                {{ profile_form.vehicle_type }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="{{ profile_form.vehicle_number.id_for_label }}">Vehicle Number</label>
+                                {{ profile_form.vehicle_number }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group mb-3">
+                                <label for="{{ profile_form.profile_image.id_for_label }}">Profile Image</label>
+                                {% if profile.profile_image %}
+                                    <div class="mb-2">
+                                        <img src="{{ profile.profile_image.url }}" alt="Current profile image" style="max-width: 100px; max-height: 100px;">
+                                        <p class="small text-muted">Current image</p>
+                                    </div>
+                                {% endif %}
+                                {{ profile_form.profile_image }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class='bx bx-save me-1'></i> Update Profile
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card custom-card mt-4">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class='bx bx-lock-alt me-2'></i>Security</h5>
+            </div>
+            <div class="card-body">
+                <p>Need to change your password? Contact an administrator to reset your password.</p>
+                <a href="{% url 'userapp:password_reset' %}" class="btn btn-outline-warning">
+                    <i class='bx bx-reset me-1'></i> Request Password Reset
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Add Bootstrap's form-control class to all input fields
+        $('input, select, textarea').addClass('form-control');
+    });
+</script>
+{% endblock %} 
