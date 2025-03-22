@@ -69,6 +69,47 @@
 
         async function loadCustomScripts() {
             try {
+                // Check if camera is supported
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    console.warn('Camera API not supported in this browser');
+                    
+                    // Show fallback message
+                    const fallbackMessage = document.getElementById('fallback-message');
+                    const loadingScreen = document.getElementById('loading-screen');
+                    
+                    if (loadingScreen) {
+                        loadingScreen.style.display = 'none';
+                    }
+                    
+                    if (fallbackMessage) {
+                        fallbackMessage.innerHTML = `
+                            <h3>Camera Not Supported</h3>
+                            <p>Your browser doesn't support camera access, which is required for the AR experience.</p>
+                            <p>You can still view the watch in 3D mode.</p>
+                            <div class="fallback-buttons">
+                                <button id="view-model-btn-nosupport" class="fallback-btn">
+                                    <i class='bx bx-cube'></i> View 3D Model
+                                </button>
+                            </div>
+                        `;
+                        fallbackMessage.style.display = 'block';
+                        
+                        // Add event listener for the 3D model button
+                        setTimeout(() => {
+                            const viewModelBtn = document.getElementById('view-model-btn-nosupport');
+                            if (viewModelBtn) {
+                                viewModelBtn.onclick = () => {
+                                    // Start directly in fallback mode (3D viewer)
+                                    initializeFallbackDirectly();
+                                    fallbackMessage.style.display = 'none';
+                                };
+                            }
+                        }, 0);
+                        
+                        return;
+                    }
+                }
+                
                 // Load custom scripts
                 await Promise.all([
                     loadScript("{% static 'ar_tryout/js/wrist_detection.js' %}"),
@@ -119,13 +160,14 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background: #f0f0f0;
+            background: #000000;
         }
 
         .container {
             position: relative;
             width: 100vw;
             height: 100vh;
+            overflow: hidden;
         }
 
         #ar-canvas {
@@ -134,6 +176,18 @@
             left: 0;
             width: 100%;
             height: 100%;
+            z-index: 1;
+        }
+
+        /* Add styles for the video element that will be created by the script */
+        video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
         }
 
         .loading-screen {
@@ -202,6 +256,8 @@
             border-radius: 20px;
             font-size: 14px;
             z-index: 10;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         }
 
         .fallback-message {
@@ -299,14 +355,14 @@
             background: #5b4bc4;
         }
 
-        /* Camera preview styles */
+        /* Camera preview styles - make it smaller and more transparent */
         .camera-preview {
             position: absolute;
             bottom: 100px;
             right: 20px;
-            width: 200px;
-            height: 150px;
-            background: rgba(0, 0, 0, 0.7);
+            width: 150px;
+            height: 112px;
+            background: rgba(0, 0, 0, 0.5);
             border-radius: 10px;
             overflow: hidden;
             z-index: 100;
@@ -650,8 +706,8 @@
                 
                 // Setup preview canvas
                 if (previewCanvas) {
-                    previewCanvas.width = 200;
-                    previewCanvas.height = 100;
+                    previewCanvas.width = 150;
+                    previewCanvas.height = 75;
                     previewCtx = previewCanvas.getContext('2d');
                     
                     // Start preview update loop
@@ -725,6 +781,31 @@
                         throw new Error('THREE.js not available');
                     }
 
+                    // Check for camera permission first
+                    try {
+                        loadingText.textContent = 'Requesting camera access...';
+                        
+                        // Request camera permission explicitly before initializing
+                        const stream = await navigator.mediaDevices.getUserMedia({ 
+                            video: { facingMode: 'environment' } 
+                        });
+                        
+                        // Stop the stream immediately - we just needed to check permission
+                        stream.getTracks().forEach(track => track.stop());
+                        
+                        console.log('Camera permission granted');
+                    } catch (permissionError) {
+                        console.error('Camera permission error:', permissionError);
+                        
+                        // Show specific error for permission denied
+                        if (permissionError.name === 'NotAllowedError' || 
+                            permissionError.name === 'PermissionDeniedError') {
+                            throw new Error('Camera permission denied. Please allow camera access and try again.');
+                        } else {
+                            throw permissionError;
+                        }
+                    }
+
                     // Initialize wrist tracking
                     loadingText.textContent = 'Initializing wrist tracking...';
                     
@@ -742,7 +823,8 @@
                             onWristDetected: handleWristDetected,
                             onWristLost: handleWristLost,
                             onVideoReady: handleVideoReady,
-                            onHandDetected: handleHandDetected
+                            onHandDetected: handleHandDetected,
+                            debug: false // Explicitly disable debug mode
                         });
                         
                         // Race the promises
@@ -778,6 +860,17 @@
                     } catch (trackingError) {
                         console.error('Error in wrist tracking:', trackingError);
                         
+                        // Check for camera access errors
+                        if (trackingError.message && (
+                            trackingError.message.includes('camera') || 
+                            trackingError.message.includes('video') ||
+                            trackingError.message.includes('permission') ||
+                            trackingError.message.includes('NotAllowedError') ||
+                            trackingError.message.includes('NotReadableError')
+                        )) {
+                            throw new Error('Camera access error: ' + trackingError.message);
+                        }
+                        
                         // Check for WebGL context errors
                         if (trackingError.message && (
                             trackingError.message.includes('WebGL context') || 
@@ -786,87 +879,104 @@
                             throw new Error('WebGL context error. Please refresh the page and try again.');
                         }
                         
+                        // Check for specific setupDebugCanvas error
+                        if (trackingError.message && trackingError.message.includes('setupDebugCanvas is not a function')) {
+                            console.warn('Debug canvas error detected, falling back to 3D viewer');
+                            // Fall back to 3D viewer directly
+                            initializeFallbackDirectly();
+                            return;
+                        }
+                        
                         throw trackingError; // Re-throw to be caught by outer catch
                     }
 
                 } catch (error) {
                     console.error('Error initializing AR:', error);
                     
-                    // Show fallback message with buttons
-                    fallbackMessage.style.display = 'block';
+                    // Hide loading screen
+                    loadingScreen.style.display = 'none';
                     
-                    // Update error message if it's a WebGL context error
+                    // Customize fallback message based on error type
+                    let errorTitle = 'Initialization Error';
+                    let errorMessage = 'There was a problem starting the AR experience.';
+                    let errorDetails = error.message || 'Unknown error';
+                    
                     if (error.message && (
+                        error.message.includes('camera') || 
+                        error.message.includes('video') ||
+                        error.message.includes('permission') ||
+                        error.message.includes('NotAllowedError') ||
+                        error.message.includes('NotReadableError')
+                    )) {
+                        errorTitle = 'Camera Access Error';
+                        errorMessage = 'We couldn\'t access your camera. This feature requires camera access to work.';
+                        errorDetails = 'Please check that:<br>' +
+                            '• You\'ve granted camera permission to this site<br>' +
+                            '• No other app is currently using your camera<br>' +
+                            '• Your device has a working camera';
+                    } else if (error.message && (
                         error.message.includes('WebGL context') || 
                         error.message.includes('WebGLRenderer')
                     )) {
-                        fallbackMessage.innerHTML = `
-                            <h3>Graphics Error</h3>
-                            <p>There was a problem with your device's graphics system.</p>
-                            <p>Please refresh the page or try the 3D model viewer instead.</p>
-                            <div class="fallback-buttons">
-                                <button onclick="window.location.reload()" class="fallback-btn">
-                                    <i class='bx bx-refresh'></i> Refresh Page
-                                </button>
-                                <button id="view-model-btn-error" class="fallback-btn">
-                                    <i class='bx bx-cube'></i> View 3D Model
-                                </button>
-                            </div>
-                        `;
-                        
-                        // Add event listener for the new button
-                        setTimeout(() => {
-                            const viewModelBtnError = document.getElementById('view-model-btn-error');
-                            if (viewModelBtnError) {
-                                viewModelBtnError.onclick = () => {
-                                    fallbackMessage.style.display = 'none';
-                                    initializeFallback();
-                                };
-                            }
-                        }, 0);
-                        
-                        return;
+                        errorTitle = 'Graphics Error';
+                        errorMessage = 'There was a problem with your device\'s graphics system.';
+                        errorDetails = 'Your browser may not support WebGL, or there might be a graphics driver issue.';
+                    } else if (error.message && (
+                        error.message.includes('handpose') ||
+                        error.message.includes('TensorFlow')
+                    )) {
+                        errorTitle = 'AI Model Error';
+                        errorMessage = 'There was a problem loading the hand tracking AI model.';
+                        errorDetails = 'This could be due to a slow network connection or insufficient device memory.';
                     }
                     
-                    // Setup button handlers
-                    tryAgainBtn.onclick = () => {
-                        // Hide fallback message
-                        fallbackMessage.style.display = 'none';
+                    // Show fallback message with buttons
+                    fallbackMessage.innerHTML = `
+                        <h3>${errorTitle}</h3>
+                        <p>${errorMessage}</p>
+                        <p style="color: #ff6b6b; font-family: monospace; margin: 10px 0; padding: 10px; background: rgba(0,0,0,0.1); border-radius: 4px; font-size: 12px; overflow-wrap: break-word;">
+                            ${errorDetails}
+                        </p>
+                        <div class="fallback-buttons">
+                            <button id="try-again-btn-error" class="fallback-btn">
+                                <i class='bx bx-refresh'></i> Try Again
+                            </button>
+                            <button id="view-model-btn-error" class="fallback-btn">
+                                <i class='bx bx-cube'></i> View 3D Model
+                            </button>
+                        </div>
+                    `;
+                    fallbackMessage.style.display = 'block';
+                    
+                    // Add event listeners for the buttons
+                    setTimeout(() => {
+                        const tryAgainBtnError = document.getElementById('try-again-btn-error');
+                        const viewModelBtnError = document.getElementById('view-model-btn-error');
                         
-                        // Show loading screen
-                        loadingScreen.style.display = 'flex';
-                        loadingText.textContent = 'Restarting wrist tracking...';
-                        
-                        // Dispose current tracker if exists
-                        if (wristTracker && typeof wristTracker.dispose === 'function') {
-                            try {
-                                wristTracker.dispose();
-                            } catch (error) {
-                                console.warn('Error disposing wrist tracker:', error);
-                            }
-                            wristTracker = null;
+                        if (tryAgainBtnError) {
+                            tryAgainBtnError.onclick = () => {
+                                window.location.reload();
+                            };
                         }
                         
-                        // Force a complete page reload after a short delay
-                        // This is the most reliable way to reset the WebGL context
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 500);
-                    };
-                    
-                    viewModelBtn.onclick = () => {
-                        // Hide fallback message
-                        fallbackMessage.style.display = 'none';
-                        
-                        // Initialize 3D viewer
-                        initializeFallback();
-                    };
+                        if (viewModelBtnError) {
+                            viewModelBtnError.onclick = () => {
+                                fallbackMessage.style.display = 'none';
+                                initializeFallback();
+                            };
+                        }
+                    }, 0);
                 }
             }
 
             // Handle video ready event
             function handleVideoReady(video) {
                 videoElement = video;
+                
+                // Make sure video is visible
+                if (videoElement) {
+                    videoElement.style.display = 'block';
+                }
             }
             
             // Handle hand detected event
@@ -887,8 +997,25 @@
                 try {
                     // Dispose current tracker if exists
                     if (wristTracker && typeof wristTracker.dispose === 'function') {
-                        wristTracker.dispose();
-                        wristTracker = null;
+                        try {
+                            wristTracker.dispose();
+                            wristTracker = null;
+                        } catch (error) {
+                            console.warn('Error disposing wrist tracker:', error);
+                        }
+                    }
+                    
+                    // Hide any error messages
+                    if (fallbackMessage) {
+                        fallbackMessage.style.display = 'none';
+                    }
+                    
+                    if (statusMessage) {
+                        statusMessage.style.display = 'none';
+                    }
+                    
+                    if (cameraPreview) {
+                        cameraPreview.style.display = 'none';
                     }
                     
                     // Force a page reload to ensure a clean WebGL context
@@ -897,6 +1024,8 @@
                     const fallbackUrl = new URL(currentUrl);
                     fallbackUrl.searchParams.set('mode', 'fallback');
                     
+                    // Redirect to fallback mode
+                    console.log('Redirecting to fallback mode:', fallbackUrl.toString());
                     window.location.href = fallbackUrl.toString();
                     return;
                     
@@ -1059,7 +1188,24 @@
 
             // Handle capture button
             captureBtn.addEventListener('click', () => {
-                const image = canvas.toDataURL('image/png');
+                // Create a temporary canvas to combine video and 3D model
+                const tempCanvas = document.createElement('canvas');
+                const width = window.innerWidth;
+                const height = window.innerHeight;
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                const ctx = tempCanvas.getContext('2d');
+                
+                // Draw video first (if available)
+                if (videoElement) {
+                    ctx.drawImage(videoElement, 0, 0, width, height);
+                }
+                
+                // Draw the WebGL canvas on top
+                ctx.drawImage(canvas, 0, 0, width, height);
+                
+                // Get the combined image
+                const image = tempCanvas.toDataURL('image/png');
                 
                 // Create temporary link and trigger download
                 const link = document.createElement('a');
@@ -1169,6 +1315,7 @@
                 canvas.style.left = '0';
                 canvas.style.width = '100%';
                 canvas.style.height = '100%';
+                canvas.style.zIndex = '1';
                 
                 // Add the new canvas
                 container.appendChild(canvas);

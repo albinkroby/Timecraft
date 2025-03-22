@@ -61,6 +61,27 @@
                         {{ form.address_type.label_tag }}
                     </div>
                 </div>
+                
+                {{ form.latitude }}
+                {{ form.longitude }}
+                
+                <div class="col-12 mb-3">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>Pinpoint Your Location</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">To ensure accurate delivery, please mark your exact location on the map.</p>
+                            <div id="locationMap" style="height: 300px; width: 100%;"></div>
+                            <div class="d-flex align-items-center mt-2">
+                                <button type="button" id="useMyLocation" class="btn btn-sm btn-outline-primary me-2">
+                                    <i class='bx bx-current-location'></i> Use My Current Location
+                                </button>
+                                <span id="locationStatus" class="text-muted"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 </div>
                 <div class="mb-3 row">
                     <div class="col-md-6">
@@ -135,17 +156,107 @@
 </div>
 {% endblock %}
 {% block adds_js %}
+<!-- Leaflet.js CSS and JS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
 <script>
     $(document).ready(function(){
         $("#add-address-content").hide();
         $("#add-address").click(function(){
             resetForm();
             $("#add-address-content").show();
+            // Initialize map after the container is visible
+            setTimeout(initMap, 100);
         });
         $("#add-cancel").click(function(){
             $("#add-address-content").hide();
         });
     });
+
+    // Map and marker variables
+    let map, marker;
+    let defaultLat = 20.5937; // Default center of India
+    let defaultLng = 78.9629;
+    
+    function initMap() {
+        // Create map
+        map = L.map('locationMap').setView([defaultLat, defaultLng], 5);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Check if we have existing coordinates (for edit mode)
+        const existingLat = $('#id_latitude').val();
+        const existingLng = $('#id_longitude').val();
+        
+        if (existingLat && existingLng) {
+            // Use existing coordinates
+            placeMarker([parseFloat(existingLat), parseFloat(existingLng)]);
+            map.setView([parseFloat(existingLat), parseFloat(existingLng)], 15);
+        }
+        
+        // Handle clicking on map
+        map.on('click', function(e) {
+            placeMarker(e.latlng);
+            $('#locationStatus').text('Location selected');
+        });
+        
+        // Use current location button
+        $('#useMyLocation').on('click', function() {
+            $('#locationStatus').text('Detecting your location...');
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    // Success
+                    function(position) {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        placeMarker([lat, lng]);
+                        map.setView([lat, lng], 15);
+                        
+                        $('#locationStatus').text('Your current location has been set');
+                    },
+                    // Error
+                    function(error) {
+                        let errorMsg = 'Error detecting location: ';
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMsg += 'Permission denied';
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMsg += 'Position unavailable';
+                                break;
+                            case error.TIMEOUT:
+                                errorMsg += 'Request timed out';
+                                break;
+                            default:
+                                errorMsg += 'Unknown error';
+                        }
+                        $('#locationStatus').text(errorMsg);
+                    }
+                );
+            } else {
+                $('#locationStatus').text('Geolocation is not supported by your browser');
+            }
+        });
+    }
+    
+    function placeMarker(latlng) {
+        // Remove existing marker if any
+        if (marker) {
+            map.removeLayer(marker);
+        }
+        
+        // Add new marker
+        marker = L.marker(latlng).addTo(map);
+        
+        // Update hidden form fields
+        $('#id_latitude').val(latlng.lat || latlng[0]);
+        $('#id_longitude').val(latlng.lng || latlng[1]);
+    }
 
     function editAddress(addressId) {
         fetch(`/account/edit-address/${addressId}/`)
@@ -159,6 +270,9 @@
                 $('#id_town_city').val(data.town_city);
                 $('#id_state').val(data.state);
                 $('#id_country').val(data.country);
+                $('#id_address_type').val(data.address_type);
+                $('#id_latitude').val(data.latitude || '');
+                $('#id_longitude').val(data.longitude || '');
 
                 // Update form title and action
                 $('#form-title').text('Edit Address');
@@ -166,6 +280,16 @@
 
                 // Show the form
                 $("#add-address-content").show();
+                
+                // Initialize map after the container is visible
+                setTimeout(function() {
+                    initMap();
+                    
+                    // If we have coordinates, center the map there
+                    if (data.latitude && data.longitude) {
+                        map.setView([parseFloat(data.latitude), parseFloat(data.longitude)], 15);
+                    }
+                }, 100);
             });
     }
     
@@ -173,6 +297,9 @@
         $('#address-form')[0].reset();
         $('#form-title').text('Add New Address');
         $('#address-form').attr('action', "{% url 'userapp:add_address' %}");
+        $('#id_latitude').val('');
+        $('#id_longitude').val('');
+        $('#locationStatus').text('');
     }
 
     function showDeleteConfirmation(addressId) {

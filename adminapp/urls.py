@@ -1,7 +1,8 @@
-from django.urls import path,reverse_lazy
+from django.urls import path,reverse_lazy, include
 from . import views
 from django.contrib.auth import views as auth_views
 from django.views.decorators.csrf import csrf_protect
+from django.shortcuts import redirect
 
 app_name="adminapp"
 urlpatterns = [
@@ -76,4 +77,16 @@ urlpatterns = [
     path('staff/', views.staff_list, name='staff_list'),
     path('staff/add/', views.add_staff, name='add_staff'),
     path('staff/toggle-access/<int:staff_id>/', views.toggle_staff_access, name='toggle_staff_access'),
+
+    # Delivery Agent Management
+    path('delivery-agents/', views.delivery_agents_list, name='delivery_agents_list'),
+    path('delivery-agents/create/', views.create_delivery_agent, name='create_delivery_agent'),
+    path('delivery-agents/<int:user_id>/', views.view_delivery_agent, name='view_delivery_agent'),
+    path('delivery-agents/<int:user_id>/edit/', views.edit_delivery_agent, name='edit_delivery_agent'),
+    path('delivery-agents/<int:user_id>/toggle/', views.toggle_delivery_agent, name='toggle_delivery_agent'),
+    
+    # Redirect to delivery app for order assignment
+    path('orders/<str:order_id>/assign-delivery/', 
+         lambda request, order_id: redirect('deliveryapp:admin_assign_delivery', order_id=order_id), 
+         name='assign_delivery_agent'),
 ]

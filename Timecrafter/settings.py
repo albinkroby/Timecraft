@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'blockchain',
     'ar_tryout',
     'watch_customizer',
+    'deliveryapp',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

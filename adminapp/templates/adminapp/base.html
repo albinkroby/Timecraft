@@ -33,6 +33,9 @@
     <!--=============== CHART.JS ===============-->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+
     <title>Time Craft</title>
 </head>
 <style>
@@ -169,6 +172,20 @@
                             </a>
                         </div>
                     </div>
+                    <a href="#" class="list-group-item list-group-item-action {% if 'delivery' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#deliveryCollapse" aria-expanded="false">
+                        <i class='bx bx-group'></i> Delivery Agents <i class='bx bx-chevron-down float-end'></i>
+                    </a>
+                    <div class="collapse {% if 'delivery' in request.resolver_match.url_name %}show{% endif %}" id="deliveryCollapse">
+                        <div class="list-group">
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'delivery_agents_list' %}active{% endif %}" href="{% url 'adminapp:delivery_agents_list' %}">
+                                <i class='bx bx-list-ul'></i> Delivery Agents
+                            </a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'create_delivery_agent' %}active{% endif %}" href="{% url 'adminapp:create_delivery_agent' %}">
+                                <i class='bx bx-user-plus'></i> Add Delivery Agent
+                            </a>
+                            
+                        </div>
+                    </div>
                 </div>
                 <div class="sidebar-heading mt-3">
                     PAGES
@@ -265,6 +282,9 @@
         });
     </script>
 
-    
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
 </body>
 </html>

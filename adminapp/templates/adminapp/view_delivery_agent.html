@@ -1,0 +1,300 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}View Delivery Agent - {{ agent.fullname }}{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'adminapp:index' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'adminapp:delivery_agents_list' %}">Delivery Agents</a></li>
+        <li class="breadcrumb-item active">{{ agent.fullname }}</li>
+    </ol>
+    
+    <div class="row">
+        <div class="col-xl-4">
+            <!-- Profile Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class='bx bxs-user-circle me-1'></i>
+                            Profile Information
+                        </div>
+                        <a href="{% url 'adminapp:edit_delivery_agent' agent.id %}" class="btn btn-sm btn-primary">
+                            <i class='bx bxs-edit'></i> Edit
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body text-center">
+                    {% if profile.profile_image %}
+                        <img src="{{ profile.profile_image.url }}" alt="{{ agent.fullname }}" class="img-account-profile rounded-circle mb-2" style="width: 150px; height: 150px; object-fit: cover;">
+                    {% else %}
+                        <img src="https://via.placeholder.com/150" alt="{{ agent.fullname }}" class="img-account-profile rounded-circle mb-2">
+                    {% endif %}
+                    <h4 class="mb-1">{{ agent.fullname }}</h4>
+                    <div class="small font-italic text-muted mb-2">{{ agent.username }}</div>
+                    
+                    {% if profile.is_active %}
+                        <span class="badge bg-success mb-3">Active</span>
+                    {% else %}
+                        <span class="badge bg-danger mb-3">Inactive</span>
+                    {% endif %}
+                    
+                    <button id="toggleStatusBtn" class="btn btn-sm {% if profile.is_active %}btn-danger{% else %}btn-success{% endif %} mb-3" 
+                            data-user-id="{{ agent.id }}" data-current-status="{{ profile.is_active|lower }}">
+                        {% if profile.is_active %}<i class='bx bx-power-off'></i> Deactivate{% else %}<i class='bx bx-power-off'></i> Activate{% endif %} Account
+                    </button>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class='bx bx-envelope me-2'></i> Email
+                        <span>{{ agent.email }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class='bx bx-phone me-2'></i> Phone
+                        <span>{{ profile.phone }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class='bx bx-car me-2'></i> Vehicle Type
+                        <span>{{ profile.vehicle_type }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class='bx bx-id-card me-2'></i> Vehicle Number
+                        <span>{{ profile.vehicle_number }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class='bx bx-calendar me-2'></i> Date Joined
+                        <span>{{ agent.date_joined|date:"M d, Y" }}</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Metrics Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class='bx bx-line-chart me-1'></i>
+                    Delivery Metrics
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class='bx bx-package me-2'></i> Total Deliveries
+                        <span>{{ metrics.total_deliveries }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class='bx bx-time me-2'></i> On-time Deliveries
+                        <span>{{ metrics.on_time_deliveries }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class='bx bxs-star me-2'></i> Average Rating
+                        <div>
+                            <span>{{ metrics.avg_rating|floatformat:1 }}</span>
+                            <div class="small text-warning">
+                                {% for i in "12345" %}
+                                    {% if forloop.counter <= metrics.avg_rating|floatformat:0|add:"0" %}
+                                        <i class='bx bxs-star'></i>
+                                    {% elif forloop.counter <= metrics.avg_rating|floatformat:0|add:"0.5" %}
+                                        <i class='bx bxs-star-half'></i>
+                                    {% else %}
+                                        <i class='bx bx-star'></i>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <i class='bx bx-map me-2'></i> Total Distance
+                        <span>{{ metrics.total_distance|floatformat:1 }} km</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="col-xl-8">
+            <!-- Current Orders Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class='bx bxs-truck me-1'></i>
+                    Currently Assigned Orders
+                </div>
+                <div class="card-body">
+                    {% if assigned_orders %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="activeOrdersTable" width="100%" cellspacing="0">
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Customer</th>
+                                        <th>Status</th>
+                                        <th>Assigned Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for order in assigned_orders %}
+                                    <tr>
+                                        <td>{{ order.order_id }}</td>
+                                        <td>{{ order.customer.fullname }}</td>
+                                        <td>
+                                            <span class="badge 
+                                                {% if order.status == 'pending' %}bg-warning
+                                                {% elif order.status == 'processing' %}bg-info
+                                                {% elif order.status == 'out_for_delivery' %}bg-primary
+                                                {% elif order.status == 'delivered' %}bg-success
+                                                {% elif order.status == 'cancelled' %}bg-danger
+                                                {% else %}bg-secondary{% endif %}">
+                                                {{ order.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ order.delivery_assigned_at|date:"M d, Y H:i" }}</td>
+                                        <td>
+                                            <a href="{% url 'adminapp:order_detail' order.id %}" class="btn btn-sm btn-primary">
+                                                <i class='bx bx-show'></i> View
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class='bx bx-info-circle me-2'></i>
+                            No orders currently assigned to this delivery agent.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Delivery History Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class='bx bx-history me-1'></i>
+                    Delivery History
+                </div>
+                <div class="card-body">
+                    {% if completed_orders %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered" id="historyTable" width="100%" cellspacing="0">
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Customer</th>
+                                        <th>Delivered Date</th>
+                                        <th>Amount</th>
+                                        <th>Rating</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for order in completed_orders %}
+                                    <tr>
+                                        <td>{{ order.order_id }}</td>
+                                        <td>{{ order.customer.fullname }}</td>
+                                        <td>{{ order.delivered_at|date:"M d, Y H:i" }}</td>
+                                        <td>${{ order.total|floatformat:2 }}</td>
+                                        <td>
+                                            {% if order.delivery_rating %}
+                                                <div class="small text-warning">
+                                                    {% for i in "12345" %}
+                                                        {% if forloop.counter <= order.delivery_rating %}
+                                                            <i class='bx bxs-star'></i>
+                                                        {% else %}
+                                                            <i class='bx bx-star'></i>
+                                                        {% endif %}
+                                                    {% endfor %}
+                                                </div>
+                                            {% else %}
+                                                <span class="text-muted">Not rated</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="{% url 'adminapp:order_detail' order.id %}" class="btn btn-sm btn-primary">
+                                                <i class='bx bx-show'></i> View
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class='bx bx-info-circle me-2'></i>
+                            No completed deliveries found for this agent.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Initialize datatables
+        $('#activeOrdersTable').DataTable({
+            responsive: true,
+            order: [[3, 'desc']]
+        });
+        
+        $('#historyTable').DataTable({
+            responsive: true,
+            order: [[2, 'desc']]
+        });
+        
+        // Toggle status button functionality
+        $('#toggleStatusBtn').on('click', function() {
+            var userId = $(this).data('user-id');
+            var currentStatus = $(this).data('current-status') === 'true';
+            var btn = $(this);
+            
+            console.log("Toggle clicked for user ID:", userId, "Current status:", currentStatus);
+            
+            $.ajax({
+                url: "{% url 'adminapp:toggle_delivery_agent' 0 %}".replace('0', userId),
+                type: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                success: function(response) {
+                    console.log("Response received:", response);
+                    if (response.success) {
+                        // Get the new status from the response
+                        var newStatus = response.is_active;
+                        console.log("New status from server:", newStatus);
+                        
+                        // Update button appearance based on the response
+                        if (newStatus) {
+                            // Active → show deactivate button
+                            btn.removeClass('btn-success').addClass('btn-danger');
+                            btn.html('<i class="bx bx-power-off"></i> Deactivate Account');
+                            $('.badge').removeClass('bg-danger').addClass('bg-success').text('Active');
+                        } else {
+                            // Inactive → show activate button
+                            btn.removeClass('btn-danger').addClass('btn-success');
+                            btn.html('<i class="bx bx-power-off"></i> Activate Account');
+                            $('.badge').removeClass('bg-success').addClass('bg-danger').text('Inactive');
+                        }
+                        
+                        // Update data attribute to match the response
+                        btn.attr('data-current-status', newStatus);
+                        btn.data('current-status', newStatus); // Keep this for immediate use
+                        
+                        // Show success message
+                        showCustomAlert('Delivery agent status updated successfully! New status: ' + (newStatus ? 'Active' : 'Inactive'));
+                    } else {
+                        showCustomAlert('Failed to update status: ' + (response.error || 'Unknown error'));
+                        console.error("Error updating status:", response.error);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("AJAX error:", status, error);
+                    showCustomAlert('An error occurred while updating the status.');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 

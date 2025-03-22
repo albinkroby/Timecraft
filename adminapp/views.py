@@ -46,6 +46,8 @@ from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import permission_required
 from django.contrib.auth.models import User, Permission
+from deliveryapp.models import DeliveryProfile, DeliveryMetrics
+from .forms import DeliveryAgentCreationForm, DeliveryAgentProfileForm
 # Create your views here.
 User=get_user_model()
 
@@ -1400,4 +1402,187 @@ def assign_role_permissions(user, role):
         for perm_codename in permissions[role]:
             perm = Permission.objects.get(codename=perm_codename)
             user.user_permissions.add(perm)
+
+@login_required
+@user_type_required('admin')
+def delivery_agents_list(request):
+    """View all delivery agents"""
+    delivery_agents = User.objects.filter(role='delivery').select_related('delivery_profile')
+    
+    context = {
+        'delivery_agents': delivery_agents,
+    }
+    
+    return render(request, 'adminapp/delivery_agents_list.html', context)
+
+@login_required
+@user_type_required('admin')
+def create_delivery_agent(request):
+    """Create a new delivery agent"""
+    if request.method == 'POST':
+        user_form = DeliveryAgentCreationForm(request.POST)
+        profile_form = DeliveryAgentProfileForm(request.POST, request.FILES)
+        
+        if user_form.is_valid() and profile_form.is_valid():
+            with transaction.atomic():
+                # Create user
+                user = user_form.save()
+                
+                # Create profile
+                profile = profile_form.save(commit=False)
+                profile.user = user
+                profile.is_active = True
+                profile.save()
+                
+                # Create metrics
+                DeliveryMetrics.objects.create(delivery_person=user)
+            
+            messages.success(request, f"Delivery agent {user.fullname} created successfully.")
+            return redirect('adminapp:delivery_agents_list')
+    else:
+        user_form = DeliveryAgentCreationForm()
+        profile_form = DeliveryAgentProfileForm()
+    
+    context = {
+        'user_form': user_form,
+        'profile_form': profile_form,
+        'title': 'Add Delivery Agent',
+    }
+    
+    return render(request, 'adminapp/create_delivery_agent.html', context)
+
+@login_required
+@user_type_required('admin')
+def view_delivery_agent(request, user_id):
+    """View details of a delivery agent"""
+    delivery_agent = get_object_or_404(User.objects.filter(role='delivery'), id=user_id)
+    
+    try:
+        profile = DeliveryProfile.objects.get(user=delivery_agent)
+    except DeliveryProfile.DoesNotExist:
+        profile = None
+    
+    try:
+        metrics = DeliveryMetrics.objects.get(delivery_person=delivery_agent)
+    except DeliveryMetrics.DoesNotExist:
+        metrics = None
+    
+    # Get assigned orders
+    assigned_orders = Order.objects.filter(
+        assigned_to=delivery_agent,
+        status__in=['assigned_to_delivery', 'out_for_delivery']
+    ).order_by('-created_at')
+    
+    # Get completed orders
+    completed_orders = Order.objects.filter(
+        assigned_to=delivery_agent,
+        status='delivered'
+    ).order_by('-delivery_date')[:10]
+    
+    context = {
+        'agent': delivery_agent,
+        'profile': profile,
+        'metrics': metrics,
+        'assigned_orders': assigned_orders,
+        'completed_orders': completed_orders,
+        'title': f'Delivery Agent: {delivery_agent.fullname}',
+    }
+    
+    return render(request, 'adminapp/view_delivery_agent.html', context)
+
+@login_required
+@user_type_required('admin')
+@require_POST
+def toggle_delivery_agent(request, user_id):
+    """Toggle active status of a delivery agent"""
+    print(f"Toggle requested for user_id: {user_id}")
+    delivery_agent = get_object_or_404(User.objects.filter(role='delivery'), id=user_id)
+    
+    try:
+        profile = DeliveryProfile.objects.get(user=delivery_agent)
+        # Print before values for debugging
+        print(f"BEFORE: user.is_active={delivery_agent.is_active}, profile.is_active={profile.is_active}")
+        
+        # Toggle both the profile and user's active status
+        profile.is_active = not profile.is_active
+        delivery_agent.is_active = profile.is_active
+        
+        # Save both models in a transaction to ensure consistency
+        with transaction.atomic():
+            profile.save(update_fields=['is_active'])
+            delivery_agent.save(update_fields=['is_active'])
+        
+        # Verify the changes after saving
+        # Refresh from database to confirm changes
+        delivery_agent.refresh_from_db()
+        profile.refresh_from_db()
+        print(f"AFTER: user.is_active={delivery_agent.is_active}, profile.is_active={profile.is_active}")
+        
+        status = 'activated' if profile.is_active else 'deactivated'
+        messages.success(request, f"Delivery agent {delivery_agent.fullname} has been {status}.")
+        
+        return JsonResponse({
+            'success': True, 
+            'is_active': profile.is_active,
+            'user_active': delivery_agent.is_active,
+            'message': f"Delivery agent has been {status}."
+        })
+    except DeliveryProfile.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Profile not found'})
+    except Exception as e:
+        print(f"Error in toggle_delivery_agent: {str(e)}")
+        return JsonResponse({'success': False, 'error': str(e)})
+
+@login_required
+@user_type_required('admin')
+def edit_delivery_agent(request, user_id):
+    """Edit a delivery agent's details"""
+    delivery_agent = get_object_or_404(User.objects.filter(role='delivery'), id=user_id)
+    
+    try:
+        profile = DeliveryProfile.objects.get(user=delivery_agent)
+    except DeliveryProfile.DoesNotExist:
+        profile = None
+    
+    if request.method == 'POST':
+        user_form = DeliveryAgentCreationForm(request.POST, instance=delivery_agent)
+        profile_form = DeliveryAgentProfileForm(request.POST, request.FILES, instance=profile)
+        
+        # Remove password validation if no new password provided
+        if not request.POST.get('password1'):
+            user_form.fields.pop('password1')
+            user_form.fields.pop('password2')
+        
+        if user_form.is_valid() and profile_form.is_valid():
+            with transaction.atomic():
+                # Update user
+                user = user_form.save(commit=False)
+                if request.POST.get('password1'):
+                    user.set_password(user_form.cleaned_data.get('password1'))
+                user.save()
+                
+                # Update profile
+                profile = profile_form.save(commit=False)
+                profile.user = user
+                profile.save()
+            
+            messages.success(request, f"Delivery agent {user.fullname} updated successfully.")
+            return redirect('adminapp:view_delivery_agent', user_id=user.id)
+    else:
+        user_form = DeliveryAgentCreationForm(instance=delivery_agent)
+        profile_form = DeliveryAgentProfileForm(instance=profile)
+        
+        # Remove password fields for edit form
+        user_form.fields.pop('password1')
+        user_form.fields.pop('password2')
+    
+    context = {
+        'user_form': user_form,
+        'profile_form': profile_form,
+        'agent': delivery_agent,
+        'profile': profile,
+        'title': f'Edit Delivery Agent: {delivery_agent.fullname}',
+    }
+    
+    return render(request, 'adminapp/edit_delivery_agent.html', context)
 
