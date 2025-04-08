@@ -34,7 +34,6 @@ from django.db.models.functions import TruncHour, TruncDate
 from django.utils import timezone
 from datetime import timedelta
 from dateutil.relativedelta import relativedelta
-import json
 import calendar
 from django.utils import timezone
 from django.utils.timezone import make_aware
@@ -779,16 +778,6 @@ def delete_watch_part(request, part_id):
 @never_cache
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
-def delete_watch_part_option(request, option_id):
-    if request.method == 'POST':
-        option = get_object_or_404(WatchPartOption, id=option_id)
-        option.delete()
-        return JsonResponse({'success': True, 'message': 'Watch part option deleted successfully.'})
-    return JsonResponse({'success': False, 'message': 'Invalid request method.'})
-
-@never_cache
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
 def edit_customizable_watch(request, watch_id):
     watch = get_object_or_404(CustomizableWatch, id=watch_id)
     customizable_parts = CustomizableWatchPart.objects.filter(customizable_watch=watch)
@@ -1032,7 +1021,6 @@ def analysis_view(request):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def add_part_option_ajax(request):
-    form = WatchPartOptionForm(request.POST, request.FILES)
     part_id = request.POST.get('part_id')
     
     if not part_id:
@@ -1042,32 +1030,90 @@ def add_part_option_ajax(request):
         }, status=400)
     
     try:
-        customizable_part = CustomizableWatchPart.objects.get(id=part_id)
-    except CustomizableWatchPart.DoesNotExist:
+        # Check if we're getting a CustomizableWatchPart or a WatchPart
+        try:
+            customizable_part = CustomizableWatchPart.objects.get(id=part_id)
+            part = customizable_part.part
+            is_customizable_part = True
+        except CustomizableWatchPart.DoesNotExist:
+            try:
+                part = WatchPart.objects.get(id=part_id)
+                is_customizable_part = False
+            except WatchPart.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Part not found'
+                }, status=404)
+        
+        # Handle direct color submission (without form)
+        if 'color' in request.POST:
+            name = request.POST.get('name')
+            price = request.POST.get('price')
+            stock = request.POST.get('stock', 0)
+            color = request.POST.get('color')
+            
+            if not name or not price:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Name and price are required'
+                }, status=400)
+            
+            # Create option
+            option = WatchPartOption.objects.create(
+                part=part,
+                name=name,
+                price=price,
+                stock=stock,
+                color=color
+            )
+            
+            # If this is a customizable part, add the option to it
+            if is_customizable_part:
+                customizable_part.options.add(option)
+            
+            return JsonResponse({
+                'success': True,
+                'option_id': option.id,
+                'message': 'Option added successfully'
+            })
+        else:
+            # Handle form submission (with files)
+            form = WatchPartOptionForm(request.POST, request.FILES)
+            
+            if form.is_valid():
+                option = form.save(commit=False)
+                option.part = part
+                
+                # Add color if specified
+                if 'color' in request.POST and request.POST.get('color'):
+                    option.color = request.POST.get('color')
+                    
+                option.save()
+                
+                # If this is a customizable part, add the option to it
+                if is_customizable_part:
+                    customizable_part.options.add(option)
+                
+                html = render_to_string('adminapp/partials/option_card.html', {
+                    'option': option
+                }, request=request)
+                
+                return JsonResponse({
+                    'success': True,
+                    'html': html,
+                    'option_id': option.id
+                })
+            
+            return JsonResponse({
+                'success': False,
+                'errors': form.errors
+            })
+            
+    except Exception as e:
         return JsonResponse({
             'success': False,
-            'message': 'Part not found'
-        }, status=404)
-    
-    if form.is_valid():
-        option = form.save(commit=False)
-        option.part = customizable_part.part
-        option.save()
-        customizable_part.options.add(option)
-        
-        html = render_to_string('adminapp/partials/option_card.html', {
-            'option': option
-        }, request=request)
-        
-        return JsonResponse({
-            'success': True,
-            'html': html
-        })
-    
-    return JsonResponse({
-        'success': False,
-        'errors': form.errors
-    })
+            'message': str(e)
+        }, status=500)
 
 @require_POST
 @login_required
@@ -1155,6 +1201,18 @@ def edit_part_option_ajax(request):
         # Update name
         option.name = request.POST.get('name')
         
+        # Update price if provided
+        if 'price' in request.POST:
+            option.price = request.POST.get('price')
+            
+        # Update stock if provided
+        if 'stock' in request.POST:
+            option.stock = request.POST.get('stock')
+        
+        # Update color if provided
+        if 'color' in request.POST:
+            option.color = request.POST.get('color')
+        
         # Update thumbnail if provided
         if 'thumbnail' in request.FILES:
             if option.thumbnail:
@@ -1230,33 +1288,144 @@ def update_option_price(request):
 
 @login_required
 def get_watch_parts(request):
+    """
+    API endpoint to get watch parts for the selected watch
+    """
+    watch_id = request.GET.get('watch_id')
+    if not watch_id:
+        return JsonResponse({'success': False, 'message': 'Watch ID is required'})
+    
     try:
-        watch_id = request.GET.get('watch_id')
         watch = CustomizableWatch.objects.get(id=watch_id)
-        parts = CustomizableWatchPart.objects.filter(customizable_watch=watch).select_related('part__part_name')
+        parts = []
         
-        parts_data = []
-        for part in parts:
-            options = [{
-                'id': option.id,
-                'name': option.name,
-                'price': option.price
-            } for option in part.options.all()]
-            
-            parts_data.append({
-                'id': part.id,
-                'part_name': part.part.part_name.name,
-                'options': options
+        for part in watch.customizable_parts.all():
+            parts.append({
+                'id': part.part.id,
+                'name': part.part.part_name.name,
+                'model_path': part.part.model_path
             })
-            
-        return JsonResponse({
-            'success': True,
-            'parts': parts_data
-        })
+        
+        return JsonResponse({'success': True, 'parts': parts})
     except CustomizableWatch.DoesNotExist:
         return JsonResponse({'success': False, 'message': 'Watch not found'})
+
+@login_required
+def get_part_options(request):
+    """
+    API endpoint to get options for a specific part
+    """
+    part_id = request.GET.get('part_id')
+    if not part_id:
+        return JsonResponse({'success': False, 'message': 'Part ID is required'})
+    
+    try:
+        part = WatchPart.objects.get(id=part_id)
+        options = []
+        
+        for option in part.options.all():
+            options.append({
+                'id': option.id,
+                'name': option.name,
+                'price': str(option.price),
+                'stock': option.stock,
+                'color': option.color
+            })
+        
+        return JsonResponse({'success': True, 'options': options})
+    except WatchPart.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Part not found'})
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def configure_watch_parts(request, watch_id):
+    """
+    View for configuring watch parts with 3D interactive editor
+    """
+    try:
+        watch = CustomizableWatch.objects.get(id=watch_id)
+    except CustomizableWatch.DoesNotExist:
+        messages.error(request, 'Watch not found')
+        return redirect('adminapp:customizable_watch_list')
+    
+    if request.method == 'POST':
+        # Process the submitted part configuration
+        try:
+            part_data = json.loads(request.POST.get('part_data', '[]'))
+            
+            # Process each configured part
+            for part_config in part_data:
+                # Get or create part name
+                part_name, _ = WatchPartName.objects.get_or_create(name=part_config['category'])
+                
+                # Create the watch part
+                part, created = WatchPart.objects.get_or_create(
+                    part_name=part_name,
+                    model_path=part_config['modelPath'],
+                    defaults={
+                        'description': part_config['description']
+                    }
+                )
+                
+                if not created:
+                    # Update the description if part already exists
+                    part.description = part_config['description']
+                    part.save()
+                
+                # Get or create the customizable part
+                customizable_part, _ = CustomizableWatchPart.objects.get_or_create(
+                    customizable_watch=watch,
+                    part=part
+                )
+                
+                # Process color options
+                if 'colorOptions' in part_config and part_config['colorOptions']:
+                    for color_option in part_config['colorOptions']:
+                        # Create the option
+                        option = WatchPartOption.objects.create(
+                            part=part,
+                            name=color_option['name'],
+                            price=color_option['price'],
+                            color=color_option['color'],
+                            stock=10  # Default stock
+                        )
+                        
+                        # Add to customizable part
+                        customizable_part.options.add(option)
+            
+            messages.success(request, 'Watch parts configured successfully!')
+            return redirect('adminapp:view_customizable_watch', watch_id=watch.id)
+            
+        except Exception as e:
+            messages.error(request, f'Error saving part configuration: {str(e)}')
+    
+    context = {
+        'watch': watch
+    }
+    return render(request, 'adminapp/3d_part_configurator.html', context)
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def get_model_path(request, watch_id):
+    """
+    API to get the model path for a watch
+    """
+    try:
+        watch = CustomizableWatch.objects.get(id=watch_id)
+        return JsonResponse({
+            'success': True,
+            'model_path': watch.model_file.url
+        })
+    except CustomizableWatch.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Watch not found'
+        }, status=404)
     except Exception as e:
-        return JsonResponse({'success': False, 'message': str(e)})
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
 
 @login_required
 def custom_watch_orders(request):
@@ -1585,4 +1754,58 @@ def edit_delivery_agent(request, user_id):
     }
     
     return render(request, 'adminapp/edit_delivery_agent.html', context)
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def model_editor(request, watch_id):
+    """
+    Provides a 3D model editor interface for modifying watch models
+    """
+    try:
+        watch = CustomizableWatch.objects.get(id=watch_id)
+    except CustomizableWatch.DoesNotExist:
+        messages.error(request, "Watch not found")
+        return redirect('adminapp:customizable_watch_list')
+    
+    # Handle model data submission
+    if request.method == 'POST' and request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        try:
+            # Get model data from request
+            model_data = request.POST.get('model_data')
+            
+            if not model_data:
+                return JsonResponse({'success': False, 'message': 'No model data received'})
+            
+            # Create temporary file for model data
+            import tempfile
+            import os
+            import json
+            from django.core.files import File
+            
+            # Create temp directory if it doesn't exist
+            temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp')
+            os.makedirs(temp_dir, exist_ok=True)
+            
+            # Create temp file
+            with tempfile.NamedTemporaryFile(suffix='.gltf', dir=temp_dir, delete=False) as tmp:
+                # Write model data to file
+                tmp.write(json.dumps(json.loads(model_data), indent=2).encode('utf-8'))
+                tmp_path = tmp.name
+            
+            # Update watch model file
+            with open(tmp_path, 'rb') as f:
+                watch.model_file.save(f'edited_model_{watch_id}.gltf', File(f), save=True)
+            
+            # Remove temp file
+            os.unlink(tmp_path)
+            
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'message': str(e)})
+    
+    context = {
+        'watch': watch,
+        'page_title': f'3D Model Editor - {watch.name}'
+    }
+    return render(request, 'adminapp/3d_model_editor.html', context)
 

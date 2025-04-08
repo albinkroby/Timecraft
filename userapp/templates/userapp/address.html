@@ -2,6 +2,7 @@
 {% block user_details%}
 <div id="address-content">
     <h1>Address</h1>
+    
     <div class ="row mt-2 mb-4">
         <div class="col-12">
             <button type="button" id="add-address" class="custom-btn"><i class='bx bx-plus fs-4' ></i> ADD ADDRESS</button>
@@ -9,89 +10,98 @@
     </div>
     <div class="address" id="add-address-content">
         <div class="row">
-            <h3 id="form-title">{% if edit_address %}Edit Address{% else %}Add New Address{% endif %}</h3>
-            <form id="address-form" action="{% if edit_address %}{% url 'userapp:edit_address' edit_address.id %}{% else %}{% url 'userapp:add_address' %}{% endif %}" class="profile-form" method="post">
-                {% csrf_token %}
-                <div class="row">
-                <div class="col-6">
-                    <div class="form-floating mb-3">
-                        {{ form.flat_house_no }}
-                        {{ form.flat_house_no.label_tag }}
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="form-floating mb-3">
-                        {{ form.area_street }}
-                        {{ form.area_street.label_tag }}
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="form-floating mb-3">
-                        {{ form.landmark }}
-                        {{ form.landmark.label_tag }}
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="form-floating mb-3">
-                        {{ form.pincode }}
-                        {{ form.pincode.label_tag }}
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="form-floating mb-3">
-                        {{ form.town_city }}
-                        {{ form.town_city.label_tag }}
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="form-floating mb-3">
-                        {{ form.state }}
-                        {{ form.state.label_tag }}
-                    </div>
-                </div>
-                <div class="col-12">
-                    <div class="form-floating mb-3">
-                        {{ form.country }}
-                        {{ form.country.label_tag }}
-                    </div>
-                </div>
-                <div class="col-12">
-                    <div class="form-floating mb-3">
-                        {{ form.address_type }}
-                        {{ form.address_type.label_tag }}
-                    </div>
-                </div>
-                
-                {{ form.latitude }}
-                {{ form.longitude }}
-                
-                <div class="col-12 mb-3">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>Pinpoint Your Location</h5>
+            <div class="col-12">
+                <h3 id="form-title" class="mb-3">{% if edit_address %}Edit Address{% else %}Add New Address{% endif %}</h3>
+                <form id="address-form" action="{% if edit_address %}{% url 'userapp:edit_address' edit_address.id %}{% else %}{% url 'userapp:add_address' %}{% endif %}" class="profile-form" method="post">
+                    {% csrf_token %}
+                    <div class="row">
+                    <div class="col-6">
+                        <div class="form-floating mb-3">
+                            {{ form.flat_house_no }}
+                            {{ form.flat_house_no.label_tag }}
+                            <div class="invalid-feedback" id="flat_house_no_error"></div>
                         </div>
-                        <div class="card-body">
-                            <p class="text-muted">To ensure accurate delivery, please mark your exact location on the map.</p>
-                            <div id="locationMap" style="height: 300px; width: 100%;"></div>
-                            <div class="d-flex align-items-center mt-2">
-                                <button type="button" id="useMyLocation" class="btn btn-sm btn-outline-primary me-2">
-                                    <i class='bx bx-current-location'></i> Use My Current Location
-                                </button>
-                                <span id="locationStatus" class="text-muted"></span>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-floating mb-3">
+                            {{ form.area_street }}
+                            {{ form.area_street.label_tag }}
+                            <div class="invalid-feedback" id="area_street_error"></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-floating mb-3">
+                            {{ form.landmark }}
+                            {{ form.landmark.label_tag }}
+                            <div class="invalid-feedback" id="landmark_error"></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-floating mb-3 position-relative">
+                            {{ form.pincode }}
+                            {{ form.pincode.label_tag }}
+                            <div class="invalid-feedback" id="pincode_error"></div>
+                            <button type="button" id="verify-pincode-btn" class="btn btn-sm btn-outline-secondary position-absolute" style="right: 10px; top: 10px; z-index: 5;">Verify</button>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-floating mb-3">
+                            {{ form.town_city }}
+                            {{ form.town_city.label_tag }}
+                            <div class="invalid-feedback" id="town_city_error"></div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-floating mb-3">
+                            {{ form.state }}
+                            {{ form.state.label_tag }}
+                            <div class="invalid-feedback" id="state_error"></div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-floating mb-3">
+                            {{ form.country }}
+                            {{ form.country.label_tag }}
+                            <div class="invalid-feedback" id="country_error"></div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-floating mb-3">
+                            {{ form.address_type }}
+                            {{ form.address_type.label_tag }}
+                            <div class="invalid-feedback" id="address_type_error"></div>
+                        </div>
+                    </div>
+                    
+                    {{ form.latitude }}
+                    {{ form.longitude }}
+                    
+                    <div class="col-12 mb-3">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Pinpoint Your Location</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted">To ensure accurate delivery, please mark your exact location on the map.</p>
+                                <div id="locationMap" style="height: 300px; width: 100%;"></div>
+                                <div class="d-flex align-items-center mt-2">
+                                    <button type="button" id="useMyLocation" class="btn btn-sm btn-outline-primary me-2">
+                                        <i class='bx bx-current-location'></i> Use My Current Location
+                                    </button>
+                                    <span id="locationStatus" class="text-muted"></span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                </div>
-                <div class="mb-3 row">
-                    <div class="col-md-6">
-                        <button type="submit" class="custom-btn-1">{% if edit_address %}Update Address{% else %}Add Address{% endif %}</button> 
                     </div>
-                    <div class="col-md-6">
-                        <button type="button" id="add-cancel" class="custom-btn">Cancel</button>
+                    <div class="col-12 mt-4 mb-3">
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="custom-btn-1">{% if edit_address %}Update Address{% else %}Add Address{% endif %}</button>
+                            <button type="button" id="add-cancel" class="custom-btn">Cancel</button>
+                        </div>
                     </div>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
     <div class="view-address">
@@ -131,11 +141,8 @@
             </div>
         </div>
     </div>
-</div>
-<div id="address-content">
-    <!-- ... existing content ... -->
-    
-    <!-- Add this at the end of the address-content div -->
+
+    <!-- Modal for delete confirmation -->
     <div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -161,6 +168,21 @@
 <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
 <script>
+    // Handle Django messages using the custom alert system
+    {% if messages %}
+        {% for message in messages %}
+            {% if message.tags == 'error' %}
+                setTimeout(function() { showCustomAlert("{{ message }}", "error"); }, 500);
+            {% elif message.tags == 'warning' %}
+                setTimeout(function() { showCustomAlert("{{ message }}", "warning"); }, 500);
+            {% elif message.tags == 'success' %}
+                setTimeout(function() { showCustomAlert("{{ message }}", "success"); }, 500);
+            {% else %}
+                setTimeout(function() { showCustomAlert("{{ message }}", "info"); }, 500);
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+
     $(document).ready(function(){
         $("#add-address-content").hide();
         $("#add-address").click(function(){
@@ -253,44 +275,102 @@
         // Add new marker
         marker = L.marker(latlng).addTo(map);
         
+        // Format coordinates to ensure they don't exceed model limits (max_digits=9, decimal_places=6)
+        // This means we can have at most 2 digits before decimal point and 6 after
+        let lat = latlng.lat || latlng[0];
+        let lng = latlng.lng || latlng[1];
+        
+        // Format to ensure we don't exceed the field's capacity
+        // Keep 6 decimal places and limit total digits to 9
+        lat = parseFloat(lat.toFixed(6));
+        lng = parseFloat(lng.toFixed(6));
+        
+        // Additional check to ensure total digits don't exceed 9
+        if (lat.toString().replace('.', '').length > 9) {
+            console.warn("Latitude value too large, truncating");
+            // For positive numbers, we want to keep precision, for negative, we may need to adjust
+            lat = parseFloat(lat.toString().substring(0, 9).replace(/(\d{2})(\d{0,6})/, '$1.$2'));
+        }
+        
+        if (lng.toString().replace('.', '').length > 9) {
+            console.warn("Longitude value too large, truncating");
+            lng = parseFloat(lng.toString().substring(0, 9).replace(/(\d{2})(\d{0,6})/, '$1.$2'));
+        }
+        
         // Update hidden form fields
-        $('#id_latitude').val(latlng.lat || latlng[0]);
-        $('#id_longitude').val(latlng.lng || latlng[1]);
+        $('#id_latitude').val(lat);
+        $('#id_longitude').val(lng);
+        
+        // Show the current coordinates for debugging
+        console.log("Using coordinates:", lat, lng);
     }
 
     function editAddress(addressId) {
-        fetch(`/account/edit-address/${addressId}/`)
-            .then(response => response.json())
-            .then(data => {
-                // Populate the form with the address data
-                $('#id_flat_house_no').val(data.flat_house_no);
-                $('#id_area_street').val(data.area_street);
-                $('#id_landmark').val(data.landmark);
-                $('#id_pincode').val(data.pincode);
-                $('#id_town_city').val(data.town_city);
-                $('#id_state').val(data.state);
-                $('#id_country').val(data.country);
-                $('#id_address_type').val(data.address_type);
-                $('#id_latitude').val(data.latitude || '');
-                $('#id_longitude').val(data.longitude || '');
+        // Add loading state for the edit operation
+        showCustomAlert("Loading address data...", "info");
 
-                // Update form title and action
-                $('#form-title').text('Edit Address');
-                $('#address-form').attr('action', `/account/edit-address/${addressId}/`);
+        fetch(`{% url 'userapp:edit_address' 0 %}`.replace('0', addressId), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                // Check if response contains JSON error message
+                if (response.headers.get('content-type')?.includes('application/json')) {
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.error || `Server error: ${response.status}`);
+                    });
+                }
+                throw new Error(`Network response error: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            // Debug data received
+            console.log("Address data received:", data);
+            
+            // Clear any previous errors
+            $('.invalid-feedback').text('');
+            $('.form-control').removeClass('is-invalid');
+            
+            // Populate the form with the address data
+            $('#id_flat_house_no').val(data.flat_house_no || '');
+            $('#id_area_street').val(data.area_street || '');
+            $('#id_landmark').val(data.landmark || '');
+            $('#id_pincode').val(data.pincode || '');
+            $('#id_town_city').val(data.town_city || '');
+            $('#id_state').val(data.state || '');
+            $('#id_country').val(data.country || '');
+            $('#id_address_type').val(data.address_type || '');
+            $('#id_latitude').val(data.latitude || '');
+            $('#id_longitude').val(data.longitude || '');
 
-                // Show the form
-                $("#add-address-content").show();
+            // Update form title and action
+            $('#form-title').text('Edit Address');
+            $('#address-form').attr('action', `{% url 'userapp:edit_address' 0 %}`.replace('0', addressId));
+
+            // Show the form
+            $("#add-address-content").show();
+            
+            // Initialize map after the container is visible
+            setTimeout(function() {
+                initMap();
                 
-                // Initialize map after the container is visible
-                setTimeout(function() {
-                    initMap();
-                    
-                    // If we have coordinates, center the map there
-                    if (data.latitude && data.longitude) {
-                        map.setView([parseFloat(data.latitude), parseFloat(data.longitude)], 15);
-                    }
-                }, 100);
-            });
+                // If we have coordinates, center the map there
+                if (data.latitude && data.longitude) {
+                    map.setView([parseFloat(data.latitude), parseFloat(data.longitude)], 15);
+                }
+            }, 100);
+        })
+        .catch(error => {
+            console.error('Error fetching address data:', error);
+            showCustomAlert('Error loading address data: ' + error.message, 'error');
+        });
     }
     
     function resetForm() {
@@ -303,9 +383,170 @@
     }
 
     function showDeleteConfirmation(addressId) {
-        $('#confirmDeleteBtn').attr('href', `/account/delete-address/${addressId}/`);
+        $('#confirmDeleteBtn').attr('href', `{% url 'userapp:delete_address' 0 %}`.replace('0', addressId));
         var deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
         deleteModal.show();
     }
 </script>
+
+<!-- Add this before the end of your body tag or in the JS section -->
+<script>
+    $(document).ready(function() {
+        // Set up verify pincode button
+        $('#verify-pincode-btn').on('click', function() {
+            verifyPincode();
+        });
+        
+        // Also continue to support blur event
+        $('#id_pincode').on('blur', function() {
+            // Only verify automatically if length is correct
+            const pincode = $(this).val();
+            if (pincode && pincode.length == 6) {
+                verifyPincode();
+            }
+        });
+        
+        // Add basic form validation
+        $('#address-form').on('submit', function(e) {
+            let valid = true;
+            
+            // Clear previous errors
+            $('.invalid-feedback').text('');
+            $('.form-control').removeClass('is-invalid');
+            
+            // Validate required fields
+            const requiredFields = [
+                {id: 'id_flat_house_no', name: 'Flat/House No', errorId: 'flat_house_no_error'},
+                {id: 'id_area_street', name: 'Area/Street', errorId: 'area_street_error'},
+                {id: 'id_pincode', name: 'Pincode', errorId: 'pincode_error'},
+                {id: 'id_town_city', name: 'Town/City', errorId: 'town_city_error'},
+                {id: 'id_state', name: 'State', errorId: 'state_error'},
+                {id: 'id_country', name: 'Country', errorId: 'country_error'}
+            ];
+            
+            requiredFields.forEach(field => {
+                if (!$('#' + field.id).val()) {
+                    $('#' + field.id).addClass('is-invalid');
+                    $('#' + field.errorId).text(field.name + ' is required');
+                    valid = false;
+                }
+            });
+            
+            // Validate pincode format
+            const pincode = $('#id_pincode').val();
+            if (pincode && (pincode.length !== 6 || !/^\d+$/.test(pincode))) {
+                $('#id_pincode').addClass('is-invalid');
+                $('#pincode_error').text('Pincode must be 6 digits');
+                valid = false;
+            }
+            
+            if (!valid) {
+                e.preventDefault();
+                showCustomAlert('Please fix the errors in the form.', 'warning');
+            }
+        });
+        
+        // Function to verify pincode
+        function verifyPincode() {
+            const pincode = $('#id_pincode').val();
+            if (!pincode) {
+                $('#pincode_error').text('Pincode is required');
+                $('#id_pincode').addClass('is-invalid');
+                return;
+            }
+            
+            if (pincode.length !== 6 || !/^\d+$/.test(pincode)) {
+                $('#pincode_error').text('Pincode must be 6 digits');
+                $('#id_pincode').addClass('is-invalid');
+                return;
+            }
+            
+            // Add loading indicator
+            $('#id_pincode').addClass('loading');
+            $('#verify-pincode-btn').prop('disabled', true).text('Verifying...');
+            
+            // Add a hidden field to indicate autofill was performed
+            if (!$('#auto_fill').length) {
+                $('<input>').attr({
+                    type: 'hidden',
+                    id: 'auto_fill',
+                    name: 'auto_fill',
+                    value: 'true'
+                }).appendTo('#address-form');
+            }
+            
+            // Make AJAX call to verify pincode
+            $.ajax({
+                url: "{% url 'userapp:verify_pincode' %}",
+                type: 'POST',
+                data: {
+                    'pincode': pincode,
+                    'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
+                },
+                success: function(data) {
+                    if (data.success) {
+                        // Auto-fill fields but NOT latitude/longitude
+                        $('#id_town_city').val(data.district);
+                        $('#id_state').val(data.state);
+                        $('#id_country').val('India');
+                        
+                        // Show success message
+                        showCustomAlert('Pincode verified successfully!', 'success');
+                        
+                        // Remove any error styling
+                        $('#id_pincode').removeClass('is-invalid');
+                    } else {
+                        // Clear auto-filled fields if verification fails
+                        $('#id_town_city').val('');
+                        $('#id_state').val('');
+                        
+                        // Show error message
+                        $('#id_pincode').addClass('is-invalid');
+                        $('#pincode_error').text('Invalid pincode: ' + (data.message || 'Please enter a valid Indian pincode'));
+                        showCustomAlert('Invalid pincode. Please enter a valid Indian pincode.', 'error');
+                        console.error('Pincode verification failed:', data.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    // Clear auto-filled fields on error
+                    $('#id_town_city').val('');
+                    $('#id_state').val('');
+                    
+                    $('#id_pincode').addClass('is-invalid');
+                    $('#pincode_error').text('Error verifying pincode');
+                    showCustomAlert('Error verifying pincode. Please try again.', 'error');
+                    console.error('AJAX error:', status, error);
+                },
+                complete: function() {
+                    // Remove loading indicator
+                    $('#id_pincode').removeClass('loading');
+                    $('#verify-pincode-btn').prop('disabled', false).text('Verify');
+                }
+            });
+        }
+    });
+</script>
+
+<!-- Add CSS for loading indicator -->
+<style>
+    .loading {
+        position: relative;
+    }
+    .loading::after {
+        content: "";
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        width: 20px;
+        height: 20px;
+        margin-top: -10px;
+        border: 2px solid #ccc;
+        border-top-color: #333;
+        border-radius: 50%;
+        animation: spinner 0.6s linear infinite;
+    }
+    @keyframes spinner {
+        to {transform: rotate(360deg);}
+    }
+</style>
 {% endblock %}

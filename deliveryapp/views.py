@@ -12,6 +12,7 @@ from django.core.paginator import Paginator
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.conf import settings
+from functools import wraps
 
 from mainapp.models import Order, OrderItem, Address
 from .models import DeliveryProfile, DeliveryHistory, DeliveryMetrics, DeliveryRating
@@ -36,14 +37,56 @@ def delivery_required(view_func):
         return view_func(request, *args, **kwargs)
     return wrapper
 
+def profile_completion_required(view_func):
+    """
+    Decorator to check if the delivery person has completed their profile.
+    If not, redirect to the onboarding page.
+    """
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        # Skip for admin users who may be impersonating
+        if request.user.role in ['admin', 'staff']:
+            return view_func(request, *args, **kwargs)
+            
+        try:
+            profile = DeliveryProfile.objects.get(user=request.user)
+            
+            # First, check if onboarding is explicitly marked as completed in the database
+            if profile.onboarding_completed:
+                return view_func(request, *args, **kwargs)
+                
+            # Check if required fields are completed
+            required_fields = ['phone', 'vehicle_type', 'vehicle_number']
+            profile_complete = all(getattr(profile, field) for field in required_fields)
+            
+            if not profile_complete:
+                messages.info(request, "Please complete your profile before continuing.")
+                return redirect('deliveryapp:onboarding')
+            else:
+                # Required fields are complete but onboarding_completed is not marked
+                # Let's mark it as complete now and update the database
+                profile.onboarding_completed = True
+                profile.onboarding_completed_at = timezone.now()
+                profile.save(update_fields=['onboarding_completed', 'onboarding_completed_at'])
+            
+        except DeliveryProfile.DoesNotExist:
+            messages.info(request, "Please complete your profile before continuing.")
+            return redirect('deliveryapp:onboarding')
+            
+        return view_func(request, *args, **kwargs)
+    return wrapper
+
 @login_required
 @delivery_required
+@profile_completion_required
 def delivery_dashboard(request):
     """Dashboard for delivery personnel"""
     try:
         profile = DeliveryProfile.objects.get(user=request.user)
+        if not profile.onboarding_completed:
+            return redirect('deliveryapp:onboarding')
     except DeliveryProfile.DoesNotExist:
-        return redirect('deliveryapp:create_profile')
+        return redirect('deliveryapp:onboarding')
     
     # Get assigned orders
     assigned_orders = Order.objects.filter(
@@ -82,6 +125,69 @@ def delivery_dashboard(request):
 
 @login_required
 @delivery_required
+def onboarding(request):
+    """Onboarding page for new delivery personnel"""
+    # Check if profile exists
+    try:
+        profile = DeliveryProfile.objects.get(user=request.user)
+        is_new_user = False
+        
+        # If onboarding is already completed and they're visiting this page,
+        # redirect to profile
+        if profile.onboarding_completed:
+            messages.info(request, "You have already completed onboarding. You can update your profile here.")
+            return redirect('deliveryapp:profile')
+            
+    except DeliveryProfile.DoesNotExist:
+        profile = None
+        is_new_user = True
+    
+    if request.method == 'POST':
+        profile_form = DeliveryProfileForm(request.POST, request.FILES, instance=profile)
+        user_form = DeliveryUserForm(request.POST, instance=request.user)
+        
+        if profile_form.is_valid() and user_form.is_valid():
+            user = user_form.save()
+            profile = profile_form.save(commit=False)
+            profile.user = user
+            
+            # Check if required fields are completed
+            required_fields = ['phone', 'vehicle_type', 'vehicle_number']
+            profile_complete = all(
+                profile_form.cleaned_data.get(field) for field in required_fields
+            )
+            
+            if profile_complete:
+                profile.onboarding_completed = True
+                profile.onboarding_completed_at = timezone.now()
+                
+            profile.save()
+            
+            # Create metrics if they don't exist
+            DeliveryMetrics.objects.get_or_create(delivery_person=user)
+            
+            if profile_complete:
+                messages.success(request, "Profile completed successfully! You can now start delivering orders.")
+                return redirect('deliveryapp:dashboard')
+            else:
+                messages.warning(request, "Please complete all required fields to finish onboarding.")
+                return redirect('deliveryapp:onboarding')
+    else:
+        profile_form = DeliveryProfileForm(instance=profile)
+        user_form = DeliveryUserForm(instance=request.user)
+    
+    context = {
+        'profile_form': profile_form,
+        'user_form': user_form,
+        'profile': profile,
+        'is_new_user': is_new_user
+    }
+    
+    return render(request, 'deliveryapp/onboarding.html', context)
+
+@login_required
+@delivery_required
+@profile_completion_required
 def create_profile(request):
     """Create or update delivery profile"""
     try:
@@ -97,13 +203,23 @@ def create_profile(request):
             user = user_form.save()
             profile = profile_form.save(commit=False)
             profile.user = user
+            
+            # Check if required fields are complete
+            required_fields = ['phone', 'vehicle_type', 'vehicle_number']
+            profile_complete = all(profile_form.cleaned_data.get(field) for field in required_fields)
+            
+            # If the profile is complete but onboarding not marked, let's mark it
+            if profile_complete and not profile.onboarding_completed:
+                profile.onboarding_completed = True
+                profile.onboarding_completed_at = timezone.now()
+                
             profile.save()
             
             # Create metrics if they don't exist
             DeliveryMetrics.objects.get_or_create(delivery_person=user)
             
             messages.success(request, "Profile updated successfully.")
-            return redirect('deliveryapp:dashboard')
+            return redirect('deliveryapp:profile')
     else:
         profile_form = DeliveryProfileForm(instance=profile)
         user_form = DeliveryUserForm(instance=request.user)
@@ -118,6 +234,47 @@ def create_profile(request):
 
 @login_required
 @delivery_required
+def profile(request):
+    """View delivery profile"""
+    try:
+        profile = DeliveryProfile.objects.get(user=request.user)
+        
+        # Get delivery metrics
+        try:
+            metrics = DeliveryMetrics.objects.get(delivery_person=request.user)
+        except DeliveryMetrics.DoesNotExist:
+            metrics = DeliveryMetrics.objects.create(delivery_person=request.user)
+            
+        # Calculate profile completion percentage
+        required_fields = ['phone', 'vehicle_type', 'vehicle_number']
+        completed_fields = sum(1 for field in required_fields if getattr(profile, field))
+        completion_percentage = (completed_fields / len(required_fields)) * 100
+        
+        # Get completed deliveries count
+        from mainapp.models import Order
+        completed_orders_count = Order.objects.filter(
+            assigned_to=request.user,
+            status='delivered'
+        ).count()
+        
+        context = {
+            'profile': profile,
+            'metrics': metrics,
+            'completion_percentage': completion_percentage,
+            'completed_orders_count': completed_orders_count,
+            'onboarding_complete': profile.onboarding_completed,
+            'onboarding_date': profile.onboarding_completed_at,
+        }
+        
+        return render(request, 'deliveryapp/profile.html', context)
+        
+    except DeliveryProfile.DoesNotExist:
+        messages.warning(request, "Please complete your profile first.")
+        return redirect('deliveryapp:onboarding')
+
+@login_required
+@delivery_required
+@profile_completion_required
 def assigned_orders(request):
     """View assigned orders"""
     assigned_orders = Order.objects.filter(
@@ -137,6 +294,7 @@ def assigned_orders(request):
 
 @login_required
 @delivery_required
+@profile_completion_required
 def order_detail(request, order_id):
     """View details of a specific order"""
     order = get_object_or_404(Order, order_id=order_id, assigned_to=request.user)
@@ -199,6 +357,7 @@ def order_detail(request, order_id):
 
 @login_required
 @delivery_required
+@profile_completion_required
 @require_POST
 def verify_otp(request, order_id):
     """Verify OTP and mark order as delivered"""
@@ -247,6 +406,7 @@ def verify_otp(request, order_id):
 
 @login_required
 @delivery_required
+@profile_completion_required
 def update_location(request):
     """Update the current location of delivery personnel"""
     if request.method == 'POST':
@@ -266,12 +426,14 @@ def update_location(request):
 
 @login_required
 @delivery_required
+@profile_completion_required
 def delivery_history(request):
     """View delivery history"""
-    # Get delivery history for this delivery person
-    history = DeliveryHistory.objects.filter(
-        delivery_person=request.user
-    ).order_by('-timestamp')
+    # Get completed orders for this delivery person
+    orders = Order.objects.filter(
+        assigned_to=request.user,
+        status__in=['delivered', 'cancelled', 'returned']
+    ).order_by('-delivery_date')
     
     # Filter by date range if provided
     start_date = request.GET.get('start_date')
@@ -283,16 +445,23 @@ def delivery_history(request):
             end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
             end_date = datetime.combine(end_date, datetime.max.time())  # Include the entire end day
             
-            history = history.filter(timestamp__range=[start_date, end_date])
+            orders = orders.filter(delivery_date__range=[start_date, end_date])
         except ValueError:
             messages.error(request, "Invalid date format. Please use YYYY-MM-DD.")
     
-    paginator = Paginator(history, 20)
+    # Get delivery metrics
+    try:
+        metrics = DeliveryMetrics.objects.get(delivery_person=request.user)
+    except DeliveryMetrics.DoesNotExist:
+        metrics = DeliveryMetrics.objects.create(delivery_person=request.user)
+    
+    paginator = Paginator(orders, 20)
     page = request.GET.get('page', 1)
-    history_page = paginator.get_page(page)
+    orders_page = paginator.get_page(page)
     
     context = {
-        'history': history_page,
+        'orders': orders_page,
+        'metrics': metrics,
         'start_date': start_date,
         'end_date': end_date,
     }
@@ -343,6 +512,210 @@ def admin_assign_delivery(request, order_id):
     }
     
     return render(request, 'deliveryapp/admin_assign_delivery.html', context)
+
+def get_zone_for_address(address):
+    """Get delivery zone for an address"""
+    if not address:
+        return 'Unknown'
+    # For now, return a simple zone based on first character of town/city
+    # You can implement more sophisticated zone logic here
+    return address.town_city[0].upper() if address.town_city else 'Unknown'
+
+@login_required
+def admin_auto_assign_delivery(request):
+    """Admin view to automatically assign multiple orders to available delivery personnel"""
+    # Check if user has permission
+    if request.user.role not in ['admin', 'staff']:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('mainapp:home')
+    
+    # Get unassigned orders that are ready for delivery
+    unassigned_orders = Order.objects.filter(
+        status__in=['pending', 'processing', 'ready_for_delivery'],
+        assigned_to__isnull=True
+    ).select_related('user', 'address')
+    
+    # Debug: Log the count and details of unassigned orders
+    print(f"Found {unassigned_orders.count()} unassigned orders")
+    
+    # Get all order details for debugging
+    for order in unassigned_orders:
+        print(f"Order ID: {order.order_id}, Status: {order.status}, User: {order.user.fullname if order.user else 'None'}")
+        print(f"Address: {order.address}")
+        # Check for the total amount field name (either total_amount or total)
+        if hasattr(order, 'total_amount'):
+            print(f"Total Amount: {order.total_amount}")
+        elif hasattr(order, 'total'):
+            print(f"Total: {order.total}")
+        else:
+            print("No total amount field found")
+    
+    # Get available delivery personnel
+    available_personnel = get_available_delivery_personnel()
+    print(f"Found {len(available_personnel)} available delivery personnel")
+    
+    if request.method == 'POST':
+        # Process the form submission for batch assignment
+        order_ids = request.POST.getlist('order_ids')
+        assignment_method = request.POST.get('assignment_method', 'smart')
+        
+        if not order_ids:
+            messages.warning(request, "No orders selected for assignment.")
+            return redirect('deliveryapp:admin_auto_assign_delivery')
+        
+        if not available_personnel:
+            messages.error(request, "No delivery personnel available. Please add or activate delivery personnel.")
+            return redirect('deliveryapp:admin_auto_assign_delivery')
+        
+        success_count = 0
+        error_count = 0
+        
+        # Process each selected order
+        for order_id in order_ids:
+            try:
+                order = Order.objects.get(order_id=order_id)
+                
+                # Skip orders that are already assigned or not in the right status
+                if order.assigned_to or order.status not in ['pending', 'processing', 'ready_for_delivery']:
+                    continue
+                
+                # Use the smart assignment algorithm
+                success, message = assign_order_to_delivery(order)
+                
+                if success:
+                    success_count += 1
+                else:
+                    error_count += 1
+                    
+            except Order.DoesNotExist:
+                error_count += 1
+        
+        if success_count > 0:
+            messages.success(request, f"Successfully assigned {success_count} orders to delivery personnel.")
+        if error_count > 0:
+            messages.error(request, f"Failed to assign {error_count} orders. Please check logs for details.")
+        
+        return redirect('adminapp:order_list')
+    
+    # Group orders by delivery zones for better visualization
+    from collections import defaultdict
+    orders_by_zone = defaultdict(list)
+    
+    # Debug the zone assignment
+    for order in unassigned_orders:
+        zone = get_zone_for_address(order.address) if order.address else 'Unknown'
+        
+        # Normalize the zone name to ensure it's one of our standard zones
+        if zone not in ['north', 'south', 'east', 'west', 'Unknown', 'Other']:
+            print(f"Converting non-standard zone '{zone}' to 'Other'")
+            zone = 'Other'
+            
+        print(f"Order {order.order_id} assigned to zone: {zone}")
+        orders_by_zone[zone].append(order)
+    
+    # Debug the final orders_by_zone dictionary
+    for zone, orders in orders_by_zone.items():
+        print(f"Zone {zone} has {len(orders)} orders")
+        for order in orders:
+            print(f"  - Order {order.order_id}")
+    
+    # Make sure we have at least one zone even if categorization fails
+    if len(orders_by_zone) == 0 and unassigned_orders:
+        orders_by_zone['All Orders'] = list(unassigned_orders)
+        print("Fallback: added all orders to 'All Orders' zone")
+    
+    context = {
+        'unassigned_orders': unassigned_orders,
+        'orders_by_zone': orders_by_zone,
+        'available_personnel': available_personnel,
+        'personnel_count': len(available_personnel),
+        'order_count': unassigned_orders.count(),
+    }
+    
+    return render(request, 'deliveryapp/admin_auto_assign_delivery.html', context)
+
+@login_required
+def admin_batch_order_assignment(request):
+    """Admin view to assign multiple orders to specific delivery personnel"""
+    # Check if user has permission
+    if request.user.role not in ['admin', 'staff']:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('mainapp:home')
+    
+    # Get orders ready for delivery assignment
+    ready_orders = Order.objects.filter(
+        status__in=['pending', 'processing'],
+        assigned_to__isnull=True
+    ).order_by('created_at')
+    
+    # Get all active delivery personnel
+    delivery_personnel = User.objects.filter(role='delivery', is_active=True)
+    
+    if request.method == 'POST':
+        # Get the delivery person ID and selected orders
+        delivery_person_id = request.POST.get('delivery_person')
+        order_ids = request.POST.getlist('order_ids')
+        
+        if not order_ids:
+            messages.warning(request, "No orders selected for assignment.")
+            return redirect('deliveryapp:admin_batch_order_assignment')
+        
+        if not delivery_person_id:
+            messages.error(request, "No delivery person selected.")
+            return redirect('deliveryapp:admin_batch_order_assignment')
+        
+        try:
+            delivery_person = User.objects.get(id=delivery_person_id, role='delivery')
+            
+            success_count = 0
+            error_count = 0
+            
+            # Assign each selected order to the chosen delivery person
+            for order_id in order_ids:
+                try:
+                    order = Order.objects.get(id=order_id)
+                    
+                    # Skip orders that are already assigned or not in the right status
+                    if order.assigned_to or order.status not in ['pending', 'processing']:
+                        continue
+                    
+                    success, message = assign_order_to_delivery(order, delivery_person)
+                    
+                    if success:
+                        success_count += 1
+                    else:
+                        error_count += 1
+                        
+                except Order.DoesNotExist:
+                    error_count += 1
+            
+            if success_count > 0:
+                messages.success(request, f"Successfully assigned {success_count} orders to {delivery_person.fullname}.")
+            if error_count > 0:
+                messages.error(request, f"Failed to assign {error_count} orders. Please check logs for details.")
+            
+            return redirect('adminapp:delivery_agents_list')
+            
+        except User.DoesNotExist:
+            messages.error(request, "Selected delivery person not found or inactive.")
+            return redirect('deliveryapp:admin_batch_order_assignment')
+    
+    # Group orders by delivery zones for better visualization
+    from collections import defaultdict
+    orders_by_zone = defaultdict(list)
+    
+    for order in ready_orders:
+        zone = get_zone_for_address(order.address) if order.address else 'Unknown'
+        orders_by_zone[zone].append(order)
+    
+    context = {
+        'ready_orders': ready_orders,
+        'orders_by_zone': orders_by_zone,
+        'delivery_personnel': delivery_personnel,
+        'order_count': ready_orders.count(),
+    }
+    
+    return render(request, 'deliveryapp/admin_batch_order_assignment.html', context)
 
 # Customer views for rating delivery and tracking orders
 

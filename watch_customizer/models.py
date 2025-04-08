@@ -37,6 +37,7 @@ class WatchPartOption(models.Model):
     thumbnail = models.ImageField(upload_to='watch_part_thumbnails/', null=True, blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.PositiveIntegerField(default=0)
+    color = models.CharField(max_length=7, blank=True, null=True, help_text="Hex color code (e.g., #FF5733)")
     
     def __str__(self):
         return f"{self.part.part_name.name} - {self.name}"

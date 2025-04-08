@@ -1,0 +1,132 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <!-- 3D Model Viewer Container -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">3D Model Configurator</h4>
+                    <div class="model-controls">
+                        <button id="resetView" class="btn btn-sm btn-secondary">Reset View</button>
+                        <button id="toggleWireframe" class="btn btn-sm btn-outline-secondary">Toggle Wireframe</button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="model-container" style="height: 600px; position: relative;">
+                        <!-- The 3D model will be rendered here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <!-- Configuration Panels -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Part Selection</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info" id="selectionHelp">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Click on any part of the watch to select it. Selected parts will be highlighted.
+                    </div>
+                    
+                    <div id="selected-part-info" style="display: none;">
+                        <h6>Selected Part: <span id="selected-part-name">None</span></h6>
+                        <div class="mb-3">
+                            <label for="part-category" class="form-label">Categorize Part:</label>
+                            <select id="part-category" class="form-select">
+                                <option value="">Choose a category</option>
+                                <option value="case">Watch Case</option>
+                                <option value="dial">Watch Dial</option>
+                                <option value="hands">Watch Hands</option>
+                                <option value="strap">Watch Strap</option>
+                                <option value="crown">Watch Crown</option>
+                                <option value="bezel">Watch Bezel</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="part-description" class="form-label">Part Description:</label>
+                            <input type="text" id="part-description" class="form-control" placeholder="Enter description">
+                        </div>
+                        
+                        <button id="save-part-config" class="btn btn-primary mt-2">Save Part Configuration</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Color Options -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Color Options</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3" id="color-options-container" style="display: none;">
+                        <label class="form-label">Add Color Option:</label>
+                        <div class="input-group mb-3">
+                            <input type="color" id="color-picker" class="form-control form-control-color" value="#0066cc">
+                            <input type="text" id="color-name" class="form-control" placeholder="Color name">
+                            <button id="add-color-option" class="btn btn-outline-primary">Add</button>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Price Adjustment:</label>
+                            <input type="number" id="color-price" class="form-control" step="0.01" placeholder="0.00">
+                        </div>
+                        
+                        <div id="color-options-list" class="mt-3">
+                            <h6>Saved Colors:</h6>
+                            <div class="list-group" id="saved-colors-container">
+                                <!-- Saved colors will appear here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-secondary" id="color-options-help">
+                        <i class="fas fa-palette me-2"></i>
+                        Select a part to add color options.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Configured Parts -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Configured Parts</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group" id="configured-parts-list">
+                        <!-- Configured parts will appear here -->
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <button id="complete-configuration" class="btn btn-success">Complete Configuration</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Part Configuration Form (Hidden) -->
+<form id="part-config-form" method="post" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" id="watch-id" name="watch_id" value="{{ watch.id }}">
+    <input type="hidden" id="part-data" name="part_data">
+    <input type="hidden" id="color-options-data" name="color_options_data">
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Required libraries -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+
+<!-- Custom 3D configurator script will be imported here -->
+<script src="{% static 'adminapp/js/3d_part_configurator.js' %}"></script>
+{% endblock %} 

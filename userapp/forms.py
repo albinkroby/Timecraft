@@ -6,6 +6,7 @@ from mainapp.models import Address, UserProfile,User
 from django.core.exceptions import ValidationError
 from .models import Review
 import re
+from mainapp.utils import verify_pincode
 
 class CustomPasswordResetForm(PasswordResetForm):
     def get_users(self, email):
@@ -33,15 +34,44 @@ class AddressForm(forms.ModelForm):
             'flat_house_no': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Flat/House No:/Building/Company/Apartment'}),
             'area_street': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Area/Street/Sector/Village'}),
             'landmark': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Landmark'}),
-            'pincode': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Pincode'}),
-            'town_city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Town/City'}),
-            'state': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'State'}),
-            'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Country'}),
+            'pincode': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Pincode', 'id': 'id_pincode'}),
+            'town_city': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Town/City', 'id': 'id_town_city'}),
+            'state': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'State', 'id': 'id_state'}),
+            'country': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Country', 'id': 'id_country'}),
             'address_type': forms.Select(attrs={'class': 'form-control'}),
             'latitude': forms.HiddenInput(),
             'longitude': forms.HiddenInput(),
         }
-    
+        
+    def clean_pincode(self):
+        pincode = self.cleaned_data.get('pincode')
+        if pincode:
+            # Verify the pincode using the API
+            pincode_data = verify_pincode(pincode)
+            if not pincode_data:
+                raise forms.ValidationError("Invalid pincode. Please enter a valid Indian pincode.")
+            
+            # Store pincode data in form instance for use in clean method
+            self.pincode_data = pincode_data
+        return pincode
+        
+    def clean(self):
+        cleaned_data = super().clean()
+        pincode = cleaned_data.get('pincode')
+        
+        # If pincode was validated and we have data, auto-fill city/state if not provided
+        if hasattr(self, 'pincode_data') and self.pincode_data:
+            # Only auto-fill if the user didn't provide their own values
+            if not cleaned_data.get('town_city') or self.data.get('auto_fill', False):
+                cleaned_data['town_city'] = self.pincode_data.get('district', '')
+                
+            if not cleaned_data.get('state') or self.data.get('auto_fill', False):
+                cleaned_data['state'] = self.pincode_data.get('state', '')
+                
+            if not cleaned_data.get('country') or self.data.get('auto_fill', False):
+                cleaned_data['country'] = 'India'
+                
+        return cleaned_data
 
 class UserProfileForm(forms.ModelForm):
     fullname = forms.CharField(

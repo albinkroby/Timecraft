@@ -1,0 +1,299 @@
+{% extends "mainapp/base.html" %}
+{% load static %}
+
+{% block title %}Complete Your Delivery Profile{% endblock %}
+
+{% block content %}
+<section class="section container">
+    <div class="row justify-content-center mb-5">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="card-title mb-0">
+                        {% if is_new_user %}
+                            Welcome to TimeCraft Delivery!
+                        {% else %}
+                            Complete Your Delivery Profile
+                        {% endif %}
+                    </h3>
+                </div>
+                <div class="card-body">
+                    {% if is_new_user %}
+                    <div class="alert alert-info mb-4">
+                        <i class="bx bx-info-circle me-2"></i>
+                        Welcome to TimeCraft Delivery! Before you can start delivering orders, you need to complete your profile information. This will only take a few minutes.
+                    </div>
+                    {% endif %}
+                    
+                    {% if profile %}
+                        <div class="mb-4">
+                            <h5>Required Fields Status:</h5>
+                            <div class="progress mb-3" style="height: 20px;">
+                                {% if profile.phone and profile.vehicle_type and profile.vehicle_number %}
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100">
+                                        100% Complete
+                                    </div>
+                                {% elif profile.phone or profile.vehicle_type or profile.vehicle_number %}
+                                    {% with completed=0 %}
+                                        {% if profile.phone %}{% with completed=completed|add:1 %}{% endif %}
+                                        {% if profile.vehicle_type %}{% with completed=completed|add:1 %}{% endif %}
+                                        {% if profile.vehicle_number %}{% with completed=completed|add:1 %}{% endif %}
+                                        
+                                        <div class="progress-bar bg-warning" role="progressbar" 
+                                             style="width: {{ completed|floatformat:0|divisibleby:3|mul:100 }}%;" 
+                                             aria-valuenow="{{ completed|floatformat:0|divisibleby:3|mul:100 }}" 
+                                             aria-valuemin="0" aria-valuemax="100">
+                                            {{ completed|floatformat:0|divisibleby:3|mul:100 }}% Complete
+                                        </div>
+                                        
+                                        {% endwith %}{% endwith %}{% endwith %}
+                                {% else %}
+                                    <div class="progress-bar bg-danger" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                                        0% Complete
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <ul class="list-group">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Phone Number
+                                    {% if profile.phone %}
+                                        <span class="badge bg-success rounded-pill"><i class="bx bx-check"></i> Completed</span>
+                                    {% else %}
+                                        <span class="badge bg-danger rounded-pill"><i class="bx bx-x"></i> Required</span>
+                                    {% endif %}
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Vehicle Type
+                                    {% if profile.vehicle_type %}
+                                        <span class="badge bg-success rounded-pill"><i class="bx bx-check"></i> Completed</span>
+                                    {% else %}
+                                        <span class="badge bg-danger rounded-pill"><i class="bx bx-x"></i> Required</span>
+                                    {% endif %}
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Vehicle Number
+                                    {% if profile.vehicle_number %}
+                                        <span class="badge bg-success rounded-pill"><i class="bx bx-check"></i> Completed</span>
+                                    {% else %}
+                                        <span class="badge bg-danger rounded-pill"><i class="bx bx-x"></i> Required</span>
+                                    {% endif %}
+                                </li>
+                            </ul>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="onboarding-progress mb-4">
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar" role="progressbar" id="progress-bar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                        </div>
+                        <div class="d-flex justify-content-between mt-2">
+                            <span class="small text-muted progress-step" data-step="1">Personal Details</span>
+                            <span class="small text-muted progress-step" data-step="2">Vehicle Information</span>
+                            <span class="small text-muted progress-step" data-step="3">Delivery Preferences</span>
+                        </div>
+                    </div>
+                    
+                    <form method="post" enctype="multipart/form-data" id="onboarding-form">
+                        {% csrf_token %}
+                        
+                        <!-- Step 1: Personal Details -->
+                        <div class="onboarding-step active" id="step-1">
+                            <h4 class="mb-3">Personal Details</h4>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ user_form.fullname.id_for_label }}" class="form-label">Full Name</label>
+                                    {{ user_form.fullname }}
+                                    {% if user_form.fullname.errors %}
+                                        <div class="text-danger small mt-1">{{ user_form.fullname.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ user_form.email.id_for_label }}" class="form-label">Email Address</label>
+                                    {{ user_form.email }}
+                                    {% if user_form.email.errors %}
+                                        <div class="text-danger small mt-1">{{ user_form.email.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ profile_form.phone.id_for_label }}" class="form-label">Phone Number *</label>
+                                    {{ profile_form.phone }}
+                                    {% if profile_form.phone.errors %}
+                                        <div class="text-danger small mt-1">{{ profile_form.phone.errors }}</div>
+                                    {% endif %}
+                                    <div class="form-text">This number will be used for order-related communications.</div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ profile_form.profile_image.id_for_label }}" class="form-label">Profile Image</label>
+                                    {{ profile_form.profile_image }}
+                                    {% if profile_form.profile_image.errors %}
+                                        <div class="text-danger small mt-1">{{ profile_form.profile_image.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 d-flex justify-content-end">
+                                <button type="button" class="btn btn-primary next-step" data-next="2">Next <i class="bx bx-right-arrow-alt"></i></button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 2: Vehicle Information -->
+                        <div class="onboarding-step" id="step-2">
+                            <h4 class="mb-3">Vehicle Information</h4>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ profile_form.vehicle_type.id_for_label }}" class="form-label">Vehicle Type *</label>
+                                    {{ profile_form.vehicle_type }}
+                                    {% if profile_form.vehicle_type.errors %}
+                                        <div class="text-danger small mt-1">{{ profile_form.vehicle_type.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ profile_form.vehicle_number.id_for_label }}" class="form-label">Vehicle Registration Number *</label>
+                                    {{ profile_form.vehicle_number }}
+                                    {% if profile_form.vehicle_number.errors %}
+                                        <div class="text-danger small mt-1">{{ profile_form.vehicle_number.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 d-flex justify-content-between">
+                                <button type="button" class="btn btn-outline-secondary prev-step" data-prev="1"><i class="bx bx-left-arrow-alt"></i> Previous</button>
+                                <button type="button" class="btn btn-primary next-step" data-next="3">Next <i class="bx bx-right-arrow-alt"></i></button>
+                            </div>
+                        </div>
+                        
+                        <!-- Step 3: Delivery Preferences -->
+                        <div class="onboarding-step" id="step-3">
+                            <h4 class="mb-3">Delivery Preferences</h4>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ profile_form.preferred_zones_text.id_for_label }}" class="form-label">Preferred Delivery Zones</label>
+                                    {{ profile_form.preferred_zones_text }}
+                                    <div class="form-text">{{ profile_form.preferred_zones_text.help_text }}</div>
+                                    {% if profile_form.preferred_zones_text.errors %}
+                                        <div class="text-danger small mt-1">{{ profile_form.preferred_zones_text.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ profile_form.max_distance.id_for_label }}" class="form-label">Maximum Delivery Distance (km)</label>
+                                    {{ profile_form.max_distance }}
+                                    {% if profile_form.max_distance.errors %}
+                                        <div class="text-danger small mt-1">{{ profile_form.max_distance.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ profile_form.availability_start.id_for_label }}" class="form-label">Availability Start Time</label>
+                                    {{ profile_form.availability_start }}
+                                    {% if profile_form.availability_start.errors %}
+                                        <div class="text-danger small mt-1">{{ profile_form.availability_start.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="{{ profile_form.availability_end.id_for_label }}" class="form-label">Availability End Time</label>
+                                    {{ profile_form.availability_end }}
+                                    {% if profile_form.availability_end.errors %}
+                                        <div class="text-danger small mt-1">{{ profile_form.availability_end.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="col-12 mb-3">
+                                    <label for="{{ profile_form.weekday_availability_text.id_for_label }}" class="form-label">Available Days</label>
+                                    {{ profile_form.weekday_availability_text }}
+                                    <div class="form-text">{{ profile_form.weekday_availability_text.help_text }}</div>
+                                    {% if profile_form.weekday_availability_text.errors %}
+                                        <div class="text-danger small mt-1">{{ profile_form.weekday_availability_text.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4 d-flex justify-content-between">
+                                <button type="button" class="btn btn-outline-secondary prev-step" data-prev="2"><i class="bx bx-left-arrow-alt"></i> Previous</button>
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bx bx-check-circle"></i> Complete Profile
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // Progress tracking
+        function updateProgress(step) {
+            const totalSteps = 3;
+            const progressPercent = ((step - 1) / (totalSteps - 1)) * 100;
+            
+            $('#progress-bar').css('width', progressPercent + '%').attr('aria-valuenow', progressPercent);
+            
+            // Update step indicators
+            $('.progress-step').removeClass('text-primary fw-bold').addClass('text-muted');
+            $(`.progress-step[data-step="${step}"]`).removeClass('text-muted').addClass('text-primary fw-bold');
+        }
+        
+        // Initialize first step
+        updateProgress(1);
+        
+        // Navigation between steps
+        $('.next-step').on('click', function() {
+            const nextStep = $(this).data('next');
+            $('.onboarding-step').removeClass('active');
+            $(`#step-${nextStep}`).addClass('active');
+            updateProgress(nextStep);
+            
+            // Scroll to top of form
+            $('html, body').animate({
+                scrollTop: $('#onboarding-form').offset().top - 100
+            }, 400);
+        });
+        
+        $('.prev-step').on('click', function() {
+            const prevStep = $(this).data('prev');
+            $('.onboarding-step').removeClass('active');
+            $(`#step-${prevStep}`).addClass('active');
+            updateProgress(prevStep);
+            
+            // Scroll to top of form
+            $('html, body').animate({
+                scrollTop: $('#onboarding-form').offset().top - 100
+            }, 400);
+        });
+        
+        // Form validation
+        $('#onboarding-form').on('submit', function(e) {
+            // Validation for required fields could be added here if needed
+            return true;
+        });
+    });
+</script>
+<style>
+    .onboarding-step {
+        display: none;
+    }
+    
+    .onboarding-step.active {
+        display: block;
+    }
+    
+    .progress-step {
+        position: relative;
+        z-index: 1;
+    }
+</style>
+{% endblock %} 
