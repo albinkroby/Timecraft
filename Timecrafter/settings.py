@@ -276,3 +276,6 @@ CORS_ALLOWED_ORIGINS = [
 # Security headers
 SECURE_CROSS_ORIGIN_OPENER_POLICY = None  # Required for AR
 X_FRAME_OPTIONS = 'SAMEORIGIN'  # Allow iframe embedding for AR
+
+# RapidAPI Settings
+RAPIDAPI_KEY = "00d2f25da3mshc06d60bd99859f4p1a0c6cjsn94b9e6ab8c8b"

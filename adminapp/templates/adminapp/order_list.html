@@ -16,8 +16,18 @@ All Orders
                 </div>
             </form>
         </div>
-        <div class="col-md-6 text-right">
-            <a href="{% url 'vendorapp:download_orders' %}?{{ request.GET.urlencode }}" class="btn btn-success"><i class='bx bx-spreadsheet'></i> Download Excel</a>
+        <div class="col-md-6 text-end">
+            <div class="btn-group" role="group">
+                <a href="{% url 'adminapp:auto_assign_delivery' %}" class="btn btn-primary">
+                    <i class='bx bx-bot'></i> Auto-Assign Orders
+                </a>
+                <a href="{% url 'adminapp:batch_assign_delivery' %}" class="btn btn-info">
+                    <i class='bx bx-group'></i> Batch Assign Orders
+                </a>
+                <a href="{% url 'vendorapp:download_orders' %}?{{ request.GET.urlencode }}" class="btn btn-success">
+                    <i class='bx bx-spreadsheet'></i> Download Excel
+                </a>
+            </div>
         </div>
     </div>
 
@@ -41,15 +51,34 @@ All Orders
                         <td>{{ order.items.first.watch.model_name }}</td>
                         <td>{{ order.user.email }}</td>
                         <td>₹{{ order.total_amount }}</td>
-                        <td>{{ order.get_status_display }}</td>
+                        <td>
+                            <span class="badge {% if order.status == 'delivered' %}bg-success
+                                             {% elif order.status == 'cancelled' %}bg-danger
+                                             {% elif order.status == 'pending' %}bg-warning
+                                             {% elif order.status == 'processing' %}bg-info
+                                             {% elif order.status == 'assigned_to_delivery' %}bg-primary
+                                             {% elif order.status == 'out_for_delivery' %}bg-primary
+                                             {% else %}bg-secondary{% endif %}">
+                                {{ order.get_status_display }}
+                            </span>
+                        </td>
                         <td>{{ order.created_at|date:"M d, Y" }}</td>
                         <td>
-                            <a href="{% url 'adminapp:order_detail' order.order_id %}" class="button rounded p-2">View Details</a>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'adminapp:order_detail' order.order_id %}" class="btn btn-sm btn-primary">
+                                    <i class='bx bx-show'></i> View
+                                </a>
+                                {% if order.status == 'pending' or order.status == 'processing' %}
+                                <a href="{% url 'adminapp:assign_delivery_agent' order.order_id %}" class="btn btn-sm btn-info">
+                                    <i class='bx bx-transfer-alt'></i> Assign
+                                </a>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="6" class="text-center">No orders found.</td>
+                        <td colspan="7" class="text-center">No orders found.</td>
                     </tr>
                 {% endfor %}
             </tbody>

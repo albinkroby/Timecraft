@@ -1,11 +1,11 @@
-from django.shortcuts import render, redirect,get_object_or_404
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from mainapp.models import Address,UserProfile, User, Order, OrderItem
+from mainapp.models import Address, UserProfile, User, Order, OrderItem
 from watch_customizer.models import CustomWatchOrder
 from .forms import AddressForm, UserProfileForm, ReviewForm
 from django.db import IntegrityError
-from django.http import Http404, JsonResponse
+from django.http import Http404, JsonResponse, HttpResponseRedirect, HttpResponse
 from .models import Wishlist, Review, ReviewImage
 from mainapp.models import Address
 from adminapp.models import BaseWatch
@@ -23,7 +23,8 @@ from reportlab.lib import colors
 from io import BytesIO
 from django.conf import settings
 import os
-from mainapp.models import SupportTicket, SupportMessage
+from django.core.cache import cache
+from mainapp.utils import verify_pincode
 
 @never_cache
 @login_required
@@ -67,17 +68,54 @@ def profile(request):
 @never_cache
 @login_required
 def address_list(request):
-    addresses = Address.objects.filter(user=request.user)
-    form = AddressForm()
-    return render(request, 'userapp/address.html', {'addresses': addresses, 'form': form})
+    try:
+        addresses = Address.objects.filter(user=request.user)
+        form = AddressForm()
+        print(f"Loaded {len(addresses)} addresses for user {request.user.id}")
+        return render(request, 'userapp/address.html', {'addresses': addresses, 'form': form})
+    except Exception as e:
+        print(f"Error in address_list view: {e}")
+        messages.error(request, "An error occurred while loading your addresses.")
+        return redirect('userapp:profile')
 
 @never_cache
 @login_required
 def add_address(request):
+    addresses = Address.objects.filter(user=request.user)
+    
     if request.method == 'POST':
-        form = AddressForm(request.POST)
+        form_data = request.POST.copy()
+        
+        # Format latitude and longitude to match model constraints
+        if 'latitude' in form_data and form_data['latitude']:
+            try:
+                lat = float(form_data['latitude'])
+                form_data['latitude'] = format_coordinate(lat)
+            except ValueError:
+                pass
+                
+        if 'longitude' in form_data and form_data['longitude']:
+            try:
+                lng = float(form_data['longitude'])
+                form_data['longitude'] = format_coordinate(lng)
+            except ValueError:
+                pass
+                
+        form = AddressForm(form_data)
         if form.is_valid():
             try:
+                # Verify pincode before saving
+                pincode = form.cleaned_data.get('pincode')
+                if pincode:
+                    pincode_data = verify_pincode(pincode)
+                    if not pincode_data:
+                        form.add_error('pincode', 'Invalid pincode. Please enter a valid Indian pincode.')
+                        messages.error(request, "Invalid pincode. Please enter a valid Indian pincode.")
+                        return render(request, 'userapp/address.html', {
+                            'form': form, 
+                            'addresses': addresses,
+                        })
+                
                 address = form.save(commit=False)
                 address.user = request.user
                 
@@ -86,6 +124,7 @@ def add_address(request):
                     address.is_primary = True
                 
                 address.save()
+                messages.success(request, "Address added successfully.")
                 
                 # Check if the request came from the order review page
                 referer = request.META.get('HTTP_REFERER', '')
@@ -95,54 +134,164 @@ def add_address(request):
                     return redirect('userapp:Address')
             except IntegrityError:
                 form.add_error(None, "This address already exists for your account.")
+                messages.error(request, "This address already exists for your account.")
+            except Exception as e:
+                print(f"Error saving address: {e}")
+                form.add_error(None, f"An error occurred: {str(e)}")
+                messages.error(request, f"Error saving address: {str(e)}")
+        else:
+            # Log form errors for debugging
+            print(f"Form errors: {form.errors}")
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field}: {error}")
     else:
         form = AddressForm()
-    return render(request, 'userapp/address.html', {'form': form})
+    
+    return render(request, 'userapp/address.html', {
+        'form': form, 
+        'addresses': addresses,
+    })
 
 @never_cache
 @login_required
 def edit_address(request, address_id):
-    address = get_object_or_404(Address, id=address_id, user=request.user)
-    if request.method == 'POST':
-        form = AddressForm(request.POST, instance=address)
-        if form.is_valid():
-            form.save()
-            return redirect('userapp:Address')
-    else:
-        # Return address data as JSON
-        return JsonResponse({
-            'flat_house_no': address.flat_house_no,
-            'area_street': address.area_street,
-            'landmark': address.landmark,
-            'pincode': address.pincode,
-            'town_city': address.town_city,
-            'state': address.state,
-            'country': address.country,
-            'address_type': address.address_type,
-            'latitude': float(address.latitude) if address.latitude else None,
-            'longitude': float(address.longitude) if address.longitude else None,
-        })
-    
-    return render(request, 'userapp/address.html', {'form': form, 'edit_address': address})
+    try:
+        address = get_object_or_404(Address, id=address_id, user=request.user)
+        addresses = Address.objects.filter(user=request.user)
+        
+        if request.method == 'POST':
+            form_data = request.POST.copy()
+            
+            # Format latitude and longitude to match model constraints
+            if 'latitude' in form_data and form_data['latitude']:
+                try:
+                    lat = float(form_data['latitude'])
+                    form_data['latitude'] = format_coordinate(lat)
+                except ValueError:
+                    pass
+                    
+            if 'longitude' in form_data and form_data['longitude']:
+                try:
+                    lng = float(form_data['longitude'])
+                    form_data['longitude'] = format_coordinate(lng)
+                except ValueError:
+                    pass
+                    
+            form = AddressForm(form_data, instance=address)
+            if form.is_valid():
+                # Verify pincode before saving
+                pincode = form.cleaned_data.get('pincode')
+                if pincode:
+                    pincode_data = verify_pincode(pincode)
+                    if not pincode_data:
+                        form.add_error('pincode', 'Invalid pincode. Please enter a valid Indian pincode.')
+                        messages.error(request, "Invalid pincode. Please enter a valid Indian pincode.")
+                        return render(request, 'userapp/address.html', {
+                            'form': form,
+                            'addresses': addresses,
+                            'edit_address': address
+                        })
+                
+                form.save()
+                messages.success(request, "Address updated successfully.")
+                return redirect('userapp:Address')
+            else:
+                # Log form errors for debugging
+                print(f"Form errors: {form.errors}")
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(request, f"{field}: {error}")
+                
+                return render(request, 'userapp/address.html', {
+                    'form': form,
+                    'addresses': addresses,
+                    'edit_address': address
+                })
+        else:
+            # Check if it's an AJAX request
+            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+            
+            if is_ajax:
+                try:
+                    # Safely convert decimal values to float or None
+                    latitude = None
+                    longitude = None
+                    
+                    if address.latitude:
+                        try:
+                            latitude = float(address.latitude)
+                        except (ValueError, TypeError):
+                            latitude = None
+                    
+                    if address.longitude:
+                        try:
+                            longitude = float(address.longitude)
+                        except (ValueError, TypeError):
+                            longitude = None
+                    
+                    # Return address data as JSON
+                    return JsonResponse({
+                        'flat_house_no': address.flat_house_no,
+                        'area_street': address.area_street,
+                        'landmark': address.landmark or '',
+                        'pincode': address.pincode,
+                        'town_city': address.town_city,
+                        'state': address.state,
+                        'country': address.country,
+                        'address_type': address.address_type,
+                        'latitude': latitude,
+                        'longitude': longitude,
+                    })
+                except Exception as e:
+                    print(f"Error serializing address data: {e}")
+                    return JsonResponse({'error': str(e)}, status=400)
+            
+            # Regular GET request - show edit form
+            form = AddressForm(instance=address)
+            return render(request, 'userapp/address.html', {
+                'form': form,
+                'addresses': addresses,
+                'edit_address': address
+            })
+    except Exception as e:
+        print(f"Error in edit_address view: {e}")
+        messages.error(request, f"Error loading address: {str(e)}")
+        
+        # Check if it's an AJAX request to return appropriate response
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'error': str(e)}, status=500)
+        
+        return redirect('userapp:Address')
 
 @never_cache
 @login_required
 def delete_address(request, address_id):
-    address = get_object_or_404(Address, id=address_id, user=request.user)
-    address.delete()
+    try:
+        address = get_object_or_404(Address, id=address_id, user=request.user)
+        address.delete()
+        messages.success(request, "Address deleted successfully.")
+    except Exception as e:
+        print(f"Error deleting address: {e}")
+        messages.error(request, "An error occurred while deleting your address.")
     return redirect('userapp:Address')
 
 @never_cache
 @login_required
 def make_primary_address(request, address_id):
-    address = get_object_or_404(Address, id=address_id, user=request.user)
-    
-    # Set all addresses to non-primary
-    Address.objects.filter(user=request.user).update(is_primary=False)
-    
-    # Set the selected address as primary
-    address.is_primary = True
-    address.save()
+    try:
+        address = get_object_or_404(Address, id=address_id, user=request.user)
+        
+        # Set all addresses to non-primary
+        Address.objects.filter(user=request.user).update(is_primary=False)
+        
+        # Set the selected address as primary
+        address.is_primary = True
+        address.save()
+        messages.success(request, "Primary address updated successfully.")
+    except Exception as e:
+        print(f"Error setting primary address: {e}")
+        messages.error(request, "An error occurred while updating your primary address.")
     
     return redirect('userapp:Address')
 
@@ -573,3 +722,63 @@ def ticket_detail(request, ticket_id):
         'messages': ticket.messages.all().order_by('created_at')
     }
     return render(request, 'userapp/ticket_detail.html', context)
+
+@require_POST
+def verify_pincode_view(request):
+    """Handle AJAX requests to verify pincodes"""
+    pincode = request.POST.get('pincode')
+    if not pincode:
+        return JsonResponse({'success': False, 'message': 'Pincode is required'})
+    
+    # Validate pincode format
+    if len(pincode) != 6 or not pincode.isdigit():
+        return JsonResponse({
+            'success': False, 
+            'message': 'Pincode must be a 6-digit number'
+        })
+    
+    try:
+        # Log the pincode being verified
+        print(f"Verifying pincode: {pincode}")
+        
+        pincode_data = verify_pincode(pincode)
+        if pincode_data:
+            print(f"Pincode data received: {pincode_data}")
+            return JsonResponse({
+                'success': True,
+                'district': pincode_data.get('district', ''),
+                'state': pincode_data.get('state', ''),
+                'office': pincode_data.get('office', ''),
+                'taluk': pincode_data.get('taluk', '')
+            })
+        else:
+            print(f"Invalid pincode: {pincode}")
+            # Return invalid response even in DEBUG mode
+            return JsonResponse({
+                'success': False, 
+                'message': 'Invalid pincode or not found in database'
+            })
+    except Exception as e:
+        print(f"Error in verify_pincode_view: {e}")
+        return JsonResponse({
+            'success': False, 
+            'message': f'Error: {str(e)}'
+        })
+
+# Helper function to format coordinates to max 9 digits with 6 decimal places
+def format_coordinate(coord):
+    """Format a coordinate to comply with DecimalField(max_digits=9, decimal_places=6)"""
+    # Format to 6 decimal places
+    formatted = f"{coord:.6f}"
+    
+    # If total digits exceeds 9 (including the decimal point which we ignore),
+    # truncate to ensure max_digits=9 constraint is met
+    if len(formatted.replace('.', '')) > 9:
+        # Split into integer and decimal parts
+        parts = formatted.split('.')
+        # Keep only 2 digits for integer part (max) and adjust decimal part to fit within 9 total
+        integer_part = parts[0][-2:] if len(parts[0]) > 2 else parts[0]
+        decimal_part = parts[1][:min(6, 9-len(integer_part))]
+        formatted = f"{integer_part}.{decimal_part}"
+    
+    return formatted

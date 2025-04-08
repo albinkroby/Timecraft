@@ -1,0 +1,203 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-lg-9">
+            <!-- 3D Model Editor Canvas -->
+            <div class="card mb-4 shadow">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">{{ watch.name }} - 3D Model Editor</h4>
+                    <div class="btn-group">
+                        <button id="save-model" class="btn btn-primary">
+                            <i class="fas fa-save me-1"></i> Save Changes
+                        </button>
+                        <button id="undo-action" class="btn btn-secondary">
+                            <i class="fas fa-undo me-1"></i> Undo
+                        </button>
+                        <button id="reset-view" class="btn btn-outline-secondary">
+                            <i class="fas fa-sync me-1"></i> Reset View
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <!-- 3D Editor Canvas -->
+                    <div id="editor-canvas" style="height: 700px; position: relative;">
+                        <!-- Canvas will be inserted here by JavaScript -->
+                        <div id="loading-indicator" class="position-absolute top-50 start-50 translate-middle">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2">Loading 3D model...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3">
+            <!-- Toolbox and Settings -->
+            <div class="card mb-4 shadow">
+                <div class="card-header">
+                    <h5 class="mb-0">Editing Tools</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Editing Mode Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Editing Mode</label>
+                        <div class="btn-group d-flex" role="group">
+                            <input type="radio" class="btn-check" name="edit-mode" id="mode-translate" autocomplete="off" checked>
+                            <label class="btn btn-outline-primary" for="mode-translate">
+                                <i class="fas fa-arrows-alt me-1"></i> Move
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="edit-mode" id="mode-rotate" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="mode-rotate">
+                                <i class="fas fa-sync me-1"></i> Rotate
+                            </label>
+                            
+                            <input type="radio" class="btn-check" name="edit-mode" id="mode-scale" autocomplete="off">
+                            <label class="btn btn-outline-primary" for="mode-scale">
+                                <i class="fas fa-expand-arrows-alt me-1"></i> Scale
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Visualization Options -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Display Options</label>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="show-wireframe">
+                            <label class="form-check-label" for="show-wireframe">Wireframe Mode</label>
+                        </div>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="show-grid" checked>
+                            <label class="form-check-label" for="show-grid">Show Grid</label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="show-axes" checked>
+                            <label class="form-check-label" for="show-axes">Show Axes</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Object Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Selected Object</label>
+                        <div id="no-selection" class="alert alert-secondary">
+                            <i class="fas fa-info-circle me-2"></i> Click on a part of the model to select it
+                        </div>
+                        <div id="selection-details" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Name</label>
+                                <input type="text" class="form-control" id="object-name">
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col">
+                                    <label class="form-label">Position</label>
+                                    <div class="input-group input-group-sm mb-1">
+                                        <span class="input-group-text">X</span>
+                                        <input type="number" class="form-control" id="pos-x" step="0.1">
+                                    </div>
+                                    <div class="input-group input-group-sm mb-1">
+                                        <span class="input-group-text">Y</span>
+                                        <input type="number" class="form-control" id="pos-y" step="0.1">
+                                    </div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Z</span>
+                                        <input type="number" class="form-control" id="pos-z" step="0.1">
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <label class="form-label">Rotation</label>
+                                    <div class="input-group input-group-sm mb-1">
+                                        <span class="input-group-text">X</span>
+                                        <input type="number" class="form-control" id="rot-x" step="5">
+                                    </div>
+                                    <div class="input-group input-group-sm mb-1">
+                                        <span class="input-group-text">Y</span>
+                                        <input type="number" class="form-control" id="rot-y" step="5">
+                                    </div>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">Z</span>
+                                        <input type="number" class="form-control" id="rot-z" step="5">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Scale</label>
+                                <div class="input-group input-group-sm mb-1">
+                                    <span class="input-group-text">X</span>
+                                    <input type="number" class="form-control" id="scale-x" step="0.1" min="0.1">
+                                </div>
+                                <div class="input-group input-group-sm mb-1">
+                                    <span class="input-group-text">Y</span>
+                                    <input type="number" class="form-control" id="scale-y" step="0.1" min="0.1">
+                                </div>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Z</span>
+                                    <input type="number" class="form-control" id="scale-z" step="0.1" min="0.1">
+                                </div>
+                            </div>
+                            <div class="d-grid">
+                                <button id="apply-transform" class="btn btn-primary">Apply Changes</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Model Structure -->
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5 class="mb-0">Model Structure</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="model-structure">
+                        <!-- Will be populated by JavaScript -->
+                        <div class="list-group-item text-center py-4">
+                            <div class="spinner-border spinner-border-sm text-secondary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mb-0 mt-2">Loading model structure...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4 mb-5">
+        <a href="{% url 'adminapp:view_customizable_watch' watch.id %}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Back to Watch
+        </a>
+    </div>
+</div>
+
+<!-- Hidden form for saving model data -->
+<form id="save-model-form" method="post" style="display: none;">
+    {% csrf_token %}
+    <input type="hidden" id="model-data" name="model_data">
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Required 3D libraries - using compatible version -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+
+<!-- Custom 3D model editor script -->
+<script src="{% static 'adminapp/js/3d_model_editor.js' %}"></script>
+
+<!-- Initialize the editor -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize editor with model path and watch ID
+    const editor = new ModelEditor('{{ watch.model_file.url }}', {{ watch.id }});
+    editor.initialize();
+});
+</script>
+{% endblock %} 

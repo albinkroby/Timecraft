@@ -47,9 +47,23 @@ urlpatterns = [
     path('customizable-watches/<int:watch_id>/', views.view_customizable_watch, name='view_customizable_watch'),
     path('add-watch-parts/<int:watch_id>/', views.add_watch_parts, name='add_watch_parts'),
     path('add-part-options/<int:watch_id>/', views.add_part_options, name='add_part_options'),
+    path('configure-watch-parts/<int:watch_id>/', views.configure_watch_parts, name='configure_watch_parts'),
+    path('get-model-path/<int:watch_id>/', views.get_model_path, name='get_model_path'),
     
     path('order-list/', views.order_list, name='order_list'),
     path('download-orders/', views.download_orders, name='download_orders'),
+    
+    # Batch order assignment
+    path('orders/batch-assign/', 
+         lambda request: redirect('deliveryapp:order-batch-assign'), 
+         name='batch_assign_delivery'),
+         
+    # Auto-assign orders
+    path('orders/auto-assign/', 
+         lambda request: redirect('deliveryapp:order-auto-assign'), 
+         name='auto_assign_delivery'),
+         
+    # Order detail should come after the specific order URLs
     path('orders/<str:order_id>/', views.order_detail, name='order_detail'),
     
     path('customizable-watch/<int:watch_id>/edit/', views.edit_customizable_watch, name='edit_customizable_watch'),
@@ -69,6 +83,7 @@ urlpatterns = [
     path('update-watch-price/', views.update_watch_price, name='update_watch_price'),
     path('update-option-price/', views.update_option_price, name='update_option_price'),
     path('get-watch-parts/', views.get_watch_parts, name='get_watch_parts'),
+    path('get-part-options/', views.get_part_options, name='get_part_options'),
     
     path('custom-watch-orders/', views.custom_watch_orders, name='custom_watch_orders'),
     path('custom-watch-order/<int:order_id>/', views.custom_watch_order_detail, name='custom_watch_order_detail'),
@@ -85,8 +100,11 @@ urlpatterns = [
     path('delivery-agents/<int:user_id>/edit/', views.edit_delivery_agent, name='edit_delivery_agent'),
     path('delivery-agents/<int:user_id>/toggle/', views.toggle_delivery_agent, name='toggle_delivery_agent'),
     
+    # 3D Model Editor
+    path('model-editor/<int:watch_id>/', views.model_editor, name='model_editor'),
+    
     # Redirect to delivery app for order assignment
     path('orders/<str:order_id>/assign-delivery/', 
-         lambda request, order_id: redirect('deliveryapp:admin_assign_delivery', order_id=order_id), 
+         lambda request, order_id: redirect('deliveryapp:order-assignment', order_id=order_id), 
          name='assign_delivery_agent'),
 ]

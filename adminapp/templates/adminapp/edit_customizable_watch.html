@@ -138,6 +138,9 @@
         </div>
         {% endfor %}
     </div>
+
+    <!-- Add 3D Color Editor -->
+    {% include 'adminapp/partials/model_color_editor.html' %}
 </div>
 
 <!-- Add Part Modal -->
@@ -184,6 +187,14 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Include THREE.js libraries -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.js"></script>
+
+<!-- Include color editor JS -->
+{% include 'adminapp/partials/model_color_editor_js.html' %}
+
 <script>
 $(document).ready(function() {
     // Handle part editing
