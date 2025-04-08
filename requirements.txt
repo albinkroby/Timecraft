@@ -47,3 +47,6 @@ gunicorn
 
 # Static File Handling
 whitenoise
+
+#Web3
+web3
