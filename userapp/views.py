@@ -683,58 +683,6 @@ def return_order(request, order_id):
     
     return render(request, 'userapp/return_order.html', {'order': order})
 
-@login_required
-def support_tickets(request):
-    tickets = SupportTicket.objects.filter(user=request.user).order_by('-created_at')
-    orders = Order.objects.filter(user=request.user).order_by('-created_at')
-    context = {
-        'tickets': tickets,
-        'orders': orders,
-        'ticket_types': SupportTicket.TICKET_TYPES
-    }
-    return render(request, 'userapp/support_tickets.html', context)
-
-@login_required
-def create_ticket(request):
-    if request.method == 'POST':
-        ticket = SupportTicket.objects.create(
-            user=request.user,
-            subject=request.POST.get('subject'),
-            description=request.POST.get('description'),
-            ticket_type=request.POST.get('ticket_type')
-        )
-        
-        order_id = request.POST.get('order')
-        if order_id:
-            ticket.order = Order.objects.get(id=order_id)
-            ticket.save()
-            
-        messages.success(request, 'Support ticket created successfully!')
-        return redirect('userapp:ticket_detail', ticket_id=ticket.ticket_id)
-    
-    return redirect('userapp:support_tickets')
-
-@login_required
-def ticket_detail(request, ticket_id):
-    ticket = get_object_or_404(SupportTicket, ticket_id=ticket_id, user=request.user)
-    
-    if request.method == 'POST':
-        message = request.POST.get('message')
-        if message:
-            SupportMessage.objects.create(
-                ticket=ticket,
-                sender=request.user,
-                message=message
-            )
-            ticket.status = 'pending'
-            ticket.save()
-            
-    context = {
-        'ticket': ticket,
-        'messages': ticket.messages.all().order_by('created_at')
-    }
-    return render(request, 'userapp/ticket_detail.html', context)
-
 @require_POST
 def verify_pincode_view(request):
     """Handle AJAX requests to verify pincodes"""

@@ -45,9 +45,6 @@ urlpatterns = [
         template_name='registration/password_reset_complete.html'
     ), name='password_reset_complete'),
     
-    path('support/', views.support_tickets, name='support_tickets'),
-    path('support/create/', views.create_ticket, name='create_ticket'),
-    path('support/<str:ticket_id>/', views.ticket_detail, name='ticket_detail'),
     
     path('verify-pincode/', views.verify_pincode_view, name='verify_pincode'),
 ]

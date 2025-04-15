@@ -160,6 +160,7 @@ class BaseWatch(models.Model):
     is_active = models.BooleanField(default=False)  # Changed default to False
     is_featured = models.BooleanField(default=False)
     qa_status = models.BooleanField(default=False)
+    view_count = models.PositiveIntegerField(default=0)  # Track view count for recommendations
     
     @property
     def total_reviews(self):

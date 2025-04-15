@@ -227,9 +227,8 @@
                 <div class="mb-4">
                     {% for i in "54321"|make_list %}
                         <div class="d-flex align-items-center mb-2">
-                            <span class="me-2">{{ i }} <span class="fa fa-star text-warning"></span></span>
-                            <div class="progress flex-grow-1" style="height: 8px;">
-                                {% with count=watch.reviews.filter.rating|length %}
+                            <span class="me-2">{{ i }} <span class="fa fa-star text-warning"></span></span>                            <div class="progress flex-grow-1" style="height: 8px;">
+                                {% with count=watch.reviews.filter|length %}
                                     {% if watch.total_reviews > 0 %}
                                         {% widthratio count watch.total_reviews 100 as percentage %}
                                     {% else %}
@@ -239,7 +238,7 @@
                                     <div class="progress-bar bg-success" role="progressbar" style="width: {{ percentage }}%" aria-valuenow="{{ count }}" aria-valuemin="0" aria-valuemax="{{ watch.total_reviews }}"></div>
                                 {% endwith %}
                             </div>
-                            <span class="ms-2">{{ watch.reviews.filter.rating|length }}</span>
+                            <span class="ms-2">{{ watch.reviews.filter|length }}</span>
                         </div>
                     {% endfor %}
                 </div>
@@ -291,12 +290,11 @@
                                 <a href="{% url 'mainapp:product_detail' slug=similar_watch.slug %}">
                                     <img src="{{ similar_watch.primary_image.url }}" class="card-img-top" 
                                           alt="{{ similar_watch.model_name }}">
-                                </a>
-                                <div class="quick-actions">
-                                    <button class="quick-action-btn add-to-cart-btn" data-watch-id="{{ similar_watch.id }}" title="Add to cart">
+                                </a>                                <div class="quick-actions">
+                                    <button class="quick-action-btn add-to-cart-btn" data-watch-id="{{ similar_watch.id }}" title="Add to cart" style="position: absolute; top: 10px; right: 10px; opacity: 1; transform: translateX(0);">
                                         <i class='bx bx-shopping-bag'></i>
                                     </button>
-                                    <button class="quick-action-btn compare-btn" data-watch-id="{{ similar_watch.id }}" title="Compare">
+                                    <button class="quick-action-btn compare-btn" data-watch-id="{{ similar_watch.id }}" title="Compare" style="position: absolute; top: 10px; left: 10px; opacity: 1; transform: translateX(0);">
                                         <i class='bx bx-git-compare'></i>
                                     </button>
                                 </div>
@@ -304,6 +302,39 @@
                             <div class="card-body">
                                 <h5 class="card-title text-truncate">{{ similar_watch.model_name }}</h5>
                                 <p class="card-text">₹{{ similar_watch.base_price }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button class="scroll-nav scroll-left" aria-label="Scroll left"><i class='bx bx-chevron-left'></i></button>
+                    <button class="scroll-nav scroll-right" aria-label="Scroll right"><i class='bx bx-chevron-right'></i></button>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if recommended_watches %}
+            <div class="mt-5 recommended-watches-section">
+                <h3>Recommended For You</h3>
+                <div class="similar-watches-container">
+                    <div class="similar-watches-scroll">
+                        {% for rec_watch in recommended_watches %}
+                        <div class="similar-watch-card">
+                            <div class="card-img-container">
+                                <a href="{% url 'mainapp:product_detail' slug=rec_watch.slug %}">
+                                    <img src="{{ rec_watch.primary_image.url }}" class="card-img-top" 
+                                          alt="{{ rec_watch.model_name }}">
+                                </a>                                <div class="quick-actions">
+                                    <button class="quick-action-btn add-to-cart-btn" data-watch-id="{{ rec_watch.id }}" title="Add to cart" style="position: absolute; top: 10px; right: 10px; opacity: 1; transform: translateX(0);">
+                                        <i class='bx bx-shopping-bag'></i>
+                                    </button>
+                                    <button class="quick-action-btn wishlist-btn" data-watch-id="{{ rec_watch.id }}" title="Add to wishlist" style="position: absolute; top: 10px; left: 10px; opacity: 1; transform: translateX(0);">
+                                        <i class='bx bx-heart'></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <h5 class="card-title text-truncate">{{ rec_watch.model_name }}</h5>
+                                <p class="card-text">₹{{ rec_watch.base_price }}</p>
                             </div>
                         </div>
                         {% endfor %}
@@ -453,14 +484,16 @@
     .similar-watch-card .quick-actions {
         position: absolute;
         top: 10px;
-        left: 10px;
+        left: -10px;
         display: flex;
         flex-direction: column;
         gap: 10px;
         opacity: 0;
+        width: 100%;
         transform: translateX(-10px);
         transition: all 0.3s ease;
         z-index: 2;
+        justify-content: space-between;
     }
 
     .similar-watch-card:hover .quick-actions {
@@ -469,7 +502,6 @@
     }
 
     .similar-watch-card .quick-action-btn {
-        background: rgba(255, 255, 255, 0.9);
         border: none;
         color: #333;
         font-size: 1.2rem;

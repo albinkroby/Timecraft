@@ -268,14 +268,24 @@ class SupportMessage(models.Model):
     is_staff_reply = models.BooleanField(default=False)
 
 class ProductView(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    product = models.ForeignKey(BaseWatch, on_delete=models.CASCADE)
+    """Tracks which products users view"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    session_id = models.CharField(max_length=100, null=True, blank=True)  # For anonymous users
+    product = models.ForeignKey('adminapp.BaseWatch', on_delete=models.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True)
+    view_duration = models.IntegerField(default=0)  # Time spent in seconds
+    
+    def __str__(self):
+        return f"{self.product.model_name} viewed by {self.user or self.session_id}"
     
     class Meta:
         indexes = [
-            models.Index(fields=['user', '-timestamp']),
+            models.Index(fields=['user']),
+            models.Index(fields=['session_id']),
+            models.Index(fields=['product']),
+            models.Index(fields=['timestamp']),
         ]
+        ordering = ['-timestamp']
 
 class UserPreference(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -285,3 +295,23 @@ class UserPreference(models.Model):
     
     def __str__(self):
         return f"Preferences for {self.user.username}"
+
+# Add these models for the recommendation system
+class SearchQuery(models.Model):
+    """Stores user search queries for recommendation purposes"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    session_id = models.CharField(max_length=100, null=True, blank=True)  # For anonymous users
+    query = models.CharField(max_length=255)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    results_count = models.IntegerField(default=0)  # Number of results shown
+    
+    def __str__(self):
+        return f"{self.query} by {self.user or self.session_id}"
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['user']),
+            models.Index(fields=['session_id']),
+            models.Index(fields=['timestamp']),
+        ]
+        ordering = ['-timestamp']

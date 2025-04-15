@@ -14,7 +14,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from watch_customizer.models import CustomWatchOrder
-from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem, WatchNotification, ChatMessage, SupportTicket, SupportMessage, ChatSession
+from .models import Address,UserProfile, Cart, CartItem, Order, OrderItem, WatchNotification, ChatMessage, SupportTicket, SupportMessage, ChatSession, SearchQuery, ProductView
 from .forms import SignUpForm
 from userapp.forms import AddressForm
 from social_django.models import UserSocialAuth
@@ -25,8 +25,8 @@ from django.utils.encoding import force_bytes, force_str
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import default_token_generator
 from .utils import hash_url, verify_hashed_url, create_fuzzy_search_query, get_fuzzy_matches, get_spelling_suggestions
-from django.db.models import Q,Count, F ,Min, Max
-from adminapp.models import BaseWatch, WatchImage, Brand, Category, ImageFeature, Material
+from django.db.models import Q, Count, F, Min, Max, Case, When
+from adminapp.models import BaseWatch, WatchImage, Brand, Category, ImageFeature
 from django.contrib import messages
 from django.core.paginator import Paginator
 import stripe
@@ -238,6 +238,24 @@ import numpy as np
 def product_detail(request, slug):
     watch = get_object_or_404(BaseWatch, slug=slug, is_active=True)
     
+    # Track product view for recommendations
+    session_id = None
+    if not request.user.is_authenticated:
+        if not request.session.session_key:
+            request.session.save()
+        session_id = request.session.session_key
+    
+    # Save the product view
+    ProductView.objects.create(
+        user=request.user if request.user.is_authenticated else None,
+        session_id=session_id,
+        product=watch
+    )
+    
+    # Increment view count on the product
+    watch.view_count += 1
+    watch.save(update_fields=['view_count'])
+    
     # Get similar watches based on visual features
     try:
         # Get the feature vector for this watch
@@ -266,13 +284,21 @@ def product_detail(request, slug):
     except (ImageFeature.DoesNotExist, Exception) as e:
         print(f"Error finding similar watches: {str(e)}")
         similar_watches = []
+        
+    # Get recommended watches based on user behavior
+    recommended_watches = get_recommended_products(request)
     
-    # Rest of your existing view code...
+    # Get color variants of the same watch
+    color_variants = BaseWatch.objects.filter(
+        model_name__startswith=watch.model_name.split(' ')[0],  # Match first part of model name
+        is_active=True
+    ).exclude(id=watch.id).distinct()
     
     context = {
         'watch': watch,
         'similar_watches': similar_watches,
-        # Other context variables...
+        'recommended_watches': recommended_watches,
+        'color_variants': color_variants,
     }
     return render(request, 'product_detail.html', context)
 
@@ -437,39 +463,59 @@ def search_results(request):
     function_displays = request.GET.getlist('function_display')
     sort_by = request.GET.get('sort_by', 'relevance')
 
-    watches = BaseWatch.objects.filter(is_active=True).order_by('id')  # Add default ordering
-    
-    suggestions = []
-    fuzzy_matches = []
-
+    # Save user search query for recommendations
     if query:
-        # Instead of simple contains, use the fuzzy search query
-        from .utils import create_fuzzy_search_query, get_fuzzy_matches, get_spelling_suggestions
+        # Get session ID for anonymous users
+        session_id = None
+        if not request.user.is_authenticated:
+            if not request.session.session_key:
+                request.session.save()
+            session_id = request.session.session_key
         
-        # Get fuzzy matches and suggestions
-        fuzzy_matches = get_fuzzy_matches(query)
-        spelling_suggestions = get_spelling_suggestions(query)
+        # Save the search query
+        search_entry = SearchQuery(
+            user=request.user if request.user.is_authenticated else None,
+            session_id=session_id,
+            query=query
+        )
         
-        # Create a combined list of suggested terms
-        suggested_terms = []
-        for word, matches in spelling_suggestions:
-            for match in matches:
-                # Create a suggestion by replacing the misspelled word with its correction
-                suggestion = query.replace(word, match)
-                if suggestion != query and suggestion not in suggested_terms:
-                    suggested_terms.append(suggestion)
+        watches = BaseWatch.objects.filter(is_active=True).order_by('id')  # Add default ordering
         
-        # Store the original query for display
-        original_query = query
-        
-        # Apply the fuzzy search
-        fuzzy_query = create_fuzzy_search_query(query)
-        watches = watches.filter(fuzzy_query)
-        
-        # If we have suggested terms, show them in the context
-        if suggested_terms:
-            suggestions = suggested_terms[:3]  # Limit to top 3 suggestions
+        suggestions = []
+        fuzzy_matches = []
 
+        if query:
+            # Instead of simple contains, use the fuzzy search query
+            from .utils import create_fuzzy_search_query, get_fuzzy_matches, get_spelling_suggestions
+            
+            # Get fuzzy matches and suggestions
+            fuzzy_matches = get_fuzzy_matches(query)
+            spelling_suggestions = get_spelling_suggestions(query)
+            
+            # Create a combined list of suggested terms
+            suggested_terms = []
+            for word, matches in spelling_suggestions:
+                for match in matches:
+                    # Create a suggestion by replacing the misspelled word with its correction
+                    suggestion = query.replace(word, match)
+                    if suggestion != query and suggestion not in suggested_terms:
+                        suggested_terms.append(suggestion)
+            
+            # Store the original query for display
+            original_query = query
+            
+            # Apply the fuzzy search
+            fuzzy_query = create_fuzzy_search_query(query)
+            watches = watches.filter(fuzzy_query)
+            
+            # If we have suggested terms, show them in the context
+            if suggested_terms:
+                suggestions = suggested_terms[:3]  # Limit to top 3 suggestions
+        
+        # Save the search results count
+        search_entry.results_count = watches.count()
+        search_entry.save()
+    
     # Apply explicit filters from UI
     if brands:
         watches = watches.filter(brand__id__in=brands)
@@ -1029,36 +1075,104 @@ def get_session(request, session_id):
     except ChatSession.DoesNotExist:
         return JsonResponse({'session': None})
 
-@never_cache
 def get_recommended_products(request):
-    """Generate personalized product recommendations based on browsing history"""
-    from mainapp.models import ProductView
+    """Generate personalized product recommendations based on user behavior"""
+    # Default limit for recommended products
+    limit = 8
     
-    user = request.user
-    # Track products viewed in session if user is not logged in
-    viewed_products = request.session.get('viewed_products', [])
+    # Get the current user or session ID
+    user = request.user if request.user.is_authenticated else None
+    session_id = request.session.session_key if not user else None
     
-    if user.is_authenticated:
-        # Get user's view history from database
-        user_views = ProductView.objects.filter(user=user).order_by('-timestamp')[:10]
-        viewed_product_ids = [view.product.id for view in user_views]
+    if not user and not session_id:
+        # No way to track this user, return popular products
+        return BaseWatch.objects.filter(is_active=True, available_stock__gt=0).order_by('-view_count')[:limit]
+    
+    # Get user's view history 
+    view_filters = Q(user=user) if user else Q(session_id=session_id)
+    user_views = ProductView.objects.filter(view_filters).order_by('-timestamp')[:20]
+    
+    if not user_views.exists():
+        # No view history, return popular products
+        return BaseWatch.objects.filter(is_active=True, available_stock__gt=0).order_by('-view_count')[:limit]
+    
+    # Get watched products 
+    viewed_product_ids = [view.product.id for view in user_views]
+    
+    # Get user's search history
+    search_filters = Q(user=user) if user else Q(session_id=session_id)
+    user_searches = SearchQuery.objects.filter(search_filters).order_by('-timestamp')[:10]
+    
+    # Build a list of relevant brands, categories, colors, etc. based on user behavior
+    viewed_products = BaseWatch.objects.filter(id__in=viewed_product_ids)
+    brands = viewed_products.values_list('brand', flat=True).distinct()
+    categories = viewed_products.values_list('category', flat=True).distinct()
+    colors = viewed_products.values_list('color', flat=True).distinct()
+    price_range = (
+        viewed_products.aggregate(Min('base_price'))['base_price__min'],
+        viewed_products.aggregate(Max('base_price'))['base_price__max']
+    )
+      # Determine price buffer (20% of price range)
+    if None not in price_range and price_range[0] is not None and price_range[1] is not None:
+        try:
+            price_diff = price_range[1] - price_range[0]
+            price_buffer = price_diff * Decimal('0.2')  # Convert 0.2 to Decimal
+            price_min = max(Decimal('0'), price_range[0] - price_buffer)
+            price_max = price_range[1] + price_buffer
+        except (TypeError, ValueError):
+            # Handle case where conversion fails
+            price_min, price_max = Decimal('0'), Decimal('1000000')
     else:
-        viewed_product_ids = viewed_products
+        price_min, price_max = Decimal('0'), Decimal('1000000')  # Convert to Decimal
     
-    if viewed_product_ids:
-        # Get viewed products' attributes to find similar ones
-        viewed_products = BaseWatch.objects.filter(id__in=viewed_product_ids)
-        brands = viewed_products.values_list('brand', flat=True).distinct()
-        price_range = (viewed_products.aggregate(Min('base_price'))['base_price__min'],
-                      viewed_products.aggregate(Max('base_price'))['base_price__max'])
-                      
-        # Find similar products
-        recommendations = BaseWatch.objects.filter(
-            Q(brand__in=brands) |
-            Q(base_price__range=price_range)
-        ).exclude(id__in=viewed_product_ids).distinct()[:8]
+    # Create recommendation query with relevant weights for different factors
+    # Start with products that aren't already viewed
+    recommendations = BaseWatch.objects.filter(
+        is_active=True, 
+        available_stock__gt=0
+    ).exclude(id__in=viewed_product_ids)
+    
+    # Build a query to find similar products based on attributes
+    query = Q()
+    
+    # Brand is a strong indicator of preference
+    if brands:
+        query |= Q(brand__in=brands)
+    
+    # Category is also important
+    if categories:
+        query |= Q(category__in=categories)
+    
+    # Color preference
+    if colors:
+        query |= Q(color__in=colors) | Q(details__strap_color__in=colors)
+    
+    # Price range (with buffer)
+    query |= Q(base_price__range=(price_min, price_max))
+    
+    # Filter by the combined query
+    recommendations = recommendations.filter(query).distinct()
+    
+    # If we don't have enough recommendations, add popular products
+    if recommendations.count() < limit:
+        # Get IDs of current recommendations
+        rec_ids = recommendations.values_list('id', flat=True)
         
-        return recommendations
-    else:
-        # Fall back to popular products
-        return BaseWatch.objects.filter(is_active=True).order_by('-view_count')[:8]
+        # Add popular products not already in recommendations
+        popular_count = limit - recommendations.count()
+        popular = BaseWatch.objects.filter(
+            is_active=True, 
+            available_stock__gt=0
+        ).exclude(
+            id__in=list(viewed_product_ids) + list(rec_ids)
+        ).order_by('-view_count')[:popular_count]
+          # Combine recommendation sets
+        all_ids = list(rec_ids) + list(popular.values_list('id', flat=True))
+        combined_recommendations = BaseWatch.objects.filter(id__in=all_ids)
+        
+        # Order the combined results to prioritize the original recommendations first
+        # followed by the popular items
+        preserved_order = Case(*[When(id=id, then=pos) for pos, id in enumerate(all_ids)])
+        return combined_recommendations.order_by(preserved_order)[:limit]
+    
+    return recommendations[:limit]
