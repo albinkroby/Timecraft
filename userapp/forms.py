@@ -151,3 +151,25 @@ class ReviewForm(forms.ModelForm):
         widgets = {
             'rating': forms.HiddenInput(),
         }
+
+class ReturnRequestForm(forms.Form):
+    RETURN_REASONS = [
+        ('defective', 'Product is defective/damaged'),
+        ('wrong_item', 'Received wrong item'),
+        ('not_as_described', 'Item not as described'),
+        ('changed_mind', 'Changed my mind'),
+        ('other', 'Other reason')
+    ]
+    
+    reason = forms.ChoiceField(
+        choices=RETURN_REASONS,
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+    )
+    notes = forms.CharField(
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 4,
+            'placeholder': 'Please provide additional details about your return request'
+        }),
+        required=False
+    )

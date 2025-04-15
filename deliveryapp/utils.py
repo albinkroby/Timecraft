@@ -282,4 +282,141 @@ def assign_order_to_delivery(order, delivery_person=None):
         status='assigned'
     )
     
-    return True, f"Order assigned to {delivery_person.get_full_name()}" 
+    return True, f"Order assigned to {delivery_person.get_full_name()}"
+
+# Return Management Utils
+def get_personnel_return_workload(delivery_personnel):
+    """
+    Get the current workload of each delivery person for returns.
+    Returns a dictionary with user_id as key and return order count as value.
+    """
+    from django.contrib.auth import get_user_model
+    from mainapp.models import Order
+    
+    User = get_user_model()
+    
+    # Get all active returns for delivery personnel
+    return_counts = Order.objects.filter(
+        return_assigned_to__in=delivery_personnel,
+        status__in=['return_scheduled', 'return_in_transit']
+    ).values('return_assigned_to').annotate(
+        return_count=Count('id')
+    ).order_by('return_count')
+    
+    # Create a dictionary mapping user_id to return count
+    workload = {item['return_assigned_to']: item['return_count'] for item in return_counts}
+    
+    # Add users with zero returns
+    for user in delivery_personnel:
+        if user.id not in workload:
+            workload[user.id] = 0
+    
+    return workload
+
+def assign_return_based_on_workload(order, available_personnel):
+    """
+    Assign return to the delivery person with the lowest workload.
+    Returns the chosen delivery person.
+    """
+    if not available_personnel:
+        return None
+    
+    # Get current workload for each available person
+    workload = {}
+    
+    for person in available_personnel:
+        # Count both regular deliveries and returns
+        from mainapp.models import Order
+        assigned_count = Order.objects.filter(
+            assigned_to=person,
+            status__in=['assigned_to_delivery', 'out_for_delivery']
+        ).count()
+        
+        returns_count = Order.objects.filter(
+            return_assigned_to=person,
+            status__in=['return_scheduled', 'return_in_transit']
+        ).count()
+        
+        # Total workload is the sum of deliveries and returns
+        workload[person.id] = assigned_count + returns_count
+    
+    # Sort by workload (ascending)
+    sorted_personnel = sorted(available_personnel, key=lambda user: workload[user.id])
+    
+    # Return the delivery person with the minimum workload
+    return sorted_personnel[0] if sorted_personnel else None
+
+def generate_return_otp(length=6):
+    """Generate a random OTP for return verification"""
+    return ''.join(random.choices(string.digits, k=length))
+
+def assign_return_otp(order):
+    """Generate and assign return OTP to an order"""
+    otp = generate_return_otp()
+    order.return_otp = otp
+    order.return_otp_created_at = timezone.now()
+    order.save(update_fields=['return_otp', 'return_otp_created_at'])
+    return otp
+
+def verify_return_otp(order, otp):
+    """Verify if the provided return OTP matches the order's return OTP and is valid"""
+    # Check if OTP exists and matches
+    if not order.return_otp or order.return_otp != otp:
+        return False
+    
+    # Check if OTP has expired (valid for 24 hours)
+    if not order.return_otp_created_at or timezone.now() > order.return_otp_created_at + timedelta(hours=24):
+        return False
+    
+    return True
+
+def get_return_requests():
+    """Get orders with return requests that need to be approved"""
+    from mainapp.models import Order
+    return Order.objects.filter(status='return_requested').order_by('-updated_at')
+
+def get_returns_ready_for_pickup():
+    """Get approved returns that need to be assigned for pickup"""
+    from mainapp.models import Order
+    return Order.objects.filter(status='return_approved').order_by('-updated_at')
+
+def assign_return_to_delivery(order, delivery_person=None):
+    """Assign a return to a delivery person for pickup"""
+    from django.utils import timezone
+    from mainapp.models import Order
+    from deliveryapp.models import ReturnHistory
+    
+    # If no delivery person specified, try to auto-assign
+    if not delivery_person:
+        available_personnel = get_available_delivery_personnel()
+        if not available_personnel:
+            return False, "No delivery personnel available"
+        
+        # Try to assign to the original delivery person if available
+        if order.assigned_to and order.assigned_to in available_personnel:
+            delivery_person = order.assigned_to
+        else:
+            # Otherwise, assign based on workload
+            delivery_person = assign_return_based_on_workload(order, available_personnel)
+        
+        if not delivery_person:
+            return False, "Could not find suitable delivery person"
+    
+    # Update order
+    order.status = 'return_scheduled'
+    order.return_assigned_to = delivery_person
+    order.return_pickup_date = timezone.now().date() + timezone.timedelta(days=1)  # Schedule for tomorrow
+    order.save()
+    
+    # Create return history entry
+    ReturnHistory.objects.create(
+        delivery_person=delivery_person,
+        order=order,
+        status='return_scheduled',
+        notes=f"Return assigned to {delivery_person.get_full_name()} for pickup"
+    )
+    
+    # Generate OTP for return verification
+    assign_return_otp(order)
+    
+    return True, f"Return assigned to {delivery_person.get_full_name()}" 

@@ -1,19 +1,29 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="home__container container mt-5">
-    <h1>Custom Watch Order Payment {% if paid %}Successful{% else %}Failed{% endif %}</h1>
-    {% if paid %}
-        <p>Thank you for your custom watch order! Your payment has been processed successfully.</p>
-        <h2>Order Details</h2>
-        <p>Order ID: {{ order.order_id }}</p>
-        <p>Total Amount: ${{ order.total_price }}</p>
-        <p>Status: {{ order.get_status_display }}</p>
-        <p>We will start working on your custom watch soon. You will receive an email with further details.</p>
-    {% else %}
-        <p>We're sorry, but there was an issue processing your payment.</p>
-        <p>Error: {{ error }}</p>
-        <p>Please try again or contact our support team for assistance.</p>
-    {% endif %}
-    <a href="{% url 'mainapp:index' %}" class="btn btn-primary">Return to Home</a>
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h1 class="card-title {% if paid %}text-success{% else %}text-danger{% endif %} mb-4">Custom Watch Order Payment {% if paid %}Successful{% else %}Failed{% endif %}</h1>
+                    {% if paid %}
+                        <p class="card-text">Thank you for your custom watch order! Your payment has been processed successfully.</p>
+                        <h2 class="card-title">Order Details</h2>
+                        <p class="card-text">Order ID: {{ order.order_id }}</p>
+                        <p class="card-text">Total Amount: ₹{{ order.total_price }}</p>
+                        <p class="card-text">Status: {{ order.get_status_display }}</p>
+                        <p class="card-text">We will start working on your custom watch soon. You will receive an email with further details.</p>
+                        <a href="{% url 'watch_customizer:custom_order_details' order.order_id %}" class="button mt-3">View Order Details</a>
+                    {% else %}
+                        <p class="card-text">We're sorry, but there was an issue processing your payment.</p>
+                        <p class="card-text">Error: {{ error }}</p>
+                        <p class="card-text">Please try again or contact our support team for assistance.</p>
+                    {% endif %}
+
+                    <a href="{% url 'mainapp:index' %}" class="button mt-3">Return to Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

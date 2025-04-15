@@ -1,0 +1,131 @@
+{% extends 'adminapp/base.html' %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">
+        <span class="text-muted fw-light">Returns /</span> Pending Return Requests
+    </h4>
+    
+    <!-- Filters & Stats -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3 col-6">
+                    <div class="d-flex align-items-center">
+                        <div class="badge bg-label-warning me-3 p-2">
+                            <i class="bx bx-message-square-dots bx-sm"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0">{{ return_requests.count }}</h5>
+                            <small>Pending Requests</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-9 col-6 text-end">
+                    <a href="{% url 'deliveryapp:admin_return_status' %}" class="btn btn-primary">
+                        <i class="bx bx-bar-chart-alt-2 me-1"></i> Return Status Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Return Requests Table -->
+    <div class="card">
+        <h5 class="card-header">Return Requests</h5>
+        <div class="card-body">
+            {% if return_requests %}
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Items</th>
+                            <th>Return Reason</th>
+                            <th>Requested Date</th>
+                            <th>Eligibility</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in return_requests %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'adminapp:order_detail' order_id=order.order_id %}">
+                                    {{ order.order_id }}
+                                </a>
+                            </td>
+                            <td>
+                                {{ order.user.fullname }}
+                                <small class="d-block text-muted">{{ order.user.email }}</small>
+                            </td>
+                            <td>{{ order.items.count }} item(s)</td>
+                            <td>
+                                <span class="text-truncate d-inline-block" style="max-width: 200px;">
+                                    {{ order.return_reason|truncatechars:100 }}
+                                </span>
+                            </td>
+                            <td>{{ order.updated_at|date:"M d, Y" }}</td>
+                            <td>
+                                {% if order.delivery_date %}
+                                    {% if order.is_eligible %}
+                                        <span class="badge bg-success">Eligible</span>
+                                        <small class="d-block text-muted">{{ order.days_since_delivery }} days since delivery</small>
+                                    {% else %}
+                                        <span class="badge bg-danger">Ineligible</span>
+                                        <small class="d-block text-muted">{{ order.days_since_delivery }} days since delivery</small>
+                                        <small class="d-block text-danger">Exceeds {{ return_policy_days }} day limit</small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-warning">No delivery date</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{% url 'deliveryapp:admin_approve_return' order_id=order.order_id %}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="bx bx-check-circle me-1"></i> Review
+                                    </a>
+                                    <a href="{% url 'adminapp:order_detail' order_id=order.order_id %}" 
+                                       class="btn btn-sm btn-outline-secondary">
+                                        <i class="bx bx-show me-1"></i> Details
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-3">No return requests found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <img src="{% static 'img/illustrations/empty-state.svg' %}" alt="No return requests" 
+                     class="mb-3" style="max-width: 200px;">
+                <h4>No pending return requests</h4>
+                <p class="text-muted">All return requests have been processed</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block vendor_js %}
+<script src="{% static 'vendor/libs/jquery/jquery.js' %}"></script>
+<script src="{% static 'vendor/libs/popper/popper.js' %}"></script>
+<script src="{% static 'vendor/js/bootstrap.js' %}"></script>
+{% endblock %}
+
+{% block page_js %}
+<script>
+$(document).ready(function() {
+    // Add any page-specific JavaScript here
+});
+</script>
+{% endblock %} 

@@ -63,8 +63,13 @@ urlpatterns = [
          lambda request: redirect('deliveryapp:order-auto-assign'), 
          name='auto_assign_delivery'),
          
-    # Order detail should come after the specific order URLs
+    # Order Management
+    path('orders/', views.manage_orders, name='manage_orders'),
     path('orders/<str:order_id>/', views.order_detail, name='order_detail'),
+    
+    # Return Management
+    path('returns/', views.manage_returns, name='manage_returns'),
+    path('returns/<str:order_id>/', views.return_detail, name='return_detail'),
     
     path('customizable-watch/<int:watch_id>/edit/', views.edit_customizable_watch, name='edit_customizable_watch'),
     # path('watch-part/<int:part_id>/edit/', views.edit_watch_part, name='edit_watch_part'),

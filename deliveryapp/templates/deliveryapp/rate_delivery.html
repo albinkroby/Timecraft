@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4 mb-5">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'mainapp:index' %}">Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'userapp:my_orders' %}">My Orders</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'userapp:order_details' order_id=order.order_id %}">Order #{{ order.order_id }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Rate Delivery</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">Rate Your Delivery Experience</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-4">
+                        <h6>Order #{{ order.order_id }}</h6>
+                        <p class="text-muted small mb-0">Delivered on: {{ order.delivery_date|date:"F d, Y" }}</p>
+                        {% if order.assigned_to %}
+                            <p class="text-muted small">Delivered by: {{ order.assigned_to.get_full_name }}</p>
+                        {% endif %}
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_rating" class="form-label">Rating (1-5 stars)</label>
+                            <div class="rating-stars">
+                                <div class="btn-group" role="group" aria-label="Rating">
+                                    {% for i in "12345" %}
+                                    <input type="radio" class="btn-check" name="rating" id="rating{{ i }}" value="{{ i }}" 
+                                        {% if rating and rating.rating == i|add:"0" %}checked{% endif %}>
+                                    <label class="btn btn-outline-warning" for="rating{{ i }}">
+                                        <i class="bx bxs-star"></i> {{ i }}
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                {{ form.rating.errors }}
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_comments" class="form-label">Comments (Optional)</label>
+                            <textarea name="comments" id="id_comments" rows="4" class="form-control" placeholder="Tell us about your delivery experience...">{% if rating %}{{ rating.comments }}{% endif %}</textarea>
+                            {{ form.comments.errors }}
+                        </div>
+                        
+                        <div class="text-end">
+                            <a href="{% url 'userapp:order_details' order_id=order.order_id %}" class="btn btn-outline-secondary me-2">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Submit Rating</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add any JavaScript needed for the rating functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        // Highlight stars on hover
+        const ratingLabels = document.querySelectorAll('.rating-stars label');
+        ratingLabels.forEach(label => {
+            label.addEventListener('mouseenter', function() {
+                const value = this.getAttribute('for').replace('rating', '');
+                highlightStars(value);
+            });
+        });
+        
+        const ratingContainer = document.querySelector('.rating-stars');
+        ratingContainer.addEventListener('mouseleave', function() {
+            const selectedValue = document.querySelector('.btn-check:checked')?.value || 0;
+            highlightStars(selectedValue);
+        });
+        
+        function highlightStars(value) {
+            ratingLabels.forEach(label => {
+                const starValue = label.getAttribute('for').replace('rating', '');
+                if (starValue <= value) {
+                    label.classList.add('active');
+                } else {
+                    label.classList.remove('active');
+                }
+            });
+        }
+        
+        // Initialize with any existing rating
+        const selectedValue = document.querySelector('.btn-check:checked')?.value || 0;
+        highlightStars(selectedValue);
+    });
+</script>
+
+<style>
+    .rating-stars .btn-outline-warning.active,
+    .rating-stars .btn-outline-warning:hover {
+        background-color: #ffc107;
+        color: #000;
+    }
+    
+    .rating-stars .btn-group {
+        width: 100%;
+    }
+    
+    .rating-stars .btn {
+        flex: 1;
+    }
+</style>
+{% endblock %} 

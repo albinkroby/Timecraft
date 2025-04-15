@@ -1,0 +1,132 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+{% load delivery_extras %}
+
+{% block admin_content %}
+<div class="container-fluid px-4 py-4">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'adminapp:index' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'deliveryapp:admin_return_status' %}">Return Status</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Batch Return Assignment</li>
+                </ol>
+            </nav>
+            <h2 class="mb-4">Batch Return Assignment</h2>
+            
+            {% if not approved_returns %}
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> No approved returns awaiting assignment.
+                </div>
+            {% else %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title">Assign Returns to Delivery Personnel</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Assign multiple returns to delivery personnel at once. 
+                            Select a delivery person for each return you want to assign.
+                        </div>
+                        
+                        {% if not available_personnel %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i> No delivery personnel are currently available.
+                            </div>
+                        {% else %}
+                            <form method="post">
+                                {% csrf_token %}
+                                <div class="table-responsive">
+                                    <table class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Order ID</th>
+                                                <th>Customer</th>
+                                                <th>Return Date</th>
+                                                <th>Pickup Address</th>
+                                                <th>Items</th>
+                                                <th>Return Reason</th>
+                                                <th>Delivery Person</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for order in approved_returns %}
+                                                <tr>
+                                                    <td>
+                                                        <a href="{% url 'adminapp:order_detail' order_id=order.order_id %}" target="_blank">
+                                                            {{ order.order_id }}
+                                                        </a>
+                                                    </td>
+                                                    <td>{{ order.user.fullname }}</td>
+                                                    <td>{{ order.updated_at|date:"d M Y" }}</td>
+                                                    <td>
+                                                        {% if order.address %}
+                                                            {{ order.address|truncatechars:30 }}
+                                                        {% else %}
+                                                            No address found
+                                                        {% endif %}
+                                                    </td>
+                                                    <td>{{ order.items.count }} item(s)</td>
+                                                    <td>{{ order.return_reason|truncatechars:40 }}</td>
+                                                    <td>
+                                                        <select name="return_{{ order.order_id }}" class="form-select">
+                                                            <option value="">-- Select Delivery Person --</option>
+                                                            {% for person in available_personnel %}
+                                                                <option value="{{ person.id }}">
+                                                                    {{ person.get_full_name|default:person.username }} 
+                                                                    ({{ workload|get_item:person.id|get_item:'active_returns' }} returns)
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div class="d-flex justify-content-end mt-4">
+                                    <a href="{% url 'deliveryapp:admin_return_status' %}" class="btn btn-secondary me-2">Cancel</a>
+                                    <button type="submit" class="btn btn-primary">Assign Selected Returns</button>
+                                </div>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Delivery Personnel Workload</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for person in available_personnel %}
+                                <div class="col-md-3 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body">
+                                            <h5 class="card-title">{{ person.get_full_name|default:person.username }}</h5>
+                                            <p class="card-text">
+                                                <strong>Active Returns:</strong> {{ workload|get_item:person.id|get_item:'active_returns' }}<br>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add select2 for better dropdown experience
+    $(document).ready(function() {
+        $('.form-select').select2();
+    });
+</script>
+{% endblock %} 

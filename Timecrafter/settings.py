@@ -49,7 +49,6 @@ INSTALLED_APPS = [
     'vendorapp',
     'supportapp',
     'blockchain',
-    'ar_tryout',
     'watch_customizer',
     'deliveryapp',
     'django.contrib.admin',
@@ -191,6 +190,8 @@ EMAIL_PORT = os.environ['EMAIL_PORT']
 EMAIL_HOST_USER = os.environ['EMAIL_HOST_USER']
 EMAIL_HOST_PASSWORD = os.environ['EMAIL_HOST_PASSWORD']
 EMAIL_USE_TLS = os.environ['EMAIL_USE_TLS']
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+ADMIN_EMAIL = EMAIL_HOST_USER  # Use the same email as the host user for admin notifications
 
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 ACCOUNT_EMAIL_REQUIRED = True
@@ -254,7 +255,7 @@ try:
         CERTIFICATE_CONTRACT_ADDRESS = contract_data['address']
         CERTIFICATE_CONTRACT_ABI = contract_data['abi']
 except:
-    CERTIFICATE_CONTRACT_ADDRESS = '0x69F922Eb0F1aCD5600E0846dA3Bb53B2A50F568B'
+    CERTIFICATE_CONTRACT_ADDRESS = '0x5Db0BBEE1C73e22c7A1BE369B075775F578aFB22'
     CERTIFICATE_CONTRACT_ABI = None
     
 # Add this to your existing settings.py

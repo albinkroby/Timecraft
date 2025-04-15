@@ -114,4 +114,80 @@ class DeliveryRatingForm(forms.ModelForm):
         widgets = {
             'rating': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 5}),
             'comment': forms.Textarea(attrs={'class': 'form-control', 'rows': 3})
-        } 
+        }
+
+# Return Management Forms
+class ReturnApprovalForm(forms.Form):
+    APPROVAL_CHOICES = (
+        ('approve', 'Approve Return'),
+        ('reject', 'Reject Return'),
+    )
+    
+    decision = forms.ChoiceField(
+        choices=APPROVAL_CHOICES,
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'})
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': '3', 'placeholder': 'Add notes about this return'})
+    )
+
+class ReturnAssignmentForm(forms.Form):
+    delivery_person = forms.ModelChoiceField(
+        queryset=User.objects.filter(role='delivery', is_active=True),
+        widget=forms.Select(attrs={'class': 'form-control select2'})
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['delivery_person'].label_from_instance = lambda obj: f"{obj.get_full_name()} ({obj.username})"
+
+class ReturnUpdateForm(forms.Form):
+    STATUS_CHOICES = (
+        ('return_scheduled', 'Scheduled for Pickup'),
+        ('return_in_transit', 'In Transit'),
+        ('return_delivered', 'Delivered to Warehouse'),
+        ('return_failed', 'Pickup Failed'),
+    )
+    
+    status = forms.ChoiceField(
+        choices=STATUS_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': '3', 'placeholder': 'Add notes about this return status update'})
+    )
+
+class ReturnOTPVerificationForm(forms.Form):
+    otp = forms.CharField(
+        max_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter 6-digit OTP',
+            'pattern': '[0-9]{6}',
+            'title': 'Enter 6-digit OTP',
+            'required': True
+        })
+    )
+
+class ReturnConditionForm(forms.Form):
+    CONDITION_CHOICES = (
+        ('excellent', 'Excellent - Like New'),
+        ('good', 'Good - Minor Signs of Use'),
+        ('fair', 'Fair - Visible Wear and Tear'),
+        ('poor', 'Poor - Damaged/Defective'),
+    )
+    
+    condition = forms.ChoiceField(
+        choices=CONDITION_CHOICES,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    condition_description = forms.CharField(
+        required=True,
+        widget=forms.Textarea(attrs={'class': 'form-control', 'rows': '3', 'placeholder': 'Detailed description of the item condition'})
+    )
+    verification_image = forms.ImageField(
+        required=False,
+        widget=forms.FileInput(attrs={'class': 'form-control'})
+    ) 

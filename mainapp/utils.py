@@ -5,16 +5,23 @@ import requests
 import json
 from django.conf import settings
 from django.core.cache import cache
+from django.utils.text import slugify
+import random
+import string
+from datetime import datetime, timedelta
+import jwt
+import hmac
+import difflib
+from django.db.models import Q
+from adminapp.models import BaseWatch, Brand, Category
 
 def hash_url(url):
-    hashed = hashlib.sha256(url.encode()).digest()
-    encoded = base64.urlsafe_b64encode(hashed).decode()
-    return encoded
+    key = settings.SECRET_KEY.encode()
+    message = url.encode()
+    return hmac.new(key, message, hashlib.sha256).hexdigest()
 
-def verify_hashed_url(hashed_url, original_url):
-    print(f"Hashed URL: {hashed_url}")
-    print(f"Original URL: {original_url}")
-    return hash_url(original_url) == hashed_url
+def verify_hashed_url(hashed_url, url):
+    return hmac.compare_digest(hashed_url, hash_url(url))
 
 def verify_pincode(pincode):
     """
@@ -123,3 +130,156 @@ def get_zone_from_pincode(pincode_data):
         return 'central'
     else:
         return 'other'
+
+# New functions for enhanced search
+
+def get_fuzzy_matches(query, threshold=0.6):
+    """
+    Get fuzzy matches for a search query
+    
+    Args:
+        query (str): The search query
+        threshold (float): Minimum similarity score (0-1)
+        
+    Returns:
+        list: List of similar strings found in database
+    """
+    # Normalize the query
+    query = query.lower().strip()
+    
+    # Get all watch models, brands and relevant text fields to search
+    watch_models = BaseWatch.objects.filter(is_active=True).values_list('model_name', flat=True)
+    brand_names = Brand.objects.values_list('brand_name', flat=True)
+    
+    # Combine all searchable strings
+    all_searchable = list(watch_models) + list(brand_names)
+    
+    # Find fuzzy matches
+    fuzzy_matches = []
+    for item in all_searchable:
+        similarity = difflib.SequenceMatcher(None, query, item.lower()).ratio()
+        if similarity >= threshold:
+            fuzzy_matches.append((item, similarity))
+    
+    # Sort by similarity score in descending order
+    fuzzy_matches.sort(key=lambda x: x[1], reverse=True)
+    
+    # Return top matches
+    return [item[0] for item in fuzzy_matches[:5]]
+
+def get_spelling_suggestions(query):
+    """
+    Get spelling suggestions for a query
+    
+    Args:
+        query (str): The search query
+        
+    Returns:
+        list: List of suggested corrections
+    """
+    # Normalize the query
+    query = query.lower().strip()
+    
+    # Split query into words
+    words = query.split()
+    
+    # Get all watch models, brands and categories to check against
+    watch_models = BaseWatch.objects.filter(is_active=True).values_list('model_name', flat=True)
+    brand_names = Brand.objects.values_list('brand_name', flat=True)
+    category_names = Category.objects.values_list('name', flat=True)
+    
+    # Combine all searchable words
+    all_searchable = []
+    for item in list(watch_models) + list(brand_names) + list(category_names):
+        all_searchable.extend(item.lower().split())
+    
+    # Remove duplicates
+    all_searchable = list(set(all_searchable))
+    
+    # Find closest matches for each word
+    suggestions = []
+    for word in words:
+        if len(word) <= 2:  # Skip very short words
+            continue
+            
+        matches = difflib.get_close_matches(word, all_searchable, n=3, cutoff=0.6)
+        if matches:
+            suggestions.append((word, matches))
+    
+    return suggestions
+
+def create_fuzzy_search_query(search_term):
+    """
+    Create a Q object for fuzzy searching
+    
+    Args:
+        search_term (str): The search term
+        
+    Returns:
+        Q: Django Q object for querying
+    """
+    # Get fuzzy matches
+    fuzzy_matches = get_fuzzy_matches(search_term)
+    
+    # Create base query for non-color fields
+    query = Q(model_name__icontains=search_term) | \
+            Q(brand__brand_name__icontains=search_term) | \
+            Q(description__icontains=search_term) | \
+            Q(function_display__icontains=search_term)
+    
+    # Separate color query with OR logic between color and strap_color
+    color_query = Q(color__icontains=search_term) | Q(details__strap_color__icontains=search_term)
+    
+    # Combine all queries
+    query = query | color_query
+    
+    # Add fuzzy match terms to query
+    for match in fuzzy_matches:
+        query |= Q(model_name__icontains=match) | Q(brand__brand_name__icontains=match)
+    
+    return query
+
+def extract_color_terms(search_term):
+    """Extract color terms from search query"""
+    # Common watch colors to detect in search
+    common_colors = [
+        'red', 'blue', 'green', 'black', 'white', 'gold', 'silver', 'brown', 
+        'orange', 'yellow', 'purple', 'pink', 'grey', 'gray', 'navy', 'rose gold',
+        'bronze', 'beige', 'tan', 'copper', 'maroon', 'turquoise', 'teal'
+    ]
+    
+    # Check for color terms in the search query
+    search_words = search_term.lower().split()
+    found_colors = []
+    
+    # Check for exact color matches
+    for color in common_colors:
+        if color in search_term.lower():
+            found_colors.append(color)
+            
+    # Check for compound colors
+    for i in range(len(search_words) - 1):
+        compound_color = f"{search_words[i]} {search_words[i+1]}"
+        if compound_color in common_colors:
+            found_colors.append(compound_color)
+    
+    return found_colors
+
+def extract_function_display_terms(search_term):
+    """Extract function display terms from search query"""
+    # Common watch function displays
+    function_displays = [
+        'analog', 'digital', 'smart', 'chronograph', 'automatic', 'quartz',
+        'mechanical', 'touch', 'hybrid', 'fitness', 'sport', 'dress', 'casual',
+        'dive', 'pilot', 'field', 'military', 'skeleton', 'led', 'lcd'
+    ]
+    
+    search_lower = search_term.lower()
+    found_displays = []
+    
+    # Check for function display terms
+    for display in function_displays:
+        if display in search_lower or f"{display} watch" in search_lower:
+            found_displays.append(display)
+    
+    return found_displays

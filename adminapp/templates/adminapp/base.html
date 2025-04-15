@@ -148,6 +148,25 @@
                     <a href="{% url 'adminapp:order_list' %}" class="list-group-item list-group-item-action {% if request.resolver_match.url_name == 'order_list' %}active{% endif %}">
                         <i class='bx bx-spreadsheet'></i> Orders
                     </a>
+                    
+                    <!-- Add Return Management section -->
+                    <a href="#" class="list-group-item list-group-item-action {% if 'return' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#returnsCollapse" aria-expanded="false" aria-controls="returnsCollapse">
+                        <i class='bx bx-package'></i> Return Management <i class='bx bx-chevron-down float-end'></i>
+                    </a>
+                    <div class="collapse {% if 'return' in request.resolver_match.url_name %}show{% endif %}" id="returnsCollapse">
+                        <div class="list-group">
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'admin_return_requests' %}active{% endif %}" href="{% url 'deliveryapp:admin_return_requests' %}">
+                                <i class='bx bx-receipt'></i> Pending Requests
+                            </a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'admin_return_status' %}active{% endif %}" href="{% url 'deliveryapp:admin_return_status' %}">
+                                <i class='bx bx-stats'></i> Return Status
+                            </a>
+                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'admin_batch_return_assignment' %}active{% endif %}" href="{% url 'deliveryapp:admin_batch_return_assignment' %}">
+                                <i class='bx bx-list-check'></i> Batch Assignment
+                            </a>
+                        </div>
+                    </div>
+                    
                     <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="collapse" data-bs-target="#customizableWatchesCollapse" aria-expanded="false" aria-controls="customizableWatchesCollapse">
                         <i class='bx bxs-watch' ></i> Custom Watches <i class='bx bx-chevron-down float-end'></i>
                     </a>    

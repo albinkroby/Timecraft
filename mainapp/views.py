@@ -24,7 +24,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.tokens import default_token_generator
-from .utils import hash_url, verify_hashed_url
+from .utils import hash_url, verify_hashed_url, create_fuzzy_search_query, get_fuzzy_matches, get_spelling_suggestions
 from django.db.models import Q,Count, F ,Min, Max
 from adminapp.models import BaseWatch, WatchImage, Brand, Category, ImageFeature, Material
 from django.contrib import messages
@@ -438,14 +438,39 @@ def search_results(request):
     sort_by = request.GET.get('sort_by', 'relevance')
 
     watches = BaseWatch.objects.filter(is_active=True).order_by('id')  # Add default ordering
+    
+    suggestions = []
+    fuzzy_matches = []
 
     if query:
-        watches = watches.filter(
-            Q(model_name__icontains=query) | 
-            Q(brand__brand_name__icontains=query) |
-            Q(description__icontains=query)
-        )
+        # Instead of simple contains, use the fuzzy search query
+        from .utils import create_fuzzy_search_query, get_fuzzy_matches, get_spelling_suggestions
+        
+        # Get fuzzy matches and suggestions
+        fuzzy_matches = get_fuzzy_matches(query)
+        spelling_suggestions = get_spelling_suggestions(query)
+        
+        # Create a combined list of suggested terms
+        suggested_terms = []
+        for word, matches in spelling_suggestions:
+            for match in matches:
+                # Create a suggestion by replacing the misspelled word with its correction
+                suggestion = query.replace(word, match)
+                if suggestion != query and suggestion not in suggested_terms:
+                    suggested_terms.append(suggestion)
+        
+        # Store the original query for display
+        original_query = query
+        
+        # Apply the fuzzy search
+        fuzzy_query = create_fuzzy_search_query(query)
+        watches = watches.filter(fuzzy_query)
+        
+        # If we have suggested terms, show them in the context
+        if suggested_terms:
+            suggestions = suggested_terms[:3]  # Limit to top 3 suggestions
 
+    # Apply explicit filters from UI
     if brands:
         watches = watches.filter(brand__id__in=brands)
     if categories:
@@ -454,10 +479,23 @@ def search_results(request):
         watches = watches.filter(base_price__gte=min_price)
     if max_price:
         watches = watches.filter(base_price__lte=max_price)
-    if colors:
-        watches = watches.filter(color__in=colors)
-    if strap_colors:
-        watches = watches.filter(details__strap_color__in=strap_colors)
+        
+    # Handle color filters with OR logic when both color and strap_color are selected
+    color_query = Q()
+    if colors and strap_colors:
+        # If both color filters are selected, use OR logic between them
+        for color in colors:
+            color_query |= Q(color__iexact=color)
+        for strap_color in strap_colors:
+            color_query |= Q(details__strap_color__iexact=strap_color)
+        watches = watches.filter(color_query)
+    else:
+        # If only one type of color filter is selected, apply it normally
+        if colors:
+            watches = watches.filter(color__in=colors)
+        if strap_colors:
+            watches = watches.filter(details__strap_color__in=strap_colors)
+            
     if function_displays:
         watches = watches.filter(function_display__in=function_displays)
 
@@ -469,6 +507,7 @@ def search_results(request):
         watches = watches.order_by('-id')
 
     if request.method == 'POST' and request.FILES.get('image'):
+        # Image search - keep this part unchanged as instructed
         uploaded_image = request.FILES['image']
         uploaded_image_nobg = remove_background(uploaded_image)
         
@@ -553,6 +592,8 @@ def search_results(request):
         'selected_strap_colors': strap_colors,
         'selected_function_displays': function_displays,
         'sort_by': sort_by,
+        'suggestions': suggestions,  # Add suggestions to context
+        'fuzzy_matches': fuzzy_matches,  # Add fuzzy matches to context
     }
     return render(request, 'search_results.html', context)
 

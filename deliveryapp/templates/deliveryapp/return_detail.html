@@ -1,0 +1,568 @@
+{% extends 'deliveryapp/base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+    /* Clean, simplified design */
+    .return-card {
+        margin-bottom: 20px;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border-left: 4px solid #fd7e14;
+    }
+    
+    .return-card .card-header {
+        background-color: #fd7e14;
+        color: white;
+        padding: 12px 15px;
+    }
+    
+    .return-card .card-body {
+        padding: 20px;
+    }
+    
+    /* Navigation buttons with consistent styling */
+    .nav-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 20px;
+        margin: 5px;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: none;
+    }
+    
+    .nav-btn-waze {
+        background-color: #33ccff;
+        color: white;
+    }
+    
+    .nav-btn-waze:hover {
+        background-color: #28b0e4;
+    }
+    
+    .nav-btn-google {
+        background-color: #4285F4;
+        color: white;
+    }
+    
+    .nav-btn-google:hover {
+        background-color: #3367D6;
+    }
+    
+    .nav-btn i, .nav-btn img {
+        margin-right: 8px;
+    }
+    
+    /* Status styles */
+    .location-status {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        display: none;
+    }
+    
+    /* Status progress bar */
+    .status-progress {
+        display: flex;
+        margin: 20px 0;
+        overflow-x: auto;
+        padding: 10px 0;
+    }
+    
+    .status-step {
+        flex: 1;
+        text-align: center;
+        padding: 0 15px;
+        position: relative;
+        min-width: 120px;
+    }
+    
+    .status-step:not(:last-child):after {
+        content: '';
+        position: absolute;
+        top: 20px;
+        right: -10px;
+        width: 20px;
+        height: 3px;
+        background-color: #e5e5e5;
+    }
+    
+    .status-marker {
+        width: 40px;
+        height: 40px;
+        background-color: #e5e5e5;
+        border-radius: 50%;
+        margin: 0 auto 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        color: white;
+    }
+    
+    .status-text {
+        font-size: 14px;
+        white-space: nowrap;
+    }
+    
+    /* Completed steps */
+    .status-completed .status-marker {
+        background-color: #fd7e14;
+    }
+    
+    .status-completed:not(:last-child):after {
+        background-color: #fd7e14;
+    }
+    
+    /* Current step */
+    .status-current .status-marker {
+        background-color: #fd7e14;
+        box-shadow: 0 0 0 3px rgba(253, 126, 20, 0.3);
+    }
+    
+    /* Status update button */
+    .update-status-btn {
+        display: inline-block;
+        margin-top: 10px;
+        padding: 8px 16px;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        border: none;
+        background-color: #f8f9fa;
+        color: #212529;
+        transition: all 0.2s;
+        text-align: center;
+        width: 100%;
+    }
+    
+    .update-status-btn:hover:not(:disabled) {
+        background-color: #fd7e14;
+        color: white;
+    }
+    
+    .update-status-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    /* Return specific styles */
+    .return-reason {
+        background-color: #fff8f0;
+        border-left: 3px solid #fd7e14;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+    }
+    
+    .return-status-badge {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.8rem;
+        border-radius: 20px;
+    }
+    
+    .pickup-info {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    
+    .pickup-date {
+        font-weight: bold;
+        color: #fd7e14;
+    }
+    
+    .timeline-wrapper {
+        position: relative;
+        padding-left: 40px;
+    }
+    .timeline-item {
+        position: relative;
+        margin-bottom: 20px;
+    }
+    .timeline-badge {
+        position: absolute;
+        left: -40px;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        text-align: center;
+        color: white;
+        padding-top: 5px;
+    }
+    .timeline-content {
+        border-left: 1px solid #ddd;
+        padding-left: 20px;
+        padding-bottom: 20px;
+    }
+    .timeline-item:last-child .timeline-content {
+        padding-bottom: 0;
+        border-left: none;
+    }
+</style>
+{% endblock %}
+
+{% block delivery_content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'deliveryapp:dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'deliveryapp:return_list' %}">Return Pickups</a></li>
+                    <li class="breadcrumb-item active">Return #{{ order.order_id }}</li>
+                </ol>
+            </nav>
+            
+            <div class="card mb-4 shadow-sm return-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">Return Order #{{ order.order_id }}</h4>
+                    <span class="badge {% if order.status == 'return_scheduled' %}bg-warning
+                        {% elif order.status == 'return_in_transit' %}bg-info
+                        {% elif order.status == 'return_delivered' %}bg-success{% endif %} return-status-badge">
+                        {{ order.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="mb-3">Customer Information</h5>
+                            <p><strong>Name:</strong> {{ order.user.fullname }}</p>
+                            <p><strong>Email:</strong> {{ order.user.email }}</p>
+                            <p><strong>Phone:</strong> {{ order.user.profile.phone }}</p>
+                            
+                            <div class="return-reason mt-4">
+                                <h5 class="mb-3">Return Reason</h5>
+                                <p>{{ order.return_reason }}</p>
+                            </div>
+                            
+                            <!-- Return Eligibility Information -->
+                            <div class="return-eligibility mt-4">
+                                <h5 class="mb-3">Return Eligibility</h5>
+                                <div class="card">
+                                    <div class="card-body">
+                                        {% if order.delivery_date %}
+                                            {% now "Y-m-d" as today %}
+                                            <p><strong>Order Date:</strong> {{ order.created_at|date:"F d, Y" }}</p>
+                                            <p><strong>Delivery Date:</strong> {{ order.delivery_date|date:"F d, Y" }}</p>
+                                            <p><strong>Return Requested:</strong> {{ order.return_requested_at|date:"F d, Y" }}</p>
+                                            
+                                            <p class="mb-0 mt-3"><strong>Days Since Delivery:</strong> 
+                                                <span>{{ order.days_since_delivery }} days</span>
+                                            </p>
+                                            <p><strong>Return Policy:</strong> 10 days</p>
+                                            
+                                            {% if order.is_returnable %}
+                                                <div class="alert alert-success mb-0 mt-2">
+                                                    <i class="bx bx-check-circle me-1"></i> Eligible for Return
+                                                </div>
+                                            {% else %}
+                                                <div class="alert alert-danger mb-0 mt-2">
+                                                    <i class="bx bx-x-circle me-1"></i> Ineligible for Return
+                                                    {% if order.days_since_delivery > 10 %}
+                                                        (Exceeds 10-day policy)
+                                                    {% endif %}
+                                                </div>
+                                            {% endif %}
+                                        {% else %}
+                                            <div class="alert alert-warning mb-0">
+                                                <i class="bx bx-error-circle me-1"></i> Delivery date not recorded
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="mb-3">Pickup Address</h5>
+                            <p>{{ order.address.flat_house_no }}, {{ order.address.area_street }}</p>
+                            <p>{{ order.address.town_city }}, {{ order.address.state }}</p>
+                            <p>{{ order.address.pincode }}</p>
+                            {% if order.address.landmark %}
+                            <p><strong>Landmark:</strong> {{ order.address.landmark }}</p>
+                            {% endif %}
+                            
+                            <div class="pickup-info mt-4">
+                                <h5 class="mb-3">Pickup Information</h5>
+                                <p><strong>Scheduled Date:</strong> <span class="pickup-date">{{ order.return_pickup_date|date:"F d, Y" }}</span></p>
+                                <p><strong>OTP Required:</strong> Yes, customer must provide return OTP</p>
+                                
+                                {% if order.address.latitude and order.address.longitude %}
+                                <div class="mt-3">
+                                    <h6>Navigation</h6>
+                                    <div class="d-flex flex-wrap">
+                                        <a href="https://www.google.com/maps/dir/?api=1&destination={{ order.address.latitude }},{{ order.address.longitude }}" 
+                                           target="_blank" class="nav-btn nav-btn-google">
+                                            <i class="bx bxl-google"></i> Google Maps
+                                        </a>
+                                        <a href="https://waze.com/ul?ll={{ order.address.latitude }},{{ order.address.longitude }}&navigate=yes" 
+                                           target="_blank" class="nav-btn nav-btn-waze">
+                                            <span class="waze-icon"></span> Waze
+                                        </a>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <h5 class="mb-3">Items for Return</h5>
+                            <div class="table-responsive">
+                                <table class="table table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Product</th>
+                                            <th>Quantity</th>
+                                            <th>Price</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for item in order_items %}
+                                        <tr>
+                                            <td>{{ item.watch.model_name }}</td>
+                                            <td>{{ item.quantity }}</td>
+                                            <td>₹{{ item.price|floatformat:2 }}</td>
+                                            <td>₹{{ item.total_price|floatformat:2 }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot class="table-light">
+                                        <tr>
+                                            <td colspan="3" class="text-end"><strong>Total Amount:</strong></td>
+                                            <td>₹{{ order.total_amount|floatformat:2 }}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <h5 class="mb-3">Return Status Track</h5>
+                            <div class="status-progress">
+                                <div class="status-step {% if order.status == 'return_requested' or order.status == 'return_approved' or order.status == 'return_scheduled' or order.status == 'return_in_transit' or order.status == 'return_delivered' %}status-completed{% endif %}">
+                                    <div class="status-marker"><i class="bx bx-package"></i></div>
+                                    <div class="status-text">Return Requested</div>
+                                </div>
+                                <div class="status-step {% if order.status == 'return_approved' or order.status == 'return_scheduled' or order.status == 'return_in_transit' or order.status == 'return_delivered' %}status-completed{% endif %}">
+                                    <div class="status-marker"><i class="bx bx-check"></i></div>
+                                    <div class="status-text">Return Approved</div>
+                                </div>
+                                <div class="status-step {% if order.status == 'return_scheduled' %}status-current{% elif order.status == 'return_in_transit' or order.status == 'return_delivered' %}status-completed{% endif %}">
+                                    <div class="status-marker"><i class="bx bx-calendar"></i></div>
+                                    <div class="status-text">Pickup Scheduled</div>
+                                </div>
+                                <div class="status-step {% if order.status == 'return_in_transit' %}status-current{% elif order.status == 'return_delivered' %}status-completed{% endif %}">
+                                    <div class="status-marker"><i class="bx bx-cycling"></i></div>
+                                    <div class="status-text">In Transit</div>
+                                </div>
+                                <div class="status-step {% if order.status == 'return_delivered' %}status-completed{% endif %}">
+                                    <div class="status-marker"><i class="bx bx-check-circle"></i></div>
+                                    <div class="status-text">Delivered to Warehouse</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-md-6">
+                            <h5 class="mb-3">Return Pickup Verification</h5>
+                            <div class="card mb-4 shadow-sm return-card">
+                                <div class="card-body">
+                                    {% if order.status == 'return_scheduled' %}
+                                        <p class="mb-3">To complete the return pickup, you need to verify the OTP provided by the customer and document the item condition.</p>
+                                        
+                                        <!-- OTP Request Form - Separate form -->
+                                        <form method="post" action="{% url 'deliveryapp:request_return_otp' order.order_id %}" class="mb-3">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-outline-primary">
+                                                <i class="fas fa-paper-plane me-1"></i> Request OTP
+                                            </button>
+                                            <small class="d-block text-muted mt-1">Send OTP to customer's email</small>
+                                        </form>
+                                        
+                                        <!-- OTP Verification Form -->
+                                        <form method="post" action="{% url 'deliveryapp:verify_return_otp' order.order_id %}" enctype="multipart/form-data">
+                                            {% csrf_token %}
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="form-group">
+                                                        <label for="id_otp" class="form-label">Enter OTP provided by customer:</label>
+                                                        {{ otp_form.otp }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="alert alert-warning">
+                                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                                <strong>Important:</strong> Please inspect the item's condition carefully before completing the return pickup.
+                                            </div>
+                                            
+                                            <div class="row">
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="form-group">
+                                                        <label for="id_condition" class="form-label">Item Condition:</label>
+                                                        {{ condition_form.condition }}
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6 mb-3">
+                                                    <div class="form-group">
+                                                        <label for="id_verification_image" class="form-label">Verification Image (optional):</label>
+                                                        {{ condition_form.verification_image }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="form-group mb-3">
+                                                <label for="id_condition_description" class="form-label">Condition Description:</label>
+                                                {{ condition_form.condition_description }}
+                                                <small class="form-text text-muted">Provide detailed information about the item's condition, any damages, etc.</small>
+                                            </div>
+                                            
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="fas fa-check-circle me-1"></i> Verify Return Pickup
+                                            </button>
+                                        </form>
+                                    {% elif order.status == 'return_in_transit' %}
+                                        <div class="alert alert-success">
+                                            <i class="fas fa-check-circle me-2"></i> Return pickup has been verified and is in transit.
+                                        </div>
+                                        
+                                        <div class="d-grid gap-2 mt-3">
+                                            <form method="post" action="{% url 'deliveryapp:complete_return' order.order_id %}">
+                                                {% csrf_token %}
+                                                <button type="submit" class="btn btn-success btn-lg">
+                                                    <i class="fas fa-warehouse me-1"></i> Mark as Delivered to Warehouse
+                                                </button>
+                                            </form>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-secondary">
+                                            <i class="fas fa-info-circle me-2"></i> This return is in {{ order.get_status_display }} status and cannot be verified at this time.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <h5 class="mb-3">Update Return Status</h5>
+                            <div class="card">
+                                <div class="card-body">
+                                    <form action="{% url 'deliveryapp:return_detail' order.order_id %}" method="POST">
+                                        {% csrf_token %}
+                                        <div class="mb-3">
+                                            <label for="status" class="form-label">Status</label>
+                                            {{ form.status }}
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="notes" class="form-label">Notes</label>
+                                            {{ form.notes }}
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="bx bx-refresh me-1"></i> Update Status
+                                        </button>
+                                    </form>
+                                    
+                                    {% if order.status == 'return_in_transit' %}
+                                    <div class="mt-3">
+                                        <form action="{% url 'deliveryapp:complete_return' order.order_id %}" method="POST">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-success w-100">
+                                                <i class="bx bx-check-circle me-1"></i> Mark as Delivered to Warehouse
+                                            </button>
+                                        </form>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <h5 class="mb-3 mt-4">Return History</h5>
+                            <div class="card">
+                                <div class="card-body p-0">
+                                    <div class="timeline-wrapper">
+                                        {% for entry in return_history %}
+                                        <div class="timeline-item">
+                                            <div class="timeline-badge 
+                                                {% if entry.status == 'return_requested' %}bg-warning
+                                                {% elif entry.status == 'return_approved' %}bg-info
+                                                {% elif entry.status == 'return_scheduled' %}bg-primary
+                                                {% elif entry.status == 'return_in_transit' %}bg-secondary
+                                                {% elif entry.status == 'return_delivered' %}bg-success
+                                                {% else %}bg-danger{% endif %}">
+                                                <i class="fas 
+                                                    {% if entry.status == 'return_requested' %}fa-undo
+                                                    {% elif entry.status == 'return_approved' %}fa-check
+                                                    {% elif entry.status == 'return_scheduled' %}fa-calendar
+                                                    {% elif entry.status == 'return_in_transit' %}fa-truck
+                                                    {% elif entry.status == 'return_delivered' %}fa-box-open
+                                                    {% else %}fa-times{% endif %}">
+                                                </i>
+                                            </div>
+                                            <div class="timeline-content">
+                                                <h6 class="mb-1">{{ entry.get_status_display }}</h6>
+                                                <p class="text-muted small mb-1">{{ entry.timestamp|date:"M d, Y h:i A" }}</p>
+                                                {% if entry.notes %}
+                                                <p class="mb-0">{{ entry.notes }}</p>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% empty %}
+                                        <p class="text-center">No history available</p>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        {% if request.GET.navigation %}
+        // Show navigation options automatically if navigation parameter is present
+        scrollToElement('#navigation-section');
+        {% endif %}
+        
+        // Handle image preview
+        $('#id_verification_image').on('change', function() {
+            if (this.files && this.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    if (!$('#image-preview').length) {
+                        $('<div id="image-preview" class="mt-2">' +
+                          '<img src="' + e.target.result + '" class="img-thumbnail" style="max-height: 150px;">' +
+                          '</div>').insertAfter('#id_verification_image');
+                    } else {
+                        $('#image-preview img').attr('src', e.target.result);
+                    }
+                }
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    });
+    
+    function scrollToElement(selector) {
+        $('html, body').animate({
+            scrollTop: $(selector).offset().top - 100
+        }, 500);
+    }
+</script>
+{% endblock %} 

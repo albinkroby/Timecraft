@@ -106,10 +106,10 @@
                                                 <a href="{% url 'userapp:write_review' item.id %}" class="btn btn-outline-primary btn-sm">Rate & Review Product</a>
                                             {% endif %}
                                             {% if order.is_returnable %}
-                                                <a href="{% url 'userapp:return_order' order.id %}" class="btn btn-outline-warning btn-sm">Return Order</a>
+                                                <a href="{% url 'userapp:request_return' order.order_id %}" class="btn btn-outline-warning btn-sm">Return Order</a>
                                             {% endif %}
                                         {% endif %}
-                                        {% if order.status != 'delivered' and order.status != 'cancelled' and order.status != 'returned' %}
+                                        {% if order.status != 'delivered' and order.status != 'cancelled' and order.status != 'returned' and order.status != 'return_scheduled' and order.status != 'return_in_transit' and order.status != 'return_completed' and order.status != 'return_delivered' %}
                                             <a href="{% url 'userapp:cancel_order' order.id %}" class="btn btn-outline-danger btn-sm">Cancel Order</a>
                                         {% endif %}
                                     </div>

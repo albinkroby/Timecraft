@@ -1,0 +1,189 @@
+{% extends 'adminapp/base.html' %}
+{% load static %}
+
+{% block admin_content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">
+        <span class="text-muted fw-light">Returns /</span> Review Return Request
+    </h4>
+    
+    <div class="row">
+        <!-- Order & Return Details -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Return Request #{{ order.order_id }}</h5>
+                    <span class="badge bg-label-warning">Return Requested</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold">Customer Information</h6>
+                            <p class="mb-1">{{ order.user.fullname }}</p>
+                            <p class="mb-1">{{ order.user.email }}</p>
+                            <p class="mb-1">{{ order.user.profile.phone }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="fw-semibold">Order Information</h6>
+                            <p class="mb-1"><strong>Order Date:</strong> {{ order.created_at|date:"F d, Y" }}</p>
+                            <p class="mb-1"><strong>Delivery Date:</strong> {{ order.delivery_date|date:"F d, Y" }}</p>
+                            <p class="mb-1"><strong>Return Requested:</strong> {{ order.updated_at|date:"F d, Y" }}</p>
+                            
+                            <!-- Eligibility Information -->
+                            {% if order.delivery_date %}
+                                <div class="mt-3">
+                                    <h6 class="fw-semibold">Return Eligibility</h6>
+                                    {% if order.is_returnable %}
+                                        <div class="badge bg-success mb-1">Eligible for Return</div>
+                                        <p class="mb-0 text-muted small">{{ order.days_since_delivery }} days since delivery (within {{ return_policy_days }} day policy)</p>
+                                    {% else %}
+                                        <div class="badge bg-danger mb-1">Ineligible for Return</div>
+                                        <p class="mb-0 text-danger small">{{ order.days_since_delivery }} days since delivery (exceeds {{ return_policy_days }} day policy)</p>
+                                    {% endif %}
+                                </div>
+                            {% else %}
+                                <div class="mt-3">
+                                    <h6 class="fw-semibold">Return Eligibility</h6>
+                                    <div class="badge bg-warning mb-1">No Delivery Date</div>
+                                    <p class="mb-0 text-muted small">Cannot determine eligibility without delivery date</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-warning mb-4">
+                        <h6 class="alert-heading fw-bold mb-1">Return Reason</h6>
+                        <p class="mb-0">{{ order.return_reason }}</p>
+                    </div>
+                    
+                    <h6 class="fw-semibold mb-3">Items for Return</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order.items.all %}
+                                <tr>
+                                    <td>{{ item.watch.model_name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>₹{{ item.price|floatformat:2 }}</td>
+                                    <td>₹{{ item.total_price|floatformat:2 }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="text-end fw-semibold">Total Amount:</td>
+                                    <td class="fw-bold">₹{{ order.total_amount|floatformat:2 }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    
+                    <h6 class="fw-semibold mb-3 mt-4">Pickup Address</h6>
+                    <p class="mb-1">{{ order.address.flat_house_no }}, {{ order.address.area_street }}</p>
+                    <p class="mb-1">{{ order.address.town_city }}, {{ order.address.state }}</p>
+                    <p class="mb-1">{{ order.address.pincode }}</p>
+                    {% if order.address.landmark %}
+                    <p class="mb-0"><strong>Landmark:</strong> {{ order.address.landmark }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Approval Form -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Return Review</h5>
+                </div>
+                <div class="card-body">
+                    <form action="{% url 'deliveryapp:admin_approve_return' order_id=order.order_id %}" method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label class="form-label d-block">Decision</label>
+                            
+                            <div class="form-check form-check-inline mb-3">
+                                {{ form.decision.0 }}
+                                <label class="form-check-label" for="{{ form.decision.0.id_for_label }}">
+                                    <span class="d-flex align-items-center">
+                                        <i class="bx bx-check-circle text-success me-1"></i> 
+                                        Approve Return
+                                    </span>
+                                </label>
+                            </div>
+                            
+                            <div class="form-check form-check-inline">
+                                {{ form.decision.1 }}
+                                <label class="form-check-label" for="{{ form.decision.1.id_for_label }}">
+                                    <span class="d-flex align-items-center">
+                                        <i class="bx bx-x-circle text-danger me-1"></i> 
+                                        Reject Return
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label class="form-label" for="{{ form.notes.id_for_label }}">Notes</label>
+                            {{ form.notes }}
+                            <div class="form-text">These notes will be visible to staff and delivery personnel.</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bx bx-check me-1"></i> Submit Decision
+                            </button>
+                            <a href="{% url 'deliveryapp:admin_return_requests' %}" class="btn btn-outline-secondary">
+                                <i class="bx bx-arrow-back me-1"></i> Back to Requests
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">What Happens Next?</h5>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-semibold mb-2">If Approved:</h6>
+                    <ul class="ps-3 mb-3">
+                        <li>Return will be marked as "Return Approved"</li>
+                        <li>You can assign delivery personnel for pickup</li>
+                        <li>Customer will be notified</li>
+                    </ul>
+                    
+                    <h6 class="fw-semibold mb-2">If Rejected:</h6>
+                    <ul class="ps-3 mb-0">
+                        <li>Return will be marked as "Return Rejected"</li>
+                        <li>Customer will be notified with your notes</li>
+                        <li>Original order status remains unchanged</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block vendor_js %}
+<script src="{% static 'vendor/libs/jquery/jquery.js' %}"></script>
+<script src="{% static 'vendor/libs/popper/popper.js' %}"></script>
+<script src="{% static 'vendor/js/bootstrap.js' %}"></script>
+{% endblock %}
+
+{% block page_js %}
+<script>
+$(document).ready(function() {
+    // Add any page-specific JavaScript here
+});
+</script>
+{% endblock %} 

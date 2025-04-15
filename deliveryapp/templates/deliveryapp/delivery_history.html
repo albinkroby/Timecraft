@@ -98,7 +98,7 @@
                         <tr>
                             <td>{{ order.order_id }}</td>
                             <td>{{ order.user.fullname }}</td>
-                            <td>₹{{ order.total|floatformat:2 }}</td>
+                            <td>₹{{ order.total_amount|floatformat:2 }}</td>
                             <td>{{ order.delivery_date|date:"M d, Y" }}</td>
                             <td>
                                 {% if order.delivery_rating %}

@@ -86,16 +86,29 @@ class CartItem(models.Model):
         return self.watch.base_price * self.quantity
 
 class Order(models.Model):
-    STATUS_CHOICES = (
+    STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('processing', 'Processing'),
         ('assigned_to_delivery', 'Assigned to Delivery'),
         ('out_for_delivery', 'Out for Delivery'),
-        ('on_the_way', 'On the way'),
         ('delivered', 'Delivered'),
         ('cancelled', 'Cancelled'),
-        ('returned', 'Returned'),
-    )
+        # Return statuses
+        ('return_requested', 'Return Requested'),
+        ('return_approved', 'Return Approved'),
+        ('return_scheduled', 'Return Pickup Scheduled'),
+        ('return_in_transit', 'Return In Transit'),
+        ('return_completed', 'Return Completed'),
+        ('return_rejected', 'Return Rejected'),
+    ]
+    
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+        ('partially_refunded', 'Partially Refunded'),
+    ]
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='orders')
     address = models.ForeignKey(Address, on_delete=models.SET_NULL, null=True)
@@ -107,7 +120,15 @@ class Order(models.Model):
     order_id = models.CharField(max_length=50, unique=True, blank=True)
     delivery_date = models.DateField(null=True, blank=True)
     cancellation_reason = models.TextField(blank=True, null=True)
-    return_reason = models.TextField(blank=True, null=True)
+    return_reason = models.CharField(max_length=100, blank=True, null=True)
+    return_notes = models.TextField(blank=True, null=True)
+    return_requested_at = models.DateTimeField(blank=True, null=True)
+    return_approved_at = models.DateTimeField(blank=True, null=True)
+    return_completed_at = models.DateTimeField(blank=True, null=True)
+    return_assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_returns')
+    return_otp = models.CharField(max_length=6, blank=True, null=True)
+    return_otp_created_at = models.DateTimeField(blank=True, null=True)
+    return_pickup_date = models.DateField(null=True, blank=True)
     delivery_otp = models.CharField(max_length=6, blank=True, null=True)
     otp_created_at = models.DateTimeField(null=True, blank=True)
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_orders')
@@ -129,11 +150,10 @@ class Order(models.Model):
             return True
         return False
     
-    from datetime import timedelta
-
     def is_returnable(self):
         if self.status == 'delivered' and self.delivery_date:
-            return (timezone.now().date() - self.delivery_date) <= timedelta(days=10)
+            days_since_delivery = (timezone.now().date() - self.delivery_date).days
+            return days_since_delivery >= 0 and days_since_delivery <= 10
         return False
 
 @receiver(pre_save, sender=Order)

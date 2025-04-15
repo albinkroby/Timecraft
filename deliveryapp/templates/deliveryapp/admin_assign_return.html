@@ -1,0 +1,232 @@
+{% extends 'adminapp/base.html' %}
+{% load static %}
+{% load delivery_extras %}
+
+{% block title %}Assign Return Pickup - {{ order.order_id }}{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Assign Return Pickup</h1>
+        <a href="{% url 'adminapp:order_detail' order.order_id %}" class="d-none d-sm-inline-block btn btn-sm btn-secondary shadow-sm">
+            <i class="fas fa-arrow-left fa-sm text-white-50"></i> Back to Order
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Order Details Column -->
+        <div class="col-xl-6 col-lg-6">
+            <div class="card shadow mb-4">
+                <!-- Card Header -->
+                <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                    <h6 class="m-0 font-weight-bold text-primary">Return Details</h6>
+                    <span class="badge bg-info text-white px-3 py-2">
+                        {{ order.get_status_display }}
+                    </span>
+                </div>
+                <!-- Card Body -->
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <p class="mb-1 text-muted">Order ID</p>
+                            <p class="mb-3 font-weight-bold">{{ order.order_id }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1 text-muted">Customer</p>
+                            <p class="mb-3 font-weight-bold">{{ order.user.fullname }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <p class="mb-1 text-muted">Return Requested</p>
+                            <p class="mb-3 font-weight-bold">{{ order.return_requested_at|date:"M d, Y" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1 text-muted">Return Approved</p>
+                            <p class="mb-3 font-weight-bold">{{ order.return_approved_at|date:"M d, Y" }}</p>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <p class="mb-1 text-muted">Pickup Address</p>
+                        <p class="mb-0 font-weight-bold">{{ order.address }}</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <p class="mb-1 text-muted">Return Reason</p>
+                        <p class="mb-0">{{ order.return_reason }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Return Items -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Return Items</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Quantity</th>
+                                    <th>Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order.items.all %}
+                                <tr>
+                                    <td>{{ item.watch.model_name }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>${{ item.price }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assignment Column -->
+        <div class="col-xl-6 col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Assign to Delivery Personnel</h6>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="form-group">
+                            <label for="delivery_person">Select Delivery Person</label>
+                            {{ form.delivery_person }}
+                            {% if form.delivery_person.errors %}
+                            <div class="invalid-feedback d-block">
+                                {{ form.delivery_person.errors }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <h6 class="font-weight-bold">Automatic Assignment Logic</h6>
+                            <p class="mb-0">If you don't manually select a delivery person, the system will automatically assign the return based on the following criteria:</p>
+                            <ol class="mb-0 mt-2">
+                                <li>First try to assign to the original delivery person (if available)</li>
+                                <li>Otherwise, assign based on overall workload</li>
+                            </ol>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">Assign Return</button>
+                            <a href="{% url 'adminapp:order_detail' order.order_id %}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Available Personnel -->
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Available Delivery Personnel</h6>
+                </div>
+                <div class="card-body">
+                    {% if available_personnel %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>Agent</th>
+                                    <th>Current Workload</th>
+                                    <th>Rating</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for person in available_personnel %}
+                                <tr>
+                                    <td>{{ person.fullname }}</td>
+                                    <td>
+                                        {% with person.id as person_id %}
+                                            {% with person_id|workload_count as count %}
+                                                {{ count }} order(s)
+                                            {% endwith %}
+                                        {% endwith %}
+                                    </td>
+                                    <td>
+                                        {% with person.delivery_metrics.avg_rating as rating %}
+                                            {{ rating|floatformat:1 }}/5
+                                        {% endwith %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <p class="mb-0 text-danger">No delivery personnel available at this time.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block vendor_js %}
+<script src="{% static 'vendor/libs/jquery/jquery.js' %}"></script>
+<script src="{% static 'vendor/libs/popper/popper.js' %}"></script>
+<script src="{% static 'vendor/js/bootstrap.js' %}"></script>
+{% if order.address.latitude and order.address.longitude %}
+<script src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&callback=initMap" async defer></script>
+{% endif %}
+{% endblock %}
+
+{% block page_js %}
+<script>
+{% if order.address.latitude and order.address.longitude %}
+function initMap() {
+    const deliveryLocation = {
+        lat: {{ order.address.latitude }}, 
+        lng: {{ order.address.longitude }}
+    };
+    
+    const map = new google.maps.Map(document.getElementById("map"), {
+        center: deliveryLocation,
+        zoom: 15,
+    });
+    
+    const marker = new google.maps.Marker({
+        position: deliveryLocation,
+        map: map,
+        title: "Pickup Location",
+        animation: google.maps.Animation.DROP
+    });
+    
+    const infowindow = new google.maps.InfoWindow({
+        content: "<strong>Pickup Location</strong><br>{{ order.address.flat_house_no }}, {{ order.address.area_street }}<br>{{ order.address.town_city }}, {{ order.address.pincode }}"
+    });
+    
+    marker.addListener("click", () => {
+        infowindow.open(map, marker);
+    });
+    
+    // Open info window by default
+    infowindow.open(map, marker);
+}
+{% endif %}
+
+$(document).ready(function() {
+    // Enhanced select for delivery personnel
+    $('#{{ form.delivery_person.id_for_label }}').select2({
+        theme: 'bootstrap-5',
+        placeholder: 'Select a delivery person',
+        allowClear: true
+    });
+});
+</script>
+{% endblock %} 

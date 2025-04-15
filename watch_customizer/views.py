@@ -160,7 +160,12 @@ def place_custom_order(request):
     processed_parts = []
     for part_name, option_id in design_data.items():
         try:
-            part = WatchPart.objects.get(part_name__name__iexact=part_name)
+            # Use filter().first() instead of get() to avoid MultipleObjectsReturned error
+            part = WatchPart.objects.filter(part_name__name__iexact=part_name).first()
+            if part is None:
+                logger.error(f"No part found with name {part_name}")
+                continue
+                
             option = WatchPartOption.objects.get(id=option_id.replace('btnCheck', ''))
             processed_parts.append({
                 'part_name': part.part_name.name,

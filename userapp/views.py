@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from mainapp.models import Address, UserProfile, User, Order, OrderItem
 from watch_customizer.models import CustomWatchOrder
-from .forms import AddressForm, UserProfileForm, ReviewForm
+from .forms import AddressForm, UserProfileForm, ReviewForm, ReturnRequestForm
 from django.db import IntegrityError
 from django.http import Http404, JsonResponse, HttpResponseRedirect, HttpResponse
 from .models import Wishlist, Review, ReviewImage
@@ -25,6 +25,8 @@ from django.conf import settings
 import os
 from django.core.cache import cache
 from mainapp.utils import verify_pincode
+from django.core.mail import send_mail
+from django.utils import timezone
 
 @never_cache
 @login_required
@@ -660,10 +662,20 @@ def return_order(request, order_id):
                 custom_reason = request.POST.get('custom_reason', '')
                 return_reason = custom_reason if custom_reason else return_reason
             
-            order.status = 'returned'
+            order.status = 'return_requested'
             order.return_reason = return_reason
             order.save()
-            messages.success(request, 'Order returned successfully.')
+            
+            # Create initial return history entry
+            from deliveryapp.models import ReturnHistory
+            ReturnHistory.objects.create(
+                delivery_person=order.user,  # Placeholder, will be updated when assigned
+                order=order,
+                status='return_requested',
+                notes=f"Return requested by customer. Reason: {return_reason}"
+            )
+            
+            messages.success(request, 'Return request submitted successfully. You will be notified once it is approved.')
             return redirect('userapp:my_orders')
     else:
         messages.error(request, 'Order cannot be returned. Return period has expired.')
@@ -782,3 +794,52 @@ def format_coordinate(coord):
         formatted = f"{integer_part}.{decimal_part}"
     
     return formatted
+
+@login_required
+def request_return(request, order_id):
+    """Request a return for an order"""
+    order = get_object_or_404(Order, order_id=order_id, user=request.user)
+    
+    # Check if order is eligible for return
+    if order.status != 'delivered':
+        messages.error(request, "Only delivered orders can be returned.")
+        return redirect('userapp:order_details', order_id=order_id)
+    
+    # Check if order is within the 10-day return window
+    if not order.is_returnable():
+        days_since_delivery = (timezone.now().date() - order.delivery_date).days
+        messages.error(request, f"This order cannot be returned. The return period is limited to 10 days after delivery. It has been {days_since_delivery} days since delivery.")
+        return redirect('userapp:order_details', order_id=order_id)
+        
+    # Check if return already exists
+    if order.status in ['return_requested', 'return_approved', 'return_scheduled', 'return_in_transit', 'return_completed']:
+        messages.info(request, "A return has already been initiated for this order.")
+        return redirect('userapp:order_details', order_id=order_id)
+    
+    if request.method == 'POST':
+        form = ReturnRequestForm(request.POST)
+        if form.is_valid():
+            # Update order status
+            order.status = 'return_requested'
+            order.return_reason = form.cleaned_data['reason']
+            order.return_notes = form.cleaned_data['notes']
+            order.return_requested_at = timezone.now()
+            order.save()
+            
+            # Notify admin
+            subject = f"New Return Request: Order #{order.order_id}"
+            message = f"A new return request has been initiated for Order #{order.order_id}."
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [settings.ADMIN_EMAIL])
+            
+            messages.success(request, "Return request submitted successfully. We'll review your request and get back to you.")
+            return redirect('userapp:my_orders')
+    else:
+        form = ReturnRequestForm()
+    
+    context = {
+        'order': order,
+        'form': form,
+        'days_remaining': 10 - (timezone.now().date() - order.delivery_date).days
+    }
+    
+    return render(request, 'userapp/request_return.html', context)

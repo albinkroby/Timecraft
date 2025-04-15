@@ -1,0 +1,111 @@
+{% extends 'deliveryapp/base.html' %}
+{% load static %}
+
+{% block title %}Return Pickups - Delivery Dashboard{% endblock %}
+
+{% block delivery_content %}
+<div class="container-fluid">
+    <!-- Page Heading -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Return Pickups</h1>
+    </div>
+
+    <!-- Return pickups card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+            <h6 class="m-0 font-weight-bold text-primary">Returns Assigned to You</h6>
+        </div>
+        <div class="card-body">
+            {% if returns %}
+            <div class="table-responsive">
+                <table class="table table-bordered" id="returnsTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Location</th>
+                            <th>Pickup Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in returns %}
+                        <tr>
+                            <td>{{ order.order_id }}</td>
+                            <td>{{ order.user.fullname }}</td>
+                            <td>
+                                {% if order.address %}
+                                {{ order.address }}
+                                {% else %}
+                                <span class="text-muted">No address available</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ order.return_pickup_date|date:"M d, Y" }}</td>
+                            <td>
+                                <span class="badge bg-{% if order.status == 'return_scheduled' %}primary
+                                    {% elif order.status == 'return_in_transit' %}info
+                                    {% elif order.status == 'return_completed' %}success
+                                    {% else %}secondary{% endif %}">
+                                    {{ order.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'deliveryapp:return_detail' order.order_id %}" class="btn btn-primary btn-sm">View Details</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-box-open fa-3x mb-3 text-gray-400"></i>
+                <p class="mb-0">No returns assigned to you at the moment.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Upcoming returns card -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Return Pickup Tips</h6>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-xl-12">
+                    <ul class="list-group">
+                        <li class="list-group-item">
+                            <i class="fas fa-check-circle text-success mr-2"></i> 
+                            Verify the OTP provided by the customer before accepting the return
+                        </li>
+                        <li class="list-group-item">
+                            <i class="fas fa-search text-primary mr-2"></i> 
+                            Inspect the condition of the returned items and document with photos if necessary
+                        </li>
+                        <li class="list-group-item">
+                            <i class="fas fa-box text-warning mr-2"></i> 
+                            Ensure the item is properly packaged for safe transit
+                        </li>
+                        <li class="list-group-item">
+                            <i class="fas fa-truck text-info mr-2"></i> 
+                            Update the return status as soon as you pick up the item
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        $('#returnsTable').DataTable({
+            "order": [[ 3, "asc" ]]
+        });
+    });
+</script>
+{% endblock %} 

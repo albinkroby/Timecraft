@@ -67,7 +67,7 @@
             
             <h3>Assigned Orders</h3>
             {% if assigned_orders %}
-            <div class="table-responsive">
+            <div class="table-responsive mb-4">
                 <table class="table table-striped">
                     <thead>
                         <tr>
@@ -85,10 +85,11 @@
                             <td>{{ order.user.fullname }}</td>
                             <td>{{ order.address }}</td>
                             <td>
-                                <span class="badge {% if order.status == 'assigned_to_delivery' %}bg-warning
-                                      {% elif order.status == 'out_for_delivery' %}bg-info{% endif %}">
-                                    {{ order.get_status_display }}
-                                </span>
+                                {% if order.status == 'assigned_to_delivery' %}
+                                <span class="badge bg-info">Assigned</span>
+                                {% elif order.status == 'out_for_delivery' %}
+                                <span class="badge bg-primary">Out for Delivery</span>
+                                {% endif %}
                             </td>
                             <td>
                                 <a href="{% url 'deliveryapp:order_detail' order.order_id %}" class="btn btn-sm btn-primary">View</a>
@@ -99,16 +100,56 @@
                 </table>
             </div>
             {% else %}
-            <div class="alert alert-info">
-                You don't have any assigned orders at the moment.
+            <div class="alert alert-info mb-4">
+                <p>You don't have any assigned orders at the moment.</p>
             </div>
             {% endif %}
             
-            <div class="d-flex justify-content-between mt-4 mb-2">
-                <h3>Recently Completed Deliveries</h3>
-                <a href="{% url 'deliveryapp:delivery_history' %}" class="btn btn-outline-primary">View All History</a>
+            <!-- Return Pickups Section -->
+            <h3>Return Pickups <span class="badge bg-primary">{{ returns_count|default:"0" }}</span></h3>
+            {% if assigned_returns %}
+            <div class="table-responsive mb-4">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Pickup Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in assigned_returns %}
+                        <tr>
+                            <td>{{ order.order_id }}</td>
+                            <td>{{ order.user.fullname }}</td>
+                            <td>{{ order.return_pickup_date|date:"M d, Y" }}</td>
+                            <td>
+                                {% if order.status == 'return_scheduled' %}
+                                <span class="badge bg-warning">Scheduled for Pickup</span>
+                                {% elif order.status == 'return_in_transit' %}
+                                <span class="badge bg-info">In Transit</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'deliveryapp:return_detail' order.order_id %}" class="btn btn-sm btn-primary">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
+            <div class="text-end mb-4">
+                <a href="{% url 'deliveryapp:return_list' %}" class="btn btn-outline-primary">View All Returns</a>
+            </div>
+            {% else %}
+            <div class="alert alert-info mb-4">
+                <p>You don't have any assigned return pickups at the moment.</p>
+            </div>
+            {% endif %}
             
+            <h3>Recent Completed Orders</h3>
             {% if completed_orders %}
             <div class="table-responsive">
                 <table class="table table-striped">

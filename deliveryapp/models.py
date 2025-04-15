@@ -182,11 +182,20 @@ class DeliveryProfile(models.Model):
         self.save(update_fields=['onboarding_completed', 'onboarding_completed_at'])
 
 class DeliveryHistory(models.Model):
+    """Track status updates for delivery"""
+    STATUS_CHOICES = (
+        ('assigned_to_delivery', 'Assigned to Delivery'),
+        ('out_for_delivery', 'Out for Delivery'),
+        ('delivered', 'Delivered'),
+        ('delivery_failed', 'Delivery Failed'),
+    )
+    
     delivery_person = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='delivery_history')
     order = models.ForeignKey('mainapp.Order', on_delete=models.CASCADE, related_name='delivery_updates')
-    status = models.CharField(max_length=50)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES)
     notes = models.TextField(blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
     latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     
@@ -195,6 +204,35 @@ class DeliveryHistory(models.Model):
     
     def __str__(self):
         return f"Delivery update for order {self.order.order_id}: {self.status}"
+
+class ReturnHistory(models.Model):
+    """Track status updates for return pickups"""
+    STATUS_CHOICES = (
+        ('return_requested', 'Return Requested'),
+        ('return_approved', 'Return Approved'),
+        ('return_scheduled', 'Return Scheduled'),
+        ('return_in_transit', 'Return In Transit'),
+        ('return_delivered', 'Return Delivered'),
+        ('return_rejected', 'Return Rejected'),
+        ('return_failed', 'Return Pickup Failed'),
+    )
+    
+    delivery_person = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='return_history')
+    order = models.ForeignKey('mainapp.Order', on_delete=models.CASCADE, related_name='return_updates')
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES)
+    notes = models.TextField(blank=True, null=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    location = models.CharField(max_length=255, blank=True, null=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    condition_description = models.TextField(blank=True, null=True)
+    return_verification_image = models.ImageField(upload_to='return_verification/', blank=True, null=True)
+    
+    class Meta:
+        ordering = ['-timestamp']
+    
+    def __str__(self):
+        return f"Return update for order {self.order.order_id}: {self.status}"
 
 class DeliveryMetrics(models.Model):
     delivery_person = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='delivery_metrics')

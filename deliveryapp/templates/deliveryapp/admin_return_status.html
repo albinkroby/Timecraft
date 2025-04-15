@@ -1,0 +1,279 @@
+{% extends "adminapp/base.html" %}
+{% load static %}
+{% load delivery_extras %}
+
+{% block admin_content %}
+<div class="container-fluid px-4 py-4">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'adminapp:index' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Return Status</li>
+                </ol>
+            </nav>
+            <h2 class="mb-4">Return Management Dashboard</h2>
+            
+            <!-- Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-xl-2 col-md-4 mb-3">
+                    <div class="card bg-primary text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="me-3">
+                                    <div class="text-white-75 small">Total Returns</div>
+                                    <div class="text-lg fw-bold">{{ stats.total }}</div>
+                                </div>
+                                <i class="fas fa-box-open fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-2 col-md-4 mb-3">
+                    <div class="card bg-warning text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="me-3">
+                                    <div class="text-white-75 small">Requested</div>
+                                    <div class="text-lg fw-bold">{{ stats.requested }}</div>
+                                </div>
+                                <i class="fas fa-clock fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                        <div class="card-footer d-flex align-items-center justify-content-between">
+                            <a class="small text-white stretched-link" href="{% url 'deliveryapp:admin_return_requests' %}">View Requests</a>
+                            <div class="small text-white"><i class="fas fa-angle-right"></i></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-2 col-md-4 mb-3">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="me-3">
+                                    <div class="text-white-75 small">Approved</div>
+                                    <div class="text-lg fw-bold">{{ stats.approved }}</div>
+                                </div>
+                                <i class="fas fa-check-circle fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-2 col-md-4 mb-3">
+                    <div class="card bg-info text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="me-3">
+                                    <div class="text-white-75 small">In Process</div>
+                                    <div class="text-lg fw-bold">{{ stats.scheduled|add:stats.in_transit }}</div>
+                                </div>
+                                <i class="fas fa-truck fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-2 col-md-4 mb-3">
+                    <div class="card bg-secondary text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="me-3">
+                                    <div class="text-white-75 small">Delivered</div>
+                                    <div class="text-lg fw-bold">{{ stats.delivered }}</div>
+                                </div>
+                                <i class="fas fa-box-check fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-2 col-md-4 mb-3">
+                    <div class="card bg-danger text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="me-3">
+                                    <div class="text-white-75 small">Rejected</div>
+                                    <div class="text-lg fw-bold">{{ stats.rejected }}</div>
+                                </div>
+                                <i class="fas fa-times-circle fa-2x text-white-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Returns Awaiting Pickup -->
+            {% if returns_for_pickup %}
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clipboard-list me-2"></i> 
+                        Returns Awaiting Pickup Assignment ({{ stats.pending_assignment }})
+                    </h5>
+                    <a href="{% url 'deliveryapp:admin_batch_return_assignment' %}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-truck me-1"></i> Batch Assign
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Date</th>
+                                    <th>Items</th>
+                                    <th>Reason</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in returns_for_pickup %}
+                                <tr>
+                                    <td>{{ order.order_id }}</td>
+                                    <td>{{ order.user.fullname }}</td>
+                                    <td>{{ order.updated_at|date:"M d, Y" }}</td>
+                                    <td>{{ order.items.count }} items</td>
+                                    <td>{{ order.return_reason|truncatechars:30 }}</td>
+                                    <td>
+                                        <a href="{% url 'adminapp:order_detail' order_id=order.order_id %}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'deliveryapp:admin_assign_return' order_id=order.order_id %}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-user-plus"></i> Assign
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Active Returns -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-truck me-2"></i> Active Returns
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if active_returns %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Status</th>
+                                    <th>Assigned To</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in active_returns %}
+                                <tr>
+                                    <td>{{ order.order_id }}</td>
+                                    <td>{{ order.user.fullname }}</td>
+                                    <td>
+                                        {% if order.status == 'return_scheduled' %}
+                                            <span class="badge bg-info">Scheduled</span>
+                                        {% elif order.status == 'return_in_transit' %}
+                                            <span class="badge bg-primary">In Transit</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if order.return_assigned_to %}
+                                            {{ order.return_assigned_to.fullname }}
+                                        {% else %}
+                                            Not Assigned
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ order.updated_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'adminapp:order_detail' order_id=order.order_id %}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i> No active returns at the moment.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Completed Returns -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">
+                        <i class="fas fa-check-circle me-2"></i> Recently Completed Returns
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if completed_returns %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Handled By</th>
+                                    <th>Completion Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in completed_returns %}
+                                <tr>
+                                    <td>{{ order.order_id }}</td>
+                                    <td>{{ order.user.fullname }}</td>
+                                    <td>
+                                        {% if order.return_assigned_to %}
+                                            {{ order.return_assigned_to.fullname }}
+                                        {% else %}
+                                            Unknown
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ order.updated_at|date:"M d, Y" }}</td>
+                                    <td>
+                                        <a href="{% url 'adminapp:order_detail' order_id=order.order_id %}" class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i> No completed returns in the last 30 days.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block vendor_js %}
+<script src="{% static 'vendor/libs/jquery/jquery.js' %}"></script>
+<script src="{% static 'vendor/libs/popper/popper.js' %}"></script>
+<script src="{% static 'vendor/js/bootstrap.js' %}"></script>
+{% endblock %}
+
+{% block page_js %}
+<script>
+$(document).ready(function() {
+    // Add any page-specific JavaScript here
+});
+</script>
+{% endblock %} 

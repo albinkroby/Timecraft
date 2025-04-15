@@ -1,30 +1,33 @@
 {% extends 'deliveryapp/base.html' %}
 
-{% block title %}Assigned Orders{% endblock %}
+{% block title %}Assigned Returns{% endblock %}
 
 {% block delivery_content %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center flex-wrap">
-            <h3 class="mb-2 mb-md-0"><i class='bx bx-package me-2'></i>Assigned Orders</h3>
+            <h3 class="mb-2 mb-md-0"><i class='bx bx-cycling me-2'></i>Return Pickups</h3>
             <div>
+                <a href="{% url 'deliveryapp:dashboard' %}" class="btn btn-sm btn-outline-secondary me-2">
+                    <i class='bx bx-arrow-back me-1'></i> Back to Dashboard
+                </a>
                 <button id="refresh-btn" class="btn btn-sm btn-outline-primary">
                     <i class='bx bx-refresh me-1'></i> Refresh
                 </button>
             </div>
         </div>
-        <p class="text-muted">View and manage your current delivery assignments</p>
+        <p class="text-muted">View and manage your current return pickup assignments</p>
     </div>
 </div>
 
-{% if orders %}
+{% if returns %}
     <div class="row">
-        {% for order in orders %}
+        {% for order in returns %}
         <div class="col-12 col-md-6 col-lg-6 col-xl-4 mb-4">
-            <div class="card order-card h-100">
+            <div class="card return-card h-100">
                 <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 text-truncate">Order #{{ order.order_id }}</h5>
-                    <span class="badge {% if order.status == 'assigned_to_delivery' %}bg-info{% elif order.status == 'out_for_delivery' %}bg-primary{% else %}bg-secondary{% endif %} order-status">
+                    <span class="badge {% if order.status == 'return_scheduled' %}bg-warning{% elif order.status == 'return_in_transit' %}bg-info{% else %}bg-secondary{% endif %} return-status">
                         {{ order.get_status_display }}
                     </span>
                 </div>
@@ -35,15 +38,15 @@
                     </div>
                     
                     <div class="mb-3">
-                        <small class="text-muted d-block">Delivery Address</small>
+                        <small class="text-muted d-block">Pickup Address</small>
                         <p class="mb-0 text-truncate">{{ order.address.flat_house_no }}, {{ order.address.area_street }}</p>
                         <p class="mb-0 text-truncate">{{ order.address.town_city }}, {{ order.address.state }} - {{ order.address.pincode }}</p>
                     </div>
                     
                     <div class="row mb-3">
                         <div class="col-6">
-                            <small class="text-muted d-block">Order Received</small>
-                            <p class="mb-0">{{ order.created_at|date:"M d, Y" }}</p>
+                            <small class="text-muted d-block">Pickup Date</small>
+                            <p class="mb-0">{{ order.return_pickup_date|date:"M d, Y" }}</p>
                         </div>
                         <div class="col-6">
                             <small class="text-muted d-block">Items</small>
@@ -52,8 +55,8 @@
                     </div>
                     
                     <div class="mb-3">
-                        <small class="text-muted d-block">Total Amount</small>
-                        <p class="mb-0 fw-bold">₹{{ order.total_amount|floatformat:2 }}</p>
+                        <small class="text-muted d-block">Return Reason</small>
+                        <p class="mb-0">{{ order.return_reason|truncatechars:100 }}</p>
                     </div>
                     
                     {% if order.address.landmark %}
@@ -65,7 +68,7 @@
                 </div>
                 <div class="card-footer bg-transparent">
                     <div class="d-flex flex-column flex-sm-row gap-2">
-                        <a href="{% url 'deliveryapp:order_detail' order.order_id %}" class="btn btn-primary flex-grow-1">
+                        <a href="{% url 'deliveryapp:return_detail' order.order_id %}" class="btn btn-primary flex-grow-1">
                             <i class='bx bx-show-alt me-1'></i> View Details
                         </a>
                         {% if order.address.latitude and order.address.longitude %}
@@ -83,12 +86,12 @@
         {% endfor %}
     </div>
     
-    {% if orders.has_other_pages %}
+    {% if returns.has_other_pages %}
     <nav aria-label="Page navigation">
         <ul class="pagination justify-content-center flex-wrap">
-            {% if orders.has_previous %}
+            {% if returns.has_previous %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ orders.previous_page_number }}" aria-label="Previous">
+                    <a class="page-link" href="?page={{ returns.previous_page_number }}" aria-label="Previous">
                         <span aria-hidden="true">&laquo;</span>
                     </a>
                 </li>
@@ -98,17 +101,17 @@
                 </li>
             {% endif %}
             
-            {% for i in orders.paginator.page_range %}
-                {% if orders.number == i %}
+            {% for i in returns.paginator.page_range %}
+                {% if returns.number == i %}
                     <li class="page-item active"><span class="page-link">{{ i }}</span></li>
                 {% else %}
                     <li class="page-item"><a class="page-link" href="?page={{ i }}">{{ i }}</a></li>
                 {% endif %}
             {% endfor %}
             
-            {% if orders.has_next %}
+            {% if returns.has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="?page={{ orders.next_page_number }}" aria-label="Next">
+                    <a class="page-link" href="?page={{ returns.next_page_number }}" aria-label="Next">
                         <span aria-hidden="true">&raquo;</span>
                     </a>
                 </li>
@@ -124,12 +127,17 @@
 {% else %}
     <div class="card">
         <div class="card-body text-center py-5">
-            <i class='bx bx-package' style="font-size: 4rem; color: #ccc;"></i>
-            <h4 class="mt-3">No Assigned Orders</h4>
-            <p class="text-muted">You don't have any orders assigned to you at the moment.</p>
-            <button id="refresh-empty-btn" class="btn btn-primary mt-2">
-                <i class='bx bx-refresh me-1'></i> Refresh
-            </button>
+            <i class='bx bx-cycling' style="font-size: 4rem; color: #ccc;"></i>
+            <h4 class="mt-3">No Return Assignments</h4>
+            <p class="text-muted">You don't have any return pickups assigned to you at the moment.</p>
+            <div class="mt-3">
+                <a href="{% url 'deliveryapp:dashboard' %}" class="btn btn-secondary me-2">
+                    <i class='bx bx-arrow-back me-1'></i> Back to Dashboard
+                </a>
+                <button id="refresh-empty-btn" class="btn btn-primary">
+                    <i class='bx bx-refresh me-1'></i> Refresh
+                </button>
+            </div>
         </div>
     </div>
 {% endif %}
@@ -139,7 +147,7 @@
 <script>
     $(document).ready(function() {
         // Add hover effect to cards
-        $('.order-card').hover(
+        $('.return-card').hover(
             function() { $(this).addClass('shadow'); },
             function() { $(this).removeClass('shadow'); }
         );
@@ -155,25 +163,26 @@
             
             const orderId = $(this).data('order');
             
-            // Redirect to the order detail page with navigation parameter
-            window.location.href = `/delivery/orders/${orderId}/?navigation=true`;
+            // Redirect to the return detail page with navigation parameter
+            window.location.href = "{% url 'deliveryapp:return_detail' %}".replace('0', orderId) + '?navigation=true';
         });
     });
 </script>
 
 <style>
     /* Responsive styling improvements */
-    .order-card {
+    .return-card {
         transition: all 0.3s ease;
         border-radius: 12px;
         overflow: hidden;
+        border-left: 4px solid #fd7e14;
     }
     
-    .order-card:hover {
+    .return-card:hover {
         transform: translateY(-5px);
     }
     
-    .order-status {
+    .return-status {
         font-size: 0.8rem;
         border-radius: 20px;
         padding: 0.4rem 0.8rem;
@@ -199,10 +208,6 @@
         
         .card-footer {
             padding: 0.75rem 1rem;
-        }
-        
-        .pagination {
-            gap: 0.25rem;
         }
     }
 </style>

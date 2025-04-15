@@ -1809,3 +1809,137 @@ def model_editor(request, watch_id):
     }
     return render(request, 'adminapp/3d_model_editor.html', context)
 
+def manage_returns(request):
+    """View and manage return requests"""
+    # Get return requests
+    return_requests = Order.objects.filter(
+        status__in=['return_requested', 'return_approved', 'return_scheduled', 'return_in_transit', 'return_completed', 'return_rejected']
+    ).order_by('-return_requested_at')
+    
+    # Filter options
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        return_requests = return_requests.filter(status=status_filter)
+    
+    # Paginate
+    paginator = Paginator(return_requests, 20)
+    page_number = request.GET.get('page', 1)
+    returns = paginator.get_page(page_number)
+    
+    # Get delivery personnel for assignment
+    delivery_personnel = User.objects.filter(role='delivery', is_active=True)
+    
+    context = {
+        'returns': returns,
+        'status_filter': status_filter,
+        'status_choices': ['return_requested', 'return_approved', 'return_scheduled', 'return_in_transit', 'return_completed', 'return_rejected'],
+        'delivery_personnel': delivery_personnel,
+    }
+    
+    return render(request, 'adminapp/manage_returns.html', context)
+
+def return_detail(request, order_id):
+    """View details of a return request"""
+    order = get_object_or_404(Order, order_id=order_id)
+    
+    # Ensure it's a return
+    if not order.status.startswith('return_'):
+        messages.error(request, "This order is not a return request.")
+        return redirect('adminapp:manage_returns')
+    
+    # Forms
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'approve':
+            # Approve return request
+            order.status = 'return_approved'
+            order.return_approved_at = timezone.now()
+            order.save()
+            
+            # Notify customer
+            subject = f"Your Return Request for Order #{order.order_id} has been Approved"
+            message = f"Your return request has been approved. We'll schedule a pickup soon."
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [order.user.email])
+            
+            messages.success(request, f"Return request for order #{order.order_id} has been approved.")
+            
+        elif action == 'reject':
+            reason = request.POST.get('rejection_reason', '')
+            if not reason:
+                messages.error(request, "Please provide a rejection reason.")
+                return redirect('adminapp:return_detail', order_id=order_id)
+                
+            # Reject return request
+            order.status = 'return_rejected'
+            order.return_notes = f"{order.return_notes or ''}\n\nRejection reason: {reason}"
+            order.save()
+            
+            # Notify customer
+            subject = f"Your Return Request for Order #{order.order_id} has been Rejected"
+            message = f"We're sorry, but your return request has been rejected. Reason: {reason}"
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [order.user.email])
+            
+            messages.success(request, f"Return request for order #{order.order_id} has been rejected.")
+            
+        elif action == 'assign':
+            delivery_id = request.POST.get('delivery_person')
+            if not delivery_id:
+                messages.error(request, "Please select a delivery person.")
+                return redirect('adminapp:return_detail', order_id=order_id)
+                
+            delivery_person = get_object_or_404(User, id=delivery_id, role='delivery')
+            
+            # Assign return
+            order.return_assigned_to = delivery_person
+            order.status = 'return_scheduled'
+            order.save()
+            
+            # Generate return OTP
+            from deliveryapp.utils import generate_return_otp
+            order.return_otp = generate_return_otp()
+            order.return_otp_created_at = timezone.now()
+            order.save()
+            
+            # Notify customer
+            subject = f"Return Pickup Scheduled for Order #{order.order_id}"
+            message = f"A return pickup has been scheduled for your order. Our delivery partner will contact you soon. Please use OTP {order.return_otp} to verify the pickup."
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [order.user.email])
+            
+            # Notify delivery person
+            subject = f"New Return Pickup Assigned: Order #{order.order_id}"
+            message = f"A new return pickup has been assigned to you. Please check your dashboard for details."
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [delivery_person.email])
+            
+            messages.success(request, f"Return pickup for order #{order.order_id} has been assigned to {delivery_person.get_full_name()}.")
+    
+    context = {
+        'order': order,
+        'delivery_personnel': User.objects.filter(role='delivery', is_active=True),
+    }
+    
+    return render(request, 'adminapp/return_detail.html', context)
+
+def manage_orders(request):
+    """View and manage orders"""
+    # Get orders
+    orders = Order.objects.all().order_by('-created_at')
+    
+    # Filter options
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        orders = orders.filter(status=status_filter)
+    
+    # Paginate
+    paginator = Paginator(orders, 20)
+    page_number = request.GET.get('page', 1)
+    order_list = paginator.get_page(page_number)
+    
+    context = {
+        'orders': order_list,
+        'status_filter': status_filter,
+        'status_choices': Order.STATUS_CHOICES,
+    }
+    
+    return render(request, 'adminapp/manage_orders.html', context)
+

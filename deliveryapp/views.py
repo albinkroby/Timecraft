@@ -15,15 +15,19 @@ from django.conf import settings
 from functools import wraps
 
 from mainapp.models import Order, OrderItem, Address
-from .models import DeliveryProfile, DeliveryHistory, DeliveryMetrics, DeliveryRating
+from .models import DeliveryProfile, DeliveryHistory, DeliveryMetrics, DeliveryRating, ReturnHistory
 from .forms import (
     DeliveryProfileForm, DeliveryUserForm, OrderAssignmentForm, 
     DeliveryUpdateForm, OTPVerificationForm, DeliveryLocationUpdateForm,
-    DeliveryRatingForm
+    DeliveryRatingForm, ReturnUpdateForm, ReturnOTPVerificationForm, ReturnConditionForm,
+    ReturnApprovalForm, ReturnAssignmentForm
 )
 from .utils import (
     assign_delivery_otp, verify_delivery_otp, 
-    get_available_delivery_personnel, assign_order_to_delivery
+    get_available_delivery_personnel, assign_order_to_delivery,
+    assign_return_to_delivery, get_return_requests, get_zone_for_address,
+    assign_order_based_on_workload, assign_order_based_on_zone, verify_return_otp,
+    get_personnel_return_workload
 )
 
 User = get_user_model()
@@ -94,6 +98,12 @@ def delivery_dashboard(request):
         status__in=['assigned_to_delivery', 'out_for_delivery']
     ).order_by('-created_at')
     
+    # Get assigned return pickups
+    assigned_returns = Order.objects.filter(
+        return_assigned_to=request.user,
+        status__in=['return_scheduled', 'return_in_transit']
+    ).order_by('-updated_at')
+    
     # Get completed orders (last 30 days)
     thirty_days_ago = timezone.now() - timedelta(days=30)
     completed_orders = Order.objects.filter(
@@ -113,12 +123,20 @@ def delivery_dashboard(request):
         delivery_person=request.user
     ).order_by('-timestamp')[:10]
     
+    # Get latest return updates
+    latest_return_updates = ReturnHistory.objects.filter(
+        delivery_person=request.user
+    ).order_by('-timestamp')[:10]
+    
     context = {
         'profile': profile,
         'assigned_orders': assigned_orders,
+        'assigned_returns': assigned_returns,
+        'returns_count': assigned_returns.count(),
         'completed_orders': completed_orders,
         'metrics': metrics,
         'latest_updates': latest_updates,
+        'latest_return_updates': latest_return_updates,
     }
     
     return render(request, 'deliveryapp/dashboard.html', context)
@@ -407,6 +425,51 @@ def verify_otp(request, order_id):
 @login_required
 @delivery_required
 @profile_completion_required
+@require_POST
+def verify_otp_ajax(request, order_id):
+    """Verify OTP and mark order as delivered (AJAX version)"""
+    order = get_object_or_404(Order, order_id=order_id, assigned_to=request.user)
+    
+    if order.status == 'delivered':
+        return JsonResponse({'success': False, 'error': "Order has already been marked as delivered."})
+    
+    otp = request.POST.get('otp', '').strip()
+    
+    if not otp:
+        return JsonResponse({'success': False, 'error': "Please enter a valid OTP."})
+    
+    if verify_delivery_otp(order, otp):
+        # Update order status
+        order.status = 'delivered'
+        order.delivery_date = timezone.now().date()
+        order.save()
+        
+        # Create delivery history entry
+        DeliveryHistory.objects.create(
+            delivery_person=request.user,
+            order=order,
+            status='delivered',
+            notes="Delivered - OTP verified"
+        )
+        
+        # Update delivery metrics
+        metrics, created = DeliveryMetrics.objects.get_or_create(delivery_person=request.user)
+        metrics.total_deliveries += 1
+        metrics.completed_deliveries += 1
+        metrics.save()
+        
+        # Send confirmation email to customer
+        subject = f"Your TimeCraft Order #{order.order_id} has been Delivered"
+        message = f"Your order has been delivered successfully. Please rate your delivery experience."
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [order.user.email])
+        
+        return JsonResponse({'success': True})
+    else:
+        return JsonResponse({'success': False, 'error': "Invalid or expired OTP. Please try again."})
+
+@login_required
+@delivery_required
+@profile_completion_required
 def update_location(request):
     """Update the current location of delivery personnel"""
     if request.method == 'POST':
@@ -432,7 +495,7 @@ def delivery_history(request):
     # Get completed orders for this delivery person
     orders = Order.objects.filter(
         assigned_to=request.user,
-        status__in=['delivered', 'cancelled', 'returned']
+        status__in=['delivered', 'cancelled', 'returned', 'return_delivered', 'return_completed']
     ).order_by('-delivery_date')
     
     # Filter by date range if provided
@@ -512,14 +575,6 @@ def admin_assign_delivery(request, order_id):
     }
     
     return render(request, 'deliveryapp/admin_assign_delivery.html', context)
-
-def get_zone_for_address(address):
-    """Get delivery zone for an address"""
-    if not address:
-        return 'Unknown'
-    # For now, return a simple zone based on first character of town/city
-    # You can implement more sophisticated zone logic here
-    return address.town_city[0].upper() if address.town_city else 'Unknown'
 
 @login_required
 def admin_auto_assign_delivery(request):
@@ -767,3 +822,581 @@ def track_order(request, order_id):
     }
     
     return render(request, 'deliveryapp/track_order.html', context)
+
+# Return Management Views
+
+@login_required
+@delivery_required
+@profile_completion_required
+def assigned_returns(request):
+    """View assigned return pickups"""
+    assigned_returns = Order.objects.filter(
+        return_assigned_to=request.user,
+        status__in=['return_scheduled', 'return_in_transit']
+    ).order_by('-created_at')
+    
+    paginator = Paginator(assigned_returns, 10)
+    page = request.GET.get('page', 1)
+    returns = paginator.get_page(page)
+    
+    context = {
+        'returns': returns,
+    }
+    
+    return render(request, 'deliveryapp/assigned_returns.html', context)
+
+@login_required
+@delivery_required
+@profile_completion_required
+def return_detail(request, order_id):
+    """View details of a specific return"""
+    order = get_object_or_404(Order, order_id=order_id, return_assigned_to=request.user)
+    order_items = OrderItem.objects.filter(order=order)
+    
+    # Get return history for this order
+    return_history = ReturnHistory.objects.filter(
+        order=order
+    ).order_by('-timestamp')
+    
+    # Prepare forms for different actions
+    otp_form = ReturnOTPVerificationForm()
+    update_form = ReturnUpdateForm()
+    condition_form = ReturnConditionForm()
+    
+    context = {
+        'order': order,
+        'order_items': order_items,
+        'return_history': return_history,
+        'otp_form': otp_form,
+        'update_form': update_form,
+        'condition_form': condition_form
+    }
+    
+    return render(request, 'deliveryapp/return_detail.html', context)
+
+@login_required
+@delivery_required
+@profile_completion_required
+@require_POST
+def request_return_otp(request, order_id):
+    """Generate and send a new OTP to the customer for return verification"""
+    order = get_object_or_404(Order, order_id=order_id, return_assigned_to=request.user)
+    
+    if order.status != 'return_scheduled':
+        messages.error(request, "Cannot request OTP for this return at its current status.")
+        return redirect('deliveryapp:return_detail', order_id=order_id)
+    
+    # Generate and assign new OTP
+    from deliveryapp.utils import assign_return_otp
+    otp = assign_return_otp(order)
+    
+    # Send OTP to customer via email
+    try:
+        subject = f"Return Verification OTP for Order #{order.order_id}"
+        message = f"""
+        Dear {order.user.fullname},
+        
+        The delivery agent has arrived to pick up your return for Order #{order.order_id}.
+        
+        Please provide the following OTP to the delivery agent to verify the return:
+        
+        OTP: {otp}
+        
+        This OTP is valid for 24 hours.
+        
+        Thank you,
+        TimeCrafter Team
+        """
+        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [order.user.email])
+        
+        # Create a history record
+        ReturnHistory.objects.create(
+            delivery_person=request.user,
+            order=order,
+            status=order.status,
+            notes="Return OTP requested and sent to customer"
+        )
+        
+        messages.success(request, "OTP has been sent to the customer's email.")
+    except Exception as e:
+        messages.error(request, f"Failed to send OTP email: {str(e)}")
+    
+    return redirect('deliveryapp:return_detail', order_id=order_id)
+
+@login_required
+@delivery_required
+@profile_completion_required
+@require_POST
+def verify_return_otp(request, order_id):
+    """Verify return OTP and update return status"""
+    from deliveryapp.utils import verify_return_otp as verify_return_otp_util
+    
+    order = get_object_or_404(Order, order_id=order_id, return_assigned_to=request.user)
+    
+    if order.status != 'return_scheduled':
+        messages.error(request, "Cannot verify OTP for this return at its current status.")
+        return redirect('deliveryapp:return_detail', order_id=order_id)
+    
+    form = ReturnOTPVerificationForm(request.POST)
+    if form.is_valid():
+        otp = form.cleaned_data['otp']
+        
+        if verify_return_otp_util(order, otp):
+            # Update order status
+            order.status = 'return_in_transit'
+            order.save()
+            
+            # Create return history entry
+            ReturnHistory.objects.create(
+                delivery_person=request.user,
+                order=order,
+                status='return_in_transit',
+                notes="Return picked up - OTP verified"
+            )
+            
+            # Send notification email to customer
+            subject = f"Your Return for Order #{order.order_id} has been picked up"
+            message = f"Your return has been picked up by our delivery agent. You will be notified once the return is processed."
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [order.user.email])
+            
+            messages.success(request, "OTP verification successful. Return status updated to In Transit.")
+        else:
+            messages.error(request, "Invalid or expired OTP. Please try again.")
+    else:
+        messages.error(request, "Invalid form submission.")
+    
+    return redirect('deliveryapp:return_detail', order_id=order_id)
+
+@login_required
+@delivery_required
+@profile_completion_required
+@require_POST
+def complete_return(request, order_id):
+    """Mark return as delivered to warehouse"""
+    order = get_object_or_404(Order, order_id=order_id, return_assigned_to=request.user)
+    
+    if order.status != 'return_in_transit':
+        messages.error(request, "Return must be in transit to be marked as delivered.")
+        return redirect('deliveryapp:return_detail', order_id=order_id)
+    
+    # Update order status
+    order.status = 'return_delivered'
+    order.save()
+    
+    # Create return history entry
+    ReturnHistory.objects.create(
+        delivery_person=request.user,
+        order=order,
+        status='return_delivered',
+        notes="Return delivered to warehouse"
+    )
+    
+    # Update delivery metrics
+    metrics, created = DeliveryMetrics.objects.get_or_create(delivery_person=request.user)
+    metrics.total_deliveries += 1
+    metrics.save()
+    
+    messages.success(request, "Return marked as delivered to warehouse.")
+    return redirect('deliveryapp:return_list')
+
+# Admin Return Management Views
+
+@login_required
+def admin_return_requests(request):
+    """Admin view to manage return requests"""
+    # Check if user has permission
+    if request.user.role not in ['admin', 'staff']:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('mainapp:home')
+    
+    # Get return requests
+    return_requests = get_return_requests()
+    
+    # Check eligibility based on the 10-day policy
+    for order in return_requests:
+        if order.delivery_date:
+            # Calculate days since delivery
+            days_since_delivery = (timezone.now().date() - order.delivery_date).days
+            order.days_since_delivery = days_since_delivery
+            # Check if return is still within the allowed window
+            order.is_eligible = order.is_returnable()
+        else:
+            order.days_since_delivery = None
+            order.is_eligible = False
+    
+    context = {
+        'return_requests': return_requests,
+        'return_policy_days': 10  # Pass the policy limit to the template
+    }
+    
+    return render(request, 'deliveryapp/admin_return_requests.html', context)
+
+@login_required
+def admin_approve_return(request, order_id):
+    """Admin view to approve or reject a return request"""
+    # Check if user has permission
+    if request.user.role not in ['admin', 'staff']:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('mainapp:home')
+    
+    order = get_object_or_404(Order, order_id=order_id, status='return_requested')
+    
+    # Calculate days since delivery if delivery date exists
+    if order.delivery_date:
+        order.days_since_delivery = (timezone.now().date() - order.delivery_date).days
+    
+    if request.method == 'POST':
+        form = ReturnApprovalForm(request.POST)
+        if form.is_valid():
+            decision = form.cleaned_data['decision']
+            notes = form.cleaned_data['notes']
+            
+            if decision == 'approve':
+                order.status = 'return_approved'
+                status_update = 'return_approved'
+                message = "Return request approved successfully."
+            else:
+                order.status = 'return_rejected'
+                status_update = 'return_rejected'
+                message = "Return request rejected successfully."
+            
+            order.save()
+            
+            # Create return history entry
+            ReturnHistory.objects.create(
+                delivery_person=request.user,
+                order=order,
+                status=status_update,
+                notes=notes
+            )
+            
+            messages.success(request, message)
+            return redirect('deliveryapp:admin_return_requests')
+    else:
+        form = ReturnApprovalForm()
+    
+    context = {
+        'order': order,
+        'form': form,
+        'return_policy_days': 10  # Pass the policy limit to the template
+    }
+    
+    return render(request, 'deliveryapp/admin_approve_return.html', context)
+
+@login_required
+def admin_assign_return(request, order_id):
+    """Admin view to assign a return to a delivery person"""
+    # Check if user has permission
+    if request.user.role not in ['admin', 'staff']:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('mainapp:home')
+    
+    order = get_object_or_404(Order, order_id=order_id, status='return_approved')
+    
+    if request.method == 'POST':
+        form = ReturnAssignmentForm(request.POST)
+        if form.is_valid():
+            delivery_person = form.cleaned_data['delivery_person']
+            
+            success, message = assign_return_to_delivery(order, delivery_person)
+            
+            if success:
+                messages.success(request, message)
+                return redirect('adminapp:order_detail', order_id=order_id)
+            else:
+                messages.error(request, message)
+    else:
+        form = ReturnAssignmentForm()
+    
+    # Get available delivery personnel
+    available_personnel = get_available_delivery_personnel()
+    
+    # Update the form queryset to only show available agents
+    form.fields['delivery_person'].queryset = User.objects.filter(id__in=[p.id for p in available_personnel])
+    
+    context = {
+        'order': order,
+        'form': form,
+        'available_personnel': available_personnel
+    }
+    
+    return render(request, 'deliveryapp/admin_assign_return.html', context)
+
+@login_required
+def admin_return_status(request):
+    """Admin view to monitor returns status"""
+    # Check if user has permission
+    if request.user.role not in ['admin', 'staff']:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('mainapp:home')
+    
+    # Get returns by status
+    return_requested = Order.objects.filter(status='return_requested').count()
+    return_approved = Order.objects.filter(status='return_approved').count()
+    return_scheduled = Order.objects.filter(status='return_scheduled').count()
+    return_in_transit = Order.objects.filter(status='return_in_transit').count()
+    return_delivered = Order.objects.filter(status='return_delivered').count()
+    return_rejected = Order.objects.filter(status='return_rejected').count()
+    
+    # Get returns ready for pickup (approved but not assigned)
+    returns_for_pickup = Order.objects.filter(
+        status='return_approved',
+        return_assigned_to__isnull=True
+    ).order_by('-updated_at')
+    
+    # Get returns in process (scheduled or in transit)
+    active_returns = Order.objects.filter(
+        status__in=['return_scheduled', 'return_in_transit']
+    ).order_by('-updated_at')
+    
+    # Get completed returns (last 30 days)
+    thirty_days_ago = timezone.now() - timedelta(days=30)
+    completed_returns = Order.objects.filter(
+        status='return_delivered',
+        updated_at__gte=thirty_days_ago
+    ).order_by('-updated_at')[:20]
+    
+    context = {
+        'stats': {
+            'requested': return_requested,
+            'approved': return_approved,
+            'scheduled': return_scheduled,
+            'in_transit': return_in_transit,
+            'delivered': return_delivered,
+            'rejected': return_rejected,
+            'total': return_requested + return_approved + return_scheduled + return_in_transit + return_delivered + return_rejected,
+            'pending_assignment': returns_for_pickup.count()
+        },
+        'returns_for_pickup': returns_for_pickup,
+        'active_returns': active_returns,
+        'completed_returns': completed_returns
+    }
+    
+    return render(request, 'deliveryapp/admin_return_status.html', context)
+
+@login_required
+def admin_batch_return_assignment(request):
+    """Admin view to assign multiple returns at once"""
+    # Check if user has permission
+    if request.user.role not in ['admin', 'staff']:
+        messages.error(request, "You do not have permission to access this page.")
+        return redirect('mainapp:home')
+    
+    # Get available delivery personnel
+    available_personnel = get_available_delivery_personnel()
+    
+    # Get approved returns that need to be assigned
+    approved_returns = Order.objects.filter(
+        status='return_approved',
+        return_assigned_to__isnull=True
+    ).order_by('-updated_at')
+    
+    if request.method == 'POST':
+        # Process the assignments
+        assignment_count = 0
+        errors = []
+        
+        for order_id, delivery_id in request.POST.items():
+            if order_id.startswith('return_') and delivery_id:
+                # Extract the order_id from the form field name
+                order_id = order_id.replace('return_', '')
+                
+                try:
+                    order = Order.objects.get(order_id=order_id, status='return_approved')
+                    delivery_person = User.objects.get(id=delivery_id, role='delivery')
+                    
+                    success, message = assign_return_to_delivery(order, delivery_person)
+                    
+                    if success:
+                        assignment_count += 1
+                    else:
+                        errors.append(f"Error assigning return for order {order_id}: {message}")
+                        
+                except (Order.DoesNotExist, User.DoesNotExist) as e:
+                    errors.append(f"Error assigning return for order {order_id}: {str(e)}")
+        
+        if assignment_count > 0:
+            messages.success(request, f"Successfully assigned {assignment_count} returns.")
+            
+        if errors:
+            messages.error(request, "Some returns could not be assigned: " + "; ".join(errors[:5]))
+            if len(errors) > 5:
+                messages.error(request, f"...and {len(errors) - 5} more errors.")
+        
+        return redirect('deliveryapp:admin_return_status')
+    
+    # Get delivery personnel workload
+    workload = {}
+    for person in available_personnel:
+        active_returns = Order.objects.filter(
+            return_assigned_to=person,
+            status__in=['return_scheduled', 'return_in_transit']
+        ).count()
+        
+        workload[person.id] = {
+            'name': person.get_full_name() or person.username,
+            'active_returns': active_returns
+        }
+    
+    context = {
+        'approved_returns': approved_returns,
+        'available_personnel': available_personnel,
+        'workload': workload
+    }
+    
+    return render(request, 'deliveryapp/admin_batch_return_assignment.html', context)
+
+# Return Pickup Views for Delivery Personnel
+
+@login_required
+@delivery_required
+@profile_completion_required
+def return_list(request):
+    """View returns assigned to the delivery person"""
+    # Get returns assigned to this delivery person
+    returns = Order.objects.filter(
+        return_assigned_to=request.user,
+        status__in=['return_scheduled', 'return_in_transit']
+    ).order_by('return_pickup_date')
+    
+    context = {
+        'returns': returns
+    }
+    
+    return render(request, 'deliveryapp/return_list.html', context)
+
+@login_required
+@delivery_required
+@profile_completion_required
+def return_detail(request, order_id):
+    """View details of a specific return"""
+    order = get_object_or_404(Order, order_id=order_id, return_assigned_to=request.user)
+    order_items = OrderItem.objects.filter(order=order)
+    
+    # Get return history for this order
+    return_history = ReturnHistory.objects.filter(
+        order=order
+    ).order_by('-timestamp')
+    
+    # Prepare forms for different actions
+    otp_form = ReturnOTPVerificationForm()
+    update_form = ReturnUpdateForm()
+    condition_form = ReturnConditionForm()
+    
+    context = {
+        'order': order,
+        'order_items': order_items,
+        'return_history': return_history,
+        'otp_form': otp_form,
+        'update_form': update_form,
+        'condition_form': condition_form
+    }
+    
+    return render(request, 'deliveryapp/return_detail.html', context)
+
+@login_required
+@delivery_required
+@profile_completion_required
+@require_POST
+def submit_return_condition(request, order_id):
+    """Submit assessment of return item condition"""
+    order = get_object_or_404(Order, order_id=order_id, return_assigned_to=request.user)
+    
+    if order.status != 'return_in_transit':
+        messages.error(request, "Cannot submit condition assessment at the current return status.")
+        return redirect('deliveryapp:return_detail', order_id=order_id)
+    
+    form = ReturnConditionForm(request.POST, request.FILES)
+    if form.is_valid():
+        condition = form.cleaned_data['condition']
+        description = form.cleaned_data['condition_description']
+        verification_image = form.cleaned_data.get('verification_image')
+        
+        # Create return history entry with condition details
+        history_entry = ReturnHistory.objects.create(
+            delivery_person=request.user,
+            order=order,
+            status='return_in_transit',
+            notes=f"Condition assessment: {condition}",
+            condition_description=description,
+        )
+        
+        # Add the verification image if provided
+        if verification_image:
+            history_entry.return_verification_image = verification_image
+            history_entry.save()
+        
+        messages.success(request, "Return condition assessment submitted successfully.")
+    else:
+        messages.error(request, "Invalid form submission. Please check the form and try again.")
+    
+    return redirect('deliveryapp:return_detail', order_id=order_id)
+
+@login_required
+@delivery_required
+@profile_completion_required
+@require_POST
+def update_return_status(request, order_id):
+    """Update return status"""
+    order = get_object_or_404(Order, order_id=order_id, return_assigned_to=request.user)
+    
+    form = ReturnUpdateForm(request.POST)
+    if form.is_valid():
+        new_status = form.cleaned_data['status']
+        notes = form.cleaned_data['notes']
+        
+        # Validate the status transition
+        valid_transition = False
+        
+        if order.status == 'return_scheduled' and new_status == 'return_in_transit':
+            # This should happen via OTP verification
+            messages.warning(request, "Please use OTP verification to update to In Transit status.")
+            return redirect('deliveryapp:return_detail', order_id=order_id)
+        
+        elif order.status == 'return_in_transit' and new_status == 'return_delivered':
+            valid_transition = True
+            # Update order status to completed when delivered to warehouse
+            order.status = 'return_completed'
+            order.return_completed_at = timezone.now()
+            order.save()
+            
+            # Update metrics
+            metrics, created = DeliveryMetrics.objects.get_or_create(delivery_person=request.user)
+            metrics.total_deliveries += 1
+            metrics.completed_deliveries += 1
+            metrics.save()
+            
+            # Notify user
+            subject = f"Your Return for Order #{order.order_id} has been Completed"
+            message = "Your return has been successfully delivered to our warehouse. Our team will process it shortly."
+            send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [order.user.email])
+            
+        elif order.status == 'return_scheduled' and new_status == 'return_failed':
+            valid_transition = True
+            order.status = 'return_approved'  # Reset to approved state for reassignment
+            order.return_assigned_to = None  # Unassign the delivery person
+            order.save()
+            
+        elif order.status == 'return_in_transit' and new_status == 'return_failed':
+            valid_transition = True
+            order.status = 'return_approved'  # Reset to approved state for reassignment
+            order.return_assigned_to = None  # Unassign the delivery person
+            order.save()
+        else:
+            messages.error(request, "Invalid status transition.")
+            return redirect('deliveryapp:return_detail', order_id=order_id)
+        
+        if valid_transition:
+            # Create return history entry
+            ReturnHistory.objects.create(
+                delivery_person=request.user,
+                order=order,
+                status=new_status,
+                notes=notes
+            )
+            
+            messages.success(request, "Return status updated successfully.")
+    else:
+        messages.error(request, "Invalid form submission.")
+    
+    return redirect('deliveryapp:return_detail', order_id=order_id)
