@@ -25,73 +25,77 @@ def verify_hashed_url(hashed_url, url):
 
 def verify_pincode(pincode):
     """
-    Verify an Indian pincode using the RapidAPI Pincode API
+    Verify an Indian pincode using the free India Post API
     Returns the pincode data if valid, None if invalid
     
     Uses caching to avoid repeated API calls for the same pincode
-    """
-    # Check if we have this pincode in cache
+    """    # Check if we have this pincode in cache
     cache_key = f"pincode_data_{pincode}"
     cached_data = cache.get(cache_key)
     if cached_data:
         return cached_data
     
-    # Check if RAPIDAPI_KEY is available
-    if not hasattr(settings, 'RAPIDAPI_KEY') or not settings.RAPIDAPI_KEY:
-        print("RAPIDAPI_KEY not available, using mock response for pincode verification")
-        # Mock response for testing
-        if len(str(pincode)) == 6 and str(pincode).isdigit():
-            mock_data = {
-                'pin': str(pincode),
-                'district': 'Test District',
-                'state': 'Test State',
-                'office': 'Test Post Office',
-                'taluk': 'Test Taluk'
-            }
-            # Cache the mock result
-            cache.set(cache_key, mock_data, 60 * 60 * 24 * 30)
-            return mock_data
+    # Validate pincode format first
+    if not (isinstance(pincode, str) and len(pincode) == 6 and pincode.isdigit()):
+        print(f"Invalid pincode format: {pincode}")
         return None
-    
-    url = "https://pincode.p.rapidapi.com/v1/postalcodes/india"
-    
-    payload = {"search": str(pincode)}
-    headers = {
-        "x-rapidapi-key": settings.RAPIDAPI_KEY,
-        "x-rapidapi-host": "pincode.p.rapidapi.com",
-        "Content-Type": "application/json"
-    }
+
+    # Use India Post API (free, no authentication needed)
+    url = f"https://api.postalpincode.in/pincode/{pincode}"
     
     try:
-        response = requests.post(url, json=payload, headers=headers)
+        response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
-            # Find the exact match for the pincode
-            exact_match = next((item for item in data if str(item.get('pin')) == str(pincode)), None)
-            
-            if exact_match:
+            if data and isinstance(data, list) and data[0]['Status'] == 'Success' and data[0]['PostOffice']:
+                postoffice = data[0]['PostOffice'][0]  # Get first post office data
+                
+                # Format the data to match our expected structure
+                result = {
+                    'pin': str(pincode),
+                    'district': postoffice['District'],
+                    'state': postoffice['State'],
+                    'office': postoffice['Name'],
+                    'region': postoffice.get('Region', ''),
+                    'circle': postoffice.get('Circle', ''),
+                    'division': postoffice.get('Division', ''),
+                    'branch_type': postoffice.get('BranchType', ''),
+                    'delivery_status': postoffice.get('DeliveryStatus', '')
+                }
+                
                 # Cache the result for 30 days
-                cache.set(cache_key, exact_match, 60 * 60 * 24 * 30)
-                return exact_match
+                cache.set(cache_key, result, 60 * 60 * 24 * 30)
+                return result            
+            else:
+                error_msg = data[0]['Message'] if data else "No data received"
+                print(f"Invalid pincode or no data found: {pincode}. Error: {error_msg}")
+                return None
+                
         else:
             print(f"API request failed with status code: {response.status_code}")
+            # Fall back to mock data for API errors
+            return _get_mock_pincode_data(pincode, cache_key)
+            
     except Exception as e:
         print(f"Error verifying pincode {pincode}: {e}")
-        # Use mock data if API call fails
-        if len(str(pincode)) == 6 and str(pincode).isdigit():
-            mock_data = {
-                'pin': str(pincode),
-                'district': 'Test District',
-                'state': 'Test State',
-                'office': 'Test Post Office',
-                'taluk': 'Test Taluk'
-            }
-            print("Using mock data due to API error")
-            # Cache the mock result
-            cache.set(cache_key, mock_data, 60 * 60 * 24 * 30)
-            return mock_data
+        # Fall back to mock data if request fails
+        return _get_mock_pincode_data(pincode, cache_key)
     
     return None
+
+def _get_mock_pincode_data(pincode, cache_key=None):
+    """Helper function to get mock pincode data"""
+    mock_data = {
+        'pin': str(pincode),
+        'district': 'Test District',
+        'state': 'Test State',
+        'office': 'Test Post Office',
+        'taluk': 'Test Taluk'
+    }
+    if cache_key:
+        # Cache the mock result for 30 days
+        cache.set(cache_key, mock_data, 60 * 60 * 24 * 30)
+    return mock_data
 
 def get_zone_from_pincode(pincode_data):
     """
