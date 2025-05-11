@@ -77,3 +77,11 @@ def workload_count(user_id):
         ).count()
     except Exception:
         return 0 
+    
+@register.filter(name='mul')
+def multiply_onboard(value, arg):
+    """Multiplies the value by the argument"""
+    try:
+        return float(value) * float(arg)
+    except (ValueError, TypeError):
+        return ''

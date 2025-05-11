@@ -75,7 +75,7 @@
                             <i class='bx bx-moon change-theme' id="theme-button"></i>
                         </a>
                     </li>
-                    <li class="nav-item dropdown">
+                    {% comment %} <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class='bx bxs-bell'></i>
                             <span class="badge bg-primary badge-number">4</span>
@@ -94,7 +94,7 @@
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                             <!-- Add message items here -->
                         </ul>
-                    </li>
+                    </li> {% endcomment %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                             {% comment %} <img src="{% static 'images/profile-img.jpg' %}" alt="Profile" class="rounded-circle" width="30"> {% endcomment %}
@@ -102,7 +102,6 @@
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
                             <li><a class="dropdown-item" href="{% url 'adminapp:admin_profile' %}"><i class="fas fa-user me-2"></i> My Profile</a></li>
-                            <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i> Account Settings</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="{% url 'mainapp:logout' %}"><i class="fas fa-sign-out-alt me-2"></i> Sign Out</a></li>
                         </ul>
@@ -137,7 +136,7 @@
                     </a>
                     <div class="collapse {% if 'product' in request.resolver_match.url_name or 'brand' in request.resolver_match.url_name or 'category' in request.resolver_match.url_name or 'feature' in request.resolver_match.url_name or 'material' in request.resolver_match.url_name %}show{% endif %}" id="productsCollapse">
                         <div class="list-group">
-                            <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'add_product' %}active{% endif %}" href="{% url 'adminapp:add_product' %}"><i class='bx bx-plus-circle'></i> Add Product</a>
+                            {% comment %} <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'add_product' %}active{% endif %}" href="{% url 'adminapp:add_product' %}"><i class='bx bx-plus-circle'></i> Add Product</a> {% endcomment %}
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'product_list' %}active{% endif %}" href="{% url 'adminapp:product_list' %}"><i class='bx bx-show'></i> View Products</a>
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'brand_list' %}active{% endif %}" href="{% url 'adminapp:brand_list' %}"><i class='bx bx-store-alt'></i> Brands</a>
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'category_list' %}active{% endif %}" href="{% url 'adminapp:category_list' %}"><i class='bx bx-category-alt' ></i> Category</a>
@@ -178,7 +177,7 @@
                             <a class="ps-5 list-group-item list-group-item-action {% if request.resolver_match.url_name == 'custom_watch_orders' %}active{% endif %}" href="{% url 'adminapp:custom_watch_orders' %}"><i class='bx bx-dollar'></i>Orders</a>
                         </div>
                     </div>
-                    <a href="#" class="list-group-item list-group-item-action {% if 'staff' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#staffCollapse" aria-expanded="false">
+                    {% comment %} <a href="#" class="list-group-item list-group-item-action {% if 'staff' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#staffCollapse" aria-expanded="false">
                         <i class='bx bx-group'></i> Staff Management <i class='bx bx-chevron-down float-end'></i>
                     </a>
                     <div class="collapse {% if 'staff' in request.resolver_match.url_name %}show{% endif %}" id="staffCollapse">
@@ -190,7 +189,7 @@
                                 <i class='bx bx-user-plus'></i> Add Staff
                             </a>
                         </div>
-                    </div>
+                    </div> {% endcomment %}
                     <a href="#" class="list-group-item list-group-item-action {% if 'delivery' in request.resolver_match.url_name %}active{% endif %}" data-bs-toggle="collapse" data-bs-target="#deliveryCollapse" aria-expanded="false">
                         <i class='bx bx-group'></i> Delivery Agents <i class='bx bx-chevron-down float-end'></i>
                     </a>

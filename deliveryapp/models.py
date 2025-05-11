@@ -5,6 +5,7 @@ import random
 import string
 import math
 import json
+import uuid
 
 class DeliveryProfile(models.Model):
     VEHICLE_CHOICES = [
@@ -180,6 +181,66 @@ class DeliveryProfile(models.Model):
         self.onboarding_completed = True
         self.onboarding_completed_at = timezone.now()
         self.save(update_fields=['onboarding_completed', 'onboarding_completed_at'])
+
+class DeliveryOnboarding(models.Model):
+    """
+    Model to track delivery agent onboarding status and progress.
+    This allows separation between account creation and full profile completion.
+    """
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('rejected', 'Rejected'),
+    ]
+    
+    delivery_person = models.OneToOneField(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        related_name='onboarding_status'
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    onboarding_link_sent = models.BooleanField(default=False)
+    link_sent_date = models.DateTimeField(null=True, blank=True)
+    
+    # Verification
+    documents_submitted = models.BooleanField(default=False)
+    documents_verified = models.BooleanField(default=False)
+    
+    # Onboarding steps
+    profile_completed = models.BooleanField(default=False)
+    vehicle_details_added = models.BooleanField(default=False)
+    bank_details_added = models.BooleanField(default=False)
+    
+    # Tracking
+    onboarding_started_date = models.DateTimeField(null=True, blank=True)
+    onboarding_completed_date = models.DateTimeField(null=True, blank=True)
+    
+    # Admin notes
+    admin_notes = models.TextField(blank=True, null=True)
+    
+    # Unique token for onboarding link
+    onboarding_token = models.UUIDField(default=uuid.uuid4, editable=False)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.delivery_person.fullname} - {self.get_status_display()}"
+    
+    def mark_completed(self):
+        """Mark onboarding as completed and activate delivery profile"""
+        self.status = 'completed'
+        self.onboarding_completed_date = timezone.now()
+        self.save()
+        
+        # Activate the delivery profile
+        try:
+            profile = self.delivery_person.delivery_profile
+            profile.is_active = True
+            profile.save()
+        except DeliveryProfile.DoesNotExist:
+            pass
 
 class DeliveryHistory(models.Model):
     """Track status updates for delivery"""

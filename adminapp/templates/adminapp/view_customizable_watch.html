@@ -10,7 +10,7 @@
                 <div class="card-body">
                     <h2 class="card-title">{{ watch.name }}</h2>
                     <p class="card-text">{{ watch.description }}</p>
-                    <p class="card-text"><strong>Base Price:</strong> ${{ watch.base_price }}</p>
+                    <p class="card-text"><strong>Base Price:</strong> ₹{{ watch.base_price }}</p>
                 </div>
             </div>
         </div>
@@ -38,7 +38,7 @@
                                         <div class="card-body">
                                             <h6 class="card-title">{{ option.name }}</h6>
                                             <p class="card-text">
-                                                Price: ${{ option.price }}<br>
+                                                Price: ₹{{ option.price }}<br>
                                                 Stock: {{ option.stock }}<br>
                                             </p>
                                         </div>
@@ -66,12 +66,12 @@
     <div class="mt-4">
         <a href="{% url 'adminapp:customizable_watch_list' %}" class="btn btn-secondary">Back to List</a>
         <a href="{% url 'adminapp:edit_customizable_watch' watch.id %}" class="btn btn-primary">Edit Watch</a>
-        <a href="{% url 'adminapp:configure_watch_parts' watch.id %}" class="btn btn-success">
+        {% comment %} <a href="{% url 'adminapp:configure_watch_parts' watch.id %}" class="btn btn-success">
             <i class="fas fa-cube me-1"></i> 3D Part Configurator
         </a>
         <a href="{% url 'adminapp:model_editor' watch.id %}" class="btn btn-warning">
             <i class="fas fa-edit me-1"></i> 3D Model Editor
-        </a>
+        </a> {% endcomment %}
         <a href="#" onclick="deleteCustomizableWatch({{ watch.id }}); return false;" class="btn btn-danger">Delete Watch</a>
     </div>
 </div>

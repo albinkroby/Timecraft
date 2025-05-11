@@ -7,8 +7,13 @@ urlpatterns = [
     # Delivery personnel urls
     path('', views.delivery_dashboard, name='dashboard'),
     path('onboarding/', views.onboarding, name='onboarding'),
+    path('onboarding/save-personal-details/', views.save_personal_details, name='save_personal_details'),
+    path('onboarding/save-vehicle-details/', views.save_vehicle_details, name='save_vehicle_details'),
+    path('onboarding/complete/', views.complete_onboarding, name='complete_onboarding'),
     path('profile/', views.profile, name='profile'),
     path('profile/edit/', views.create_profile, name='create_profile'),
+    path('send-verification-email/', views.send_verification_email, name='send_verification_email'),
+    path('check-email-status/', views.check_email_status, name='check_email_status'),
     path('orders/assigned/', views.assigned_orders, name='assigned_orders'),
     path('orders/<str:order_id>/', views.order_detail, name='order_detail'),
     path('location/update/', views.update_location, name='update_location'),
@@ -40,4 +45,4 @@ urlpatterns = [
     path('admin/return-assign/<str:order_id>/', views.admin_assign_return, name='admin_assign_return'),
     path('admin/return-status/', views.admin_return_status, name='admin_return_status'),
     path('admin/batch-return-assignment/', views.admin_batch_return_assignment, name='admin_batch_return_assignment'),
-] 
+]

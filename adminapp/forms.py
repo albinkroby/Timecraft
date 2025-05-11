@@ -77,12 +77,28 @@ class StaffProfileForm(forms.ModelForm):
         }
 
 class DeliveryAgentCreationForm(forms.ModelForm):
-    password1 = forms.CharField(label='Password', widget=forms.PasswordInput)
-    password2 = forms.CharField(label='Confirm Password', widget=forms.PasswordInput)
+    password1 = forms.CharField(
+        label='Password', 
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Enter secure password'})
+    )
+    password2 = forms.CharField(
+        label='Confirm Password', 
+        widget=forms.PasswordInput(attrs={'class': 'form-control', 'placeholder': 'Confirm password'})
+    )
+    phone = forms.CharField(
+        max_length=15,
+        label='Phone Number',
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter phone number'})
+    )
     
     class Meta:
         model = User
         fields = ['fullname', 'email', 'username']
+        widgets = {
+            'fullname': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter full name'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'Enter email address'}),
+            'username': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter username'})
+        }
         
     def clean_password2(self):
         password1 = self.cleaned_data.get("password1")
@@ -99,6 +115,7 @@ class DeliveryAgentCreationForm(forms.ModelForm):
             user.save()
         return user
 
+# Keeping for reference, not used in the new flow
 class DeliveryAgentProfileForm(forms.ModelForm):
     class Meta:
         model = DeliveryProfile

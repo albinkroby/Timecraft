@@ -44,8 +44,9 @@ from django.http import JsonResponse
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.contrib.auth.decorators import permission_required
-from django.contrib.auth.models import User, Permission
-from deliveryapp.models import DeliveryProfile, DeliveryMetrics
+from django.contrib.auth.models import Permission
+from django.conf import settings
+from deliveryapp.models import DeliveryProfile, DeliveryMetrics, DeliveryOnboarding
 from .forms import DeliveryAgentCreationForm, DeliveryAgentProfileForm
 # Create your views here.
 User=get_user_model()
@@ -1299,11 +1300,25 @@ def get_watch_parts(request):
         watch = CustomizableWatch.objects.get(id=watch_id)
         parts = []
         
-        for part in watch.customizable_parts.all():
+        for customizable_part in watch.customizable_parts.all():
+            part = customizable_part.part
+            
+            # Get options for this part
+            options = []
+            for option in part.options.all():
+                options.append({
+                    'id': option.id,
+                    'name': option.name,
+                    'price': str(option.price),
+                    'stock': option.stock,
+                    'color': option.color,
+                })
+            
             parts.append({
-                'id': part.part.id,
-                'name': part.part.part_name.name,
-                'model_path': part.part.model_path
+                'id': part.id,
+                'part_name': part.part_name.name,  # Changed name to part_name to match template
+                'model_path': part.model_path,
+                'options': options  # Add options to match template expectations
             })
         
         return JsonResponse({'success': True, 'parts': parts})
@@ -1443,7 +1458,8 @@ def custom_watch_order_detail(request, order_id):
     order = get_object_or_404(
         CustomWatchOrder.objects.select_related(
             'user', 
-            'customizable_watch'
+            'customizable_watch',
+            'customizable_watch__customizable_watch'
         ).prefetch_related(
             'selected_parts__part__part_name',
             'selected_parts__selected_option'
@@ -1451,8 +1467,32 @@ def custom_watch_order_detail(request, order_id):
         id=order_id
     )
     
+    # Process the design data to make it more template-friendly if needed
+    design_data = order.customizable_watch.design_data
+    
+    # Sometimes design_data might be stored as a string instead of a dictionary
+    if isinstance(design_data, str):
+        try:
+            import json
+            design_data = json.loads(design_data)
+        except:
+            design_data = {}
+    
+    # Get part information from selected parts if available
+    selected_parts_info = []
+    for part in order.selected_parts.all():
+        part_info = {
+            'part_name': part.part.part_name.name,
+            'option_name': part.selected_option.name,
+            'option_price': part.selected_option.price,
+            'option_color': part.selected_option.color,
+        }
+        selected_parts_info.append(part_info)
+    
     return render(request, 'adminapp/custom_watch_order_detail.html', {
-        'order': order
+        'order': order,
+        'design_data': design_data,
+        'selected_parts_info': selected_parts_info
     })
 
 @login_required
@@ -1462,6 +1502,7 @@ def update_custom_watch_order_status(request, order_id):
         order = CustomWatchOrder.objects.get(id=order_id)
         new_status = request.POST.get('status')
         
+        # Handle order approval
         if new_status == 'approved':
             order.status = new_status
             send_mail(
@@ -1470,18 +1511,58 @@ def update_custom_watch_order_status(request, order_id):
                 settings.DEFAULT_FROM_EMAIL,
                 [order.user.email],
             )
-            
+        
+        # Handle manufacturing transition
+        elif new_status == 'manufacturing':
+            order.status = new_status
+            # Additional manufacturing processes can be added here
+        
+        # Handle ready to ship status
         elif new_status == 'ready_to_ship':
             order.status = new_status
             # Set estimated delivery date (4-5 days from now)
             order.estimated_delivery_date = timezone.now().date() + timedelta(days=4)
-            
+        
+        # Handle shipping status
         elif new_status == 'shipped':
             order.status = new_status
             order.shipping_started_date = timezone.now()
             send_mail(
                 'Order Shipped',
                 f'Your order #{order.order_id} has been shipped! Estimated delivery: {order.estimated_delivery_date}',
+                settings.DEFAULT_FROM_EMAIL,
+                [order.user.email],
+            )
+        
+        # Handle out for delivery status
+        elif new_status == 'out_for_delivery':
+            order.status = new_status
+            send_mail(
+                'Order Out for Delivery',
+                f'Great news! Your order #{order.order_id} is out for delivery today.',
+                settings.DEFAULT_FROM_EMAIL,
+                [order.user.email],
+            )
+        
+        # Handle delivery status
+        elif new_status == 'delivered':
+            order.status = new_status
+            order.delivery_date = timezone.now().date()
+            send_mail(
+                'Order Delivered',
+                f'Your order #{order.order_id} has been marked as delivered. Thank you for shopping with us!',
+                settings.DEFAULT_FROM_EMAIL,
+                [order.user.email],
+            )
+            
+        # Handle cancellation with reason
+        elif new_status == 'cancelled':
+            reason = request.POST.get('reason', 'No reason provided')
+            order.status = new_status
+            order.cancellation_reason = reason
+            send_mail(
+                'Order Cancelled',
+                f'Your order #{order.order_id} has been cancelled.\n\nReason: {reason}\n\nPlease contact support if you have any questions.',
                 settings.DEFAULT_FROM_EMAIL,
                 [order.user.email],
             )
@@ -1587,34 +1668,78 @@ def delivery_agents_list(request):
 @login_required
 @user_type_required('admin')
 def create_delivery_agent(request):
-    """Create a new delivery agent"""
+    """Create a new delivery agent with basic credentials"""
     if request.method == 'POST':
         user_form = DeliveryAgentCreationForm(request.POST)
-        profile_form = DeliveryAgentProfileForm(request.POST, request.FILES)
         
-        if user_form.is_valid() and profile_form.is_valid():
-            with transaction.atomic():
-                # Create user
-                user = user_form.save()
+        if user_form.is_valid():
+            try:
+                with transaction.atomic():
+                    # Create user
+                    user = user_form.save()
+                    
+                    # Extract phone from the form
+                    phone = user_form.cleaned_data.get('phone')
+                    
+                    # Create minimal profile with just the phone number
+                    profile = DeliveryProfile(
+                        user=user,
+                        phone=phone,
+                        is_active=False  # Set to False until onboarding is complete
+                    )
+                    profile.save()
+                    
+                    # Create metrics
+                    DeliveryMetrics.objects.create(delivery_person=user)
+                    
+                    # Create onboarding record
+                    onboarding = DeliveryOnboarding.objects.create(
+                        delivery_person=user, 
+                        status='pending',
+                        onboarding_link_sent=True,
+                        link_sent_date=timezone.now()
+                    )
+                    
+                    # Send onboarding email
+                    try:
+                        onboarding_url = f"{settings.BASE_URL}/delivery/onboarding/{onboarding.onboarding_token}/"
+                        email_message = f"""Hello {user.fullname},
+
+Welcome to TimeCrafter! Your account has been created. Please complete your onboarding by logging in with:
+
+Username: {user.username}
+Password: (The password you were provided by admin)
+
+Please visit {onboarding_url} to complete your profile.
+
+Thank you,
+TimeCrafter Team"""
+
+                        send_mail(
+                            'Complete Your Delivery Partner Onboarding',
+                            email_message,
+                            settings.DEFAULT_FROM_EMAIL,
+                            [user.email],
+                            fail_silently=False,
+                        )
+                    except Exception as e:
+                        # Log the error but don't block the creation
+                        print(f"Failed to send onboarding email: {e}")
                 
-                # Create profile
-                profile = profile_form.save(commit=False)
-                profile.user = user
-                profile.is_active = True
-                profile.save()
-                
-                # Create metrics
-                DeliveryMetrics.objects.create(delivery_person=user)
-            
-            messages.success(request, f"Delivery agent {user.fullname} created successfully.")
-            return redirect('adminapp:delivery_agents_list')
+                    messages.success(request, f"Delivery agent account for {user.fullname} created successfully. Onboarding instructions sent to {user.email}.")
+                    return redirect('adminapp:delivery_agents_list')
+            except Exception as e:
+                messages.error(request, f"Error creating delivery agent: {str(e)}")
+                return render(request, 'adminapp/create_delivery_agent.html', {
+                    'user_form': user_form,
+                    'form_error': str(e),
+                    'title': 'Add Delivery Agent',
+                })
     else:
         user_form = DeliveryAgentCreationForm()
-        profile_form = DeliveryAgentProfileForm()
     
     context = {
         'user_form': user_form,
-        'profile_form': profile_form,
         'title': 'Add Delivery Agent',
     }
     
@@ -1942,4 +2067,28 @@ def manage_orders(request):
     }
     
     return render(request, 'adminapp/manage_orders.html', context)
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser)
+def product_detail(request, product_id):
+    """
+    View for displaying product details in the admin panel
+    """
+    product = get_object_or_404(BaseWatch, id=product_id)
+    
+    # Get additional images if available
+    additional_images = product.additional_images.all()
+    
+    # Check if product has details and materials
+    has_details = hasattr(product, 'details')
+    has_materials = hasattr(product, 'materials')
+    
+    context = {
+        'product': product,
+        'additional_images': additional_images,
+        'has_details': has_details,
+        'has_materials': has_materials
+    }
+    
+    return render(request, 'adminapp/product_detail.html', context)
 

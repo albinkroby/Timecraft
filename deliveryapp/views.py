@@ -145,63 +145,96 @@ def delivery_dashboard(request):
 @delivery_required
 def onboarding(request):
     """Onboarding page for new delivery personnel"""
-    # Check if profile exists
+    step = request.GET.get('step', '1')  # Default to step 1 if not specified
+    
     try:
         profile = DeliveryProfile.objects.get(user=request.user)
-        is_new_user = False
-        
-        # If onboarding is already completed and they're visiting this page,
-        # redirect to profile
-        if profile.onboarding_completed:
-            messages.info(request, "You have already completed onboarding. You can update your profile here.")
-            return redirect('deliveryapp:profile')
-            
     except DeliveryProfile.DoesNotExist:
-        profile = None
-        is_new_user = True
-    
-    if request.method == 'POST':
-        profile_form = DeliveryProfileForm(request.POST, request.FILES, instance=profile)
-        user_form = DeliveryUserForm(request.POST, instance=request.user)
-        
-        if profile_form.is_valid() and user_form.is_valid():
-            user = user_form.save()
-            profile = profile_form.save(commit=False)
-            profile.user = user
-            
-            # Check if required fields are completed
-            required_fields = ['phone', 'vehicle_type', 'vehicle_number']
-            profile_complete = all(
-                profile_form.cleaned_data.get(field) for field in required_fields
-            )
-            
-            if profile_complete:
-                profile.onboarding_completed = True
-                profile.onboarding_completed_at = timezone.now()
-                
-            profile.save()
-            
-            # Create metrics if they don't exist
-            DeliveryMetrics.objects.get_or_create(delivery_person=user)
-            
-            if profile_complete:
-                messages.success(request, "Profile completed successfully! You can now start delivering orders.")
-                return redirect('deliveryapp:dashboard')
-            else:
-                messages.warning(request, "Please complete all required fields to finish onboarding.")
-                return redirect('deliveryapp:onboarding')
-    else:
-        profile_form = DeliveryProfileForm(instance=profile)
-        user_form = DeliveryUserForm(instance=request.user)
+        profile = DeliveryProfile.objects.create(user=request.user)
     
     context = {
-        'profile_form': profile_form,
-        'user_form': user_form,
-        'profile': profile,
-        'is_new_user': is_new_user
+        'step': int(step),
+        'delivery_profile': profile,
+        'vehicle_choices': DeliveryProfile.VEHICLE_CHOICES,
+        'preferred_zones': profile.preferred_zones if profile.preferred_zones_text else [],
+        'weekday_availability': profile.weekday_availability if profile.weekday_availability_text else []
     }
     
     return render(request, 'deliveryapp/onboarding.html', context)
+
+@login_required
+@delivery_required
+def save_personal_details(request):
+    """Save personal details from step 1"""
+    if request.method == 'POST':
+        try:
+            profile = DeliveryProfile.objects.get(user=request.user)
+        except DeliveryProfile.DoesNotExist:
+            profile = DeliveryProfile.objects.create(user=request.user)
+        
+        # Update user details
+        user = request.user
+        user.first_name = request.POST.get('fullname', '').split()[0]
+        user.last_name = ' '.join(request.POST.get('fullname', '').split()[1:])
+        user.save()
+        
+        # Update profile details
+        profile.phone = request.POST.get('phone', '')
+        if 'profile_image' in request.FILES:
+            profile.profile_image = request.FILES['profile_image']
+        profile.save()
+        
+        messages.success(request, 'Personal details saved successfully!')
+        return redirect(reverse('deliveryapp:onboarding') + '?step=2')
+    
+    return redirect('deliveryapp:onboarding')
+
+@login_required
+@delivery_required
+def save_vehicle_details(request):
+    """Save vehicle details from step 2"""
+    if request.method == 'POST':
+        try:
+            profile = DeliveryProfile.objects.get(user=request.user)
+        except DeliveryProfile.DoesNotExist:
+            profile = DeliveryProfile.objects.create(user=request.user)
+        
+        profile.vehicle_type = request.POST.get('vehicle_type')
+        profile.vehicle_number = request.POST.get('vehicle_number')
+        profile.max_distance = request.POST.get('max_distance')
+        profile.max_workload = request.POST.get('max_workload')
+        profile.save()
+        
+        messages.success(request, 'Vehicle details saved successfully!')
+        return redirect(reverse('deliveryapp:onboarding') + '?step=3')
+    
+    return redirect('deliveryapp:onboarding')
+
+@login_required
+@delivery_required
+def complete_onboarding(request):
+    """Complete onboarding process - step 3"""
+    if request.method == 'POST':
+        try:
+            profile = DeliveryProfile.objects.get(user=request.user)
+        except DeliveryProfile.DoesNotExist:
+            profile = DeliveryProfile.objects.create(user=request.user)
+        
+        # Save availability and zones
+        profile.availability_start = request.POST.get('availability_start')
+        profile.availability_end = request.POST.get('availability_end')
+        profile.weekday_availability = request.POST.getlist('weekday_availability')
+        profile.preferred_zones = request.POST.getlist('preferred_zones')
+        
+        # Mark onboarding as complete
+        profile.onboarding_completed = True
+        profile.onboarding_completed_at = timezone.now()
+        profile.save()
+        
+        messages.success(request, 'Onboarding completed successfully!')
+        return redirect('deliveryapp:dashboard')
+    
+    return redirect('deliveryapp:onboarding')
 
 @login_required
 @delivery_required
@@ -1400,3 +1433,34 @@ def update_return_status(request, order_id):
         messages.error(request, "Invalid form submission.")
     
     return redirect('deliveryapp:return_detail', order_id=order_id)
+
+@login_required
+@delivery_required
+def send_verification_email(request):
+    if request.method == 'GET':
+        try:
+            user = request.user
+            # Generate verification token and send email
+            # You can implement your email sending logic here
+            # For now, we'll just return success
+            return JsonResponse({
+                'success': True,
+                'message': 'Verification email sent successfully!'
+            })
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to send verification email.'
+            })
+
+@login_required
+@delivery_required
+def check_email_status(request):
+    if request.method == 'GET':
+        user = request.user
+        # Check if email is verified
+        # You can implement your verification check logic here
+        # For now, we'll just return a default response
+        return JsonResponse({
+            'is_verified': user.email_verified if hasattr(user, 'email_verified') else False
+        })

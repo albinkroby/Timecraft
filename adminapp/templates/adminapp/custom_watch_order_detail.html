@@ -33,28 +33,85 @@
                             <div class="step-counter"><i class="ri-home-smile-line"></i></div>
                             <div class="step-name">Delivered</div>
                         </div>
-                    </div>
-
-                    <!-- Status Update Section -->
+                    </div>                    <!-- Status Update Section -->
                     <div class="mb-4">
-                        <select id="orderStatus" class="form-select" style="max-width: 200px;">
-                            {% if order.status == 'pending' %}
-                                <option value="pending" selected>Pending Approval</option>
-                                <option value="approved">Approve Order</option>
-                                <option value="cancelled">Cancel Order</option>
-                            {% elif order.status == 'approved' %}
-                                <option value="approved" selected>Approved</option>
-                                <option value="manufacturing">Start Manufacturing</option>
-                            {% elif order.status == 'manufacturing' %}
-                                <option value="manufacturing" selected>Manufacturing</option>
-                                <option value="ready_to_ship">Ready to Ship</option>
-                            {% elif order.status == 'ready_to_ship' %}
-                                <option value="ready_to_ship" selected>Ready to Ship</option>
-                                <option value="shipped">Start Shipping</option>
-                            {% else %}
-                                <option value="{{ order.status }}" selected>{{ order.get_status_display }}</option>
-                            {% endif %}
-                        </select>
+                        <div class="card border">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0">Order Status Management</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-3">
+                                    <span class="badge fs-6 me-3 {% if order.status == 'pending' %}bg-warning
+                                        {% elif order.status == 'approved' %}bg-info
+                                        {% elif order.status == 'manufacturing' %}bg-secondary
+                                        {% elif order.status == 'ready_to_ship' %}bg-primary
+                                        {% elif order.status == 'shipped' %}bg-info
+                                        {% elif order.status == 'out_for_delivery' %}bg-info
+                                        {% elif order.status == 'delivered' %}bg-success
+                                        {% elif order.status == 'cancelled' %}bg-danger{% endif %}">
+                                        Current Status: {{ order.get_status_display }}
+                                    </span>
+                                    <div class="small text-muted">
+                                        {% if order.status == 'shipped' or order.status == 'out_for_delivery' %}
+                                            Shipped on: {{ order.shipping_started_date|date:"F d, Y" }}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="action-buttons">
+                                    <!-- Pending Status Actions -->
+                                    {% if order.status == 'pending' %}
+                                        <button class="btn btn-success update-status-btn me-2" data-status="approved">
+                                            <i class="ri-check-line me-1"></i> Approve Order
+                                        </button>
+                                        <button class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#cancelOrderModal">
+                                            <i class="ri-close-line me-1"></i> Cancel Order
+                                        </button>
+                                    
+                                    <!-- Approved Status Actions -->
+                                    {% elif order.status == 'approved' %}
+                                        <button class="btn btn-primary update-status-btn me-2" data-status="manufacturing">
+                                            <i class="ri-tools-line me-1"></i> Start Manufacturing
+                                        </button>
+                                        <button class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#cancelOrderModal">
+                                            <i class="ri-close-line me-1"></i> Cancel Order
+                                        </button>
+                                    
+                                    <!-- Manufacturing Status Actions -->
+                                    {% elif order.status == 'manufacturing' %}
+                                        <button class="btn btn-primary update-status-btn me-2" data-status="ready_to_ship">
+                                            <i class="ri-box-3-line me-1"></i> Mark as Ready to Ship
+                                        </button>
+                                        <button class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#cancelOrderModal">
+                                            <i class="ri-close-line me-1"></i> Cancel Order
+                                        </button>
+                                    
+                                    <!-- Ready to Ship Status Actions -->
+                                    {% elif order.status == 'ready_to_ship' %}
+                                        <button class="btn btn-primary update-status-btn me-2" data-status="shipped">
+                                            <i class="ri-truck-line me-1"></i> Start Shipping
+                                        </button>
+                                        <button class="btn btn-danger me-2" data-bs-toggle="modal" data-bs-target="#cancelOrderModal">
+                                            <i class="ri-close-line me-1"></i> Cancel Order
+                                        </button>
+                                    
+                                    <!-- Shipped Status Actions -->
+                                    {% elif order.status == 'shipped' %}
+                                        <button class="btn btn-primary update-status-btn me-2" data-status="out_for_delivery">
+                                            <i class="ri-truck-line me-1"></i> Mark as Out for Delivery
+                                        </button>
+                                    
+                                    <!-- Out for Delivery Status Actions -->
+                                    {% elif order.status == 'out_for_delivery' %}
+                                        <button class="btn btn-success update-status-btn me-2" data-status="delivered">
+                                            <i class="ri-home-smile-line me-1"></i> Mark as Delivered
+                                        </button>
+                                    
+                                    <!-- Actions for delivered or cancelled (none) -->
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Estimated Delivery Info -->
@@ -79,46 +136,113 @@
                                     {% endif %}
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Base Watch -->
+                        </div>                        <!-- Base Watch -->
                         <div class="col-md-6">
                             <div class="card h-100 border">
                                 <div class="card-body">
-                                    <h3 class="h5 mb-3">Base Watch</h3>
-                                    <h4 class="h6">{{ order.customizable_watch.name }}</h4>
-                                    <p class="fw-bold">Base Price: ₹{{ order.customizable_watch.base_price }}</p>
+                                    <h3 class="h5 mb-3">Base Watch & Design</h3>
+                                    <h4 class="h6">{{ order.customizable_watch.customizable_watch.name }}</h4>
+                                    <p class="mb-2"><strong>Design Name:</strong> {{ order.customizable_watch.name }}</p>
+                                    <p class="fw-bold">Base Price: ₹{{ order.customizable_watch.customizable_watch.base_price }}</p>
+                                    {% if order.customizable_watch.preview_image %}
+                                    <div class="mt-2">
+                                        <img src="{{ order.customizable_watch.preview_image.url }}" alt="Design Preview" class="img-fluid rounded" style="max-height: 100px;">
+                                    </div>
+                                    {% endif %}
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Selected Parts -->
+                        </div>                        <!-- Selected Parts -->
                         <div class="col-12">
                             <div class="card border">
                                 <div class="card-body">
                                     <h3 class="h5 mb-3">Selected Parts</h3>
                                     <div class="row g-3">
-                                        {% for selection in order.selected_parts.all %}
-                                        <div class="col-md-6">
-                                            <div class="border rounded p-3">
-                                                <h5 class="h6 mb-2">{{ selection.part.part_name.name }}</h5>
-                                                <p class="mb-1">Option: {{ selection.selected_option.name }}</p>
-                                                <p class="fw-bold mb-0">₹{{ selection.selected_option.price }}</p>
+                                        {% if order.selected_parts.all %}
+                                            {% for selection in order.selected_parts.all %}
+                                            <div class="col-md-6">
+                                                <div class="border rounded p-3">
+                                                    <h5 class="h6 mb-2">{{ selection.part.part_name.name }}</h5>
+                                                    <p class="mb-1">Option: {{ selection.selected_option.name }}</p>
+                                                    <p class="fw-bold mb-0">₹{{ selection.selected_option.price }}</p>
+                                                    
+                                                    {% if selection.selected_option.color %}
+                                                    <div class="mt-2 d-flex align-items-center">
+                                                        <span class="me-2">Color:</span>
+                                                        <span class="color-preview" style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background-color: {{ selection.selected_option.color }}; border: 1px solid #ccc;"></span>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
                                             </div>
-                                        </div>
-                                        {% endfor %}
+                                            {% endfor %}
+                                        {% else %}
+                                            <!-- Fallback to use design_data when the selected_parts relation is not populated -->
+                                            {% for part_name, option_data in order.customizable_watch.design_data.items %}
+                                            <div class="col-md-6">
+                                                <div class="border rounded p-3">
+                                                    <h5 class="h6 mb-2">{{ part_name }}</h5>
+                                                    {% if option_data.name %}
+                                                    <p class="mb-1">Option: {{ option_data.name }}</p>
+                                                    {% endif %}
+                                                    {% if option_data.price %}
+                                                    <p class="fw-bold mb-0">₹{{ option_data.price }}</p>
+                                                    {% endif %}
+                                                    
+                                                    {% if option_data.color %}
+                                                    <div class="mt-2 d-flex align-items-center">
+                                                        <span class="me-2">Color:</span>
+                                                        <span class="color-preview" style="display: inline-block; width: 20px; height: 20px; border-radius: 50%; background-color: {{ option_data.color }}; border: 1px solid #ccc;"></span>
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
-                        </div>
-
-                        <!-- Total Price -->
+                        </div>                        <!-- Total Price -->
                         <div class="col-12">
                             <div class="card border">
                                 <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <h3 class="h5 mb-0">Total Amount</h3>
-                                        <span class="fw-bold">₹{{ order.total_price }}</span>
+                                    <h3 class="h5 mb-3">Order Summary</h3>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <tbody>
+                                                <!-- Base Watch Price -->
+                                                <tr>
+                                                    <td>Base Watch Price</td>
+                                                    <td class="text-end">₹{{ order.customizable_watch.customizable_watch.base_price }}</td>
+                                                </tr>
+
+                                                <!-- Selected Part Options -->
+                                                {% if order.selected_parts.all %}
+                                                    {% for selection in order.selected_parts.all %}
+                                                    <tr>
+                                                        <td>{{ selection.part.part_name.name }} - {{ selection.selected_option.name }}</td>
+                                                        <td class="text-end">₹{{ selection.selected_option.price }}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                {% elif order.customizable_watch.design_data.items %}
+                                                    {% for part_name, option_data in order.customizable_watch.design_data.items %}
+                                                    <tr>
+                                                        <td>{{ part_name }} {% if option_data.name %}- {{ option_data.name }}{% endif %}</td>
+                                                        <td class="text-end">{% if option_data.price %}₹{{ option_data.price }}{% else %}—{% endif %}</td>
+                                                    </tr>
+                                                    {% endfor %}
+                                                {% endif %}
+                                                
+                                                <!-- Divider -->
+                                                <tr>
+                                                    <td colspan="2"><hr class="my-2"></td>
+                                                </tr>
+                                                
+                                                <!-- Total -->
+                                                <tr>
+                                                    <th>Total Amount</th>
+                                                    <th class="text-end">₹{{ order.total_price }}</th>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
@@ -132,28 +256,72 @@
 
 <script>
 $(document).ready(function() {
-    $('#orderStatus').change(function() {
-        const newStatus = $(this).val();
+    // Handle status update button clicks
+    $('.update-status-btn').on('click', function() {
+        const newStatus = $(this).data('status');
+        updateOrderStatus(newStatus);
+    });
+    
+    // Handle cancellation form submission
+    $('#cancelOrderForm').on('submit', function(e) {
+        e.preventDefault();
+        const reason = $('#cancellationReason').val();
+        
+        if (!reason || reason.trim() === '') {
+            $('#reasonError').removeClass('d-none');
+            return false;
+        }
+        
+        $('#reasonError').addClass('d-none');
+        updateOrderStatus('cancelled', reason);
+        $('#cancelOrderModal').modal('hide');
+    });
+    
+    // Function to update order status
+    function updateOrderStatus(newStatus, reason = null) {
+        // Disable buttons during processing to prevent double clicks
+        $('.update-status-btn').prop('disabled', true);
+        
+        // Show loading spinner
+        const loadingSpinner = $('<span class="spinner-border spinner-border-sm ms-1"></span>');
+        $('button[data-status="' + newStatus + '"]').append(loadingSpinner);
+        
+        const postData = {
+            'status': newStatus,
+            'csrfmiddlewaretoken': '{{ csrf_token }}'
+        };
+        
+        // Add reason if provided (for cancellation)
+        if (reason) {
+            postData.reason = reason;
+        }
         
         $.ajax({
             url: "{% url 'adminapp:update_custom_watch_order_status' order.id %}",
             method: 'POST',
-            data: {
-                'status': newStatus,
-                'csrfmiddlewaretoken': '{{ csrf_token }}'
-            },
+            data: postData,
             success: function(response) {
                 if (response.success) {
-                    toastr.success('Order status updated successfully');
+                    showCustomAlert('Order status updated successfully');
+                    // Reload the page to reflect changes
+                    setTimeout(function() {
+                        location.reload();
+                    }, 1500);
                 } else {
-                    toastr.error(response.message || 'Error updating status');
+                    showCustomAlert(response.message || 'Error updating status');
+                    // Re-enable buttons if there was an error
+                    $('.update-status-btn').prop('disabled', false);
+                    loadingSpinner.remove();
                 }
             },
             error: function() {
-                toastr.error('Error updating order status');
+                showCustomAlert('Error updating order status');
+                // Re-enable buttons if there was an error
+                $('.update-status-btn').prop('disabled', false);
+                loadingSpinner.remove();
             }
         });
-    });
+    }
 });
 </script>
 
@@ -205,5 +373,120 @@ $(document).ready(function() {
         margin-bottom: 6px;
       }
       
+      .stepper-item.completed .step-counter {
+        background-color: #4CAF50;
+        color: white;
+      }
+      
+      .stepper-item.completed::after,
+      .stepper-item.completed::before {
+        border-color: #4CAF50;
+      }
+      
+      .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      
+      @media (max-width: 576px) {
+        .action-buttons {
+          flex-direction: column;
+        }
+      }
 </style>
+
+<!-- Cancel Order Modal -->
+<div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="cancelOrderModalLabel">
+            <i class="ri-alert-line me-2"></i> Cancel Order
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="cancelOrderForm">
+        <div class="modal-body">
+          <div class="alert alert-warning">
+            <i class="ri-information-line me-2"></i>
+            Canceling this order will notify the customer and cannot be undone.
+          </div>
+          <div class="mb-3">
+            <label for="cancellationReason" class="form-label">Reason for cancellation</label>
+            <textarea class="form-control" id="cancellationReason" rows="3" required></textarea>
+            <div id="reasonError" class="invalid-feedback d-none">
+              Please provide a reason for cancellation.
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-danger">Confirm Cancellation</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% comment %} 
+{% if request.user.is_superuser %}
+<!-- Debug Section (only visible to superusers) -->
+<div class="container mt-5">
+    <div class="card border-warning">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0 text-dark">Debug Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="accordion" id="accordionDebug">
+                <!-- Design Data -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDesignData">
+                            Design Data Structure
+                        </button>
+                    </h2>
+                    <div id="collapseDesignData" class="accordion-collapse collapse" data-bs-parent="#accordionDebug">
+                        <div class="accordion-body">
+                            <pre class="bg-light p-3 rounded"><code>{{ design_data|pprint }}</code></pre>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Selected Parts -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSelectedParts">
+                            Selected Parts Structure
+                        </button>
+                    </h2>
+                    <div id="collapseSelectedParts" class="accordion-collapse collapse" data-bs-parent="#accordionDebug">
+                        <div class="accordion-body">
+                            <pre class="bg-light p-3 rounded"><code>{{ selected_parts_info|pprint }}</code></pre>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Order Object -->
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOrderObject">
+                            Order Object Structure
+                        </button>
+                    </h2>
+                    <div id="collapseOrderObject" class="accordion-collapse collapse" data-bs-parent="#accordionDebug">
+                        <div class="accordion-body">
+                            <h6>Order ID: {{ order.id }}</h6>
+                            <h6>Order Number: {{ order.order_id }}</h6>
+                            <h6>Status: {{ order.status }}</h6>
+                            <h6>Total Price: {{ order.total_price }}</h6>
+                            <h6>Customizable Watch ID: {{ order.customizable_watch.id }}</h6>
+                            <h6>Customizable Watch Design Name: {{ order.customizable_watch.name }}</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %} {% endcomment %}
 {% endblock %}

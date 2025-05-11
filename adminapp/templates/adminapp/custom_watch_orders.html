@@ -8,7 +8,7 @@
    
     
     <div class="table-responsive">
-        <table class="table">
+        <table id="OrderTable" class="table">
             <thead>
                 <tr>
                     <th>Order ID</th>
@@ -26,7 +26,7 @@
                     <td>#{{ order.id }}</td>
                     <td>{{ order.user.email }}</td>
                     <td>{{ order.customizable_watch.name }}</td>
-                    <td class="new__price">₹{{ order.total_price }}</td>
+                    <td class="text-primary">₹{{ order.total_price }}</td>
                     <td>
                         <span class="badge {% if order.status == 'pending' %}badge-pending
                                          {% elif order.status == 'processing' %}badge-processing
@@ -50,4 +50,29 @@
         </table>
     </div>
 </div>
+{% endblock %}
+{% block extra_js %}
+    <script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="https://cdn.datatables.net/1.10.24/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('#OrderTable').DataTable({
+                "pageLength": 10,
+                "lengthChange": false,
+                "searching": true,
+                "ordering": true,
+                "info": true,
+                "autoWidth": false,
+                "responsive": true,
+                "paging": false,
+                "dom": '<"row"<"col-sm-12 col-md-6"f><"col-sm-12 col-md-6"l>>' +
+                       '<"row"<"col-sm-12"tr>>' +
+                       '<"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+                "language": {
+                    "search": "_INPUT_",
+                    "searchPlaceholder": "Search orders..."
+                }
+            });
+        });
+    </script>
 {% endblock %}

@@ -1,0 +1,300 @@
+{% extends 'adminapp/base.html' %}
+
+{% block title %}Product Details - {{ product.model_name }}{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid mt-4">
+    <!-- Back button -->
+    <div class="mb-3">
+        <a href="{% url 'adminapp:product_list' %}" class="btn btn-outline-secondary">
+            <i class="fa fa-chevron-left"></i> Back to Products
+        </a>
+    </div>
+
+    <!-- Product Header -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="card-title">{{ product.model_name }}</h4>
+                <div>
+                    <span class="badge {% if product.is_active %} bg-success {% else %} bg-danger {% endif %} me-2">
+                        {% if product.is_active %}Active{% else %}Inactive{% endif %}
+                    </span>
+                    <span class="badge {% if product.is_featured %} bg-primary {% else %} bg-secondary {% endif %}">
+                        {% if product.is_featured %}Featured{% else %}Not Featured{% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="text-muted small mb-2">
+                <span class="me-3">SKU: {{ product.style_code|default:"Not specified" }}</span>
+                <span class="me-3">Gender: {{ product.gender }}</span>
+                <span>Category: {{ product.category.name }}</span>
+            </div>
+            <div class="text-muted small">
+                <span class="me-3">Brand: {{ product.brand.brand_name }}</span>
+                {% if product.collection %}
+                    <span>Collection: {{ product.collection.name }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left column: Images -->
+        <div class="col-md-5">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Product Images</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Primary Image -->
+                    <div class="text-center mb-3">
+                        {% if product.primary_image %}
+                            <img src="{{ product.primary_image.url }}" alt="{{ product.model_name }}" class="img-fluid mb-2" style="max-height: 300px;">
+                            <p class="text-muted small">Primary Image</p>
+                        {% else %}
+                            <div class="alert alert-warning">No primary image available</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Additional Images -->
+                    {% if additional_images %}
+                        <div class="row">
+                            {% for img in additional_images %}
+                                <div class="col-4 mb-3">
+                                    <img src="{{ img.image.url }}" alt="Additional image {{ forloop.counter }}" class="img-thumbnail">
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <!-- 3D Model Information -->
+                    {% if product.model_file %}
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-cube me-2"></i> 3D Model available
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right column: Details -->
+        <div class="col-md-7">
+            <!-- Basic Information -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Basic Information</h5>
+                    <a href="#" class="btn btn-sm btn-outline-primary">Edit</a>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Base Price</h6>
+                            <p>Rs. {{ product.base_price }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Selling Price</h6>
+                            <p>Rs. {{ product.selling_price|default:"Not set" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Stock Information</h6>
+                            <p>Available: {{ product.available_stock }}<br>
+                               Total: {{ product.total_stock }}<br>
+                               Sold: {{ product.sold_stock }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Color</h6>
+                            <p>{{ product.color }}
+                               {% if product.dominant_color %}<br>({{ product.dominant_color }}){% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6 class="fw-bold">Description</h6>
+                        <p>{{ product.description|linebreaks }}</p>
+                    </div>
+
+                    {% if product.function_display %}
+                    <div>
+                        <h6 class="fw-bold">Function Display</h6>
+                        <p>{{ product.function_display }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Watch Details -->
+            {% if has_details %}
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Watch Details</h5>
+                    <a href="#" class="btn btn-sm btn-outline-primary">Edit</a>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Case Size</h6>
+                            <p>{{ product.details.case_size|default:"Not specified" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Water Resistance</h6>
+                            <p>{{ product.details.water_resistance|default:"Not specified" }}
+                               {% if product.details.water_resistance_depth %} 
+                               <br>({{ product.details.water_resistance_depth }} meters)
+                               {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Series</h6>
+                            <p>{{ product.details.series|default:"Not specified" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Occasion</h6>
+                            <p>{{ product.details.occasion|default:"Not specified" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Strap Information</h6>
+                            <p>Color: {{ product.details.strap_color|default:"Not specified" }}<br>
+                               Type: {{ product.details.strap_type|default:"Not specified" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Dial Color</h6>
+                            <p>{{ product.details.dial_color|default:"Not specified" }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h6 class="fw-bold">Warranty Period</h6>
+                            <p>{% if product.details.warranty_period %}{{ product.details.warranty_period }} months{% else %}Not specified{% endif %}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Materials -->
+            {% if has_materials %}
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Materials</h5>
+                    <a href="#" class="btn btn-sm btn-outline-primary">Edit</a>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <h6 class="fw-bold">Strap Material</h6>
+                            <p>{{ product.materials.strap_material.name|default:"Not specified" }}</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <h6 class="fw-bold">Glass Material</h6>
+                            <p>{{ product.materials.glass_material.name|default:"Not specified" }}</p>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <h6 class="fw-bold">Case Material</h6>
+                            <p>{{ product.materials.case_material.name|default:"Not specified" }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Features -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Features</h5>
+                </div>
+                <div class="card-body">
+                    {% if product.features.all %}
+                        <div class="row">
+                            {% for feature in product.features.all %}
+                                <div class="col-md-4 mb-2">
+                                    <span class="badge bg-light text-dark p-2">{{ feature.name }}</span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No features added to this product</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-3">
+                            <h3>{{ product.view_count }}</h3>
+                            <p class="text-muted">Views</p>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <h3>{{ product.average_rating|floatformat:1 }}/5</h3>
+                            <p class="text-muted">Average Rating</p>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <h3>{{ product.total_reviews }}</h3>
+                            <p class="text-muted">Reviews</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            {% if product.is_active %}
+                                <button class="btn btn-warning me-2">Deactivate Product</button>
+                            {% else %}
+                                <button class="btn btn-success me-2">Activate Product</button>
+                            {% endif %}
+                            
+                            {% if product.is_featured %}
+                                <button class="btn btn-outline-primary me-2">Remove from Featured</button>
+                            {% else %}
+                                <button class="btn btn-outline-primary me-2">Mark as Featured</button>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <a href="#" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">Delete Product</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete <strong>{{ product.model_name }}</strong>? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <a href="{% url 'adminapp:delete_product' product.id %}" class="btn btn-danger">Delete</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Any additional JavaScript for the product detail page
+});
+</script>
+{% endblock %}

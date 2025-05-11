@@ -1,5 +1,6 @@
 from decimal import Decimal
 import os
+import re
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse,HttpResponse
 from django.contrib.auth import login, get_user_model,authenticate,logout
@@ -478,31 +479,41 @@ def search_results(request):
             session_id=session_id,
             query=query
         )
-        
-        watches = BaseWatch.objects.filter(is_active=True).order_by('id')  # Add default ordering
+        watches = BaseWatch.objects.filter(is_active=True).order_by('id') 
         
         suggestions = []
         fuzzy_matches = []
-
+        
         if query:
             # Instead of simple contains, use the fuzzy search query
             from .utils import create_fuzzy_search_query, get_fuzzy_matches, get_spelling_suggestions
             
-            # Get fuzzy matches and suggestions
-            fuzzy_matches = get_fuzzy_matches(query)
-            spelling_suggestions = get_spelling_suggestions(query)
+            # Store the original query for display
+            original_query = query
+            
+            # Normalize the query for case-insensitive searching
+            normalized_query = query.lower().strip()
+              # Get fuzzy matches and suggestions
+            fuzzy_matches = get_fuzzy_matches(normalized_query)
+            spelling_suggestions = get_spelling_suggestions(normalized_query)
             
             # Create a combined list of suggested terms
             suggested_terms = []
             for word, matches in spelling_suggestions:
                 for match in matches:
                     # Create a suggestion by replacing the misspelled word with its correction
-                    suggestion = query.replace(word, match)
-                    if suggestion != query and suggestion not in suggested_terms:
+                    # Use case-insensitive replacement
+                    word_pattern = re.compile(re.escape(word), re.IGNORECASE)
+                    suggestion = word_pattern.sub(match, query)
+                    if suggestion.lower() != query.lower() and suggestion not in suggested_terms:
                         suggested_terms.append(suggestion)
             
-            # Store the original query for display
-            original_query = query
+            # Check for special cases like "red watches" where we need to prioritize "red"
+            # Common watch terms that might be in the query
+            watch_terms = ["watch", "watches", "timepiece", "timepieces", "wristwatch", "wristwatches"]
+            search_words = normalized_query.split()
+            # If the last word is a common watch term, try to also search without it
+            is_compound_query = len(search_words) > 1 and any(term in normalized_query for term in watch_terms)
             
             # Apply the fuzzy search
             fuzzy_query = create_fuzzy_search_query(query)
@@ -525,8 +536,7 @@ def search_results(request):
         watches = watches.filter(base_price__gte=min_price)
     if max_price:
         watches = watches.filter(base_price__lte=max_price)
-        
-    # Handle color filters with OR logic when both color and strap_color are selected
+          # Handle color filters with OR logic when both color and strap_color are selected
     color_query = Q()
     if colors and strap_colors:
         # If both color filters are selected, use OR logic between them
@@ -538,12 +548,23 @@ def search_results(request):
     else:
         # If only one type of color filter is selected, apply it normally
         if colors:
-            watches = watches.filter(color__in=colors)
-        if strap_colors:
-            watches = watches.filter(details__strap_color__in=strap_colors)
+            # Use iexact for case-insensitive matching for each color
+            color_query = Q()
+            for color in colors:
+                color_query |= Q(color__iexact=color)
+            watches = watches.filter(color_query)
+        if strap_colors:            # Use iexact for case-insensitive matching for each strap color
+            strap_color_query = Q()
+            for strap_color in strap_colors:
+                strap_color_query |= Q(details__strap_color__iexact=strap_color)
+            watches = watches.filter(strap_color_query)
             
     if function_displays:
-        watches = watches.filter(function_display__in=function_displays)
+        # Use case-insensitive matching for function displays
+        function_query = Q()
+        for display in function_displays:
+            function_query |= Q(function_display__iexact=display)
+        watches = watches.filter(function_query)
 
     if sort_by == 'price_low_to_high':
         watches = watches.order_by('base_price')
